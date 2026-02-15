@@ -1,39 +1,58 @@
-# Senlings ROUTE_TABLE_v0
+# ROUTE_TABLE_v0
+## Senlings v0 Navigation Definition
 
-## Entry (入口)
-- `/` (Home) → `SiteSelectScreen`
-
----
-
-## SiteSelect (現場選択)
-- `SiteSelectScreen`
-  - `onSelect(site_id)` → `TravelModeScreen`
+## 原則
+- 画面は増やさない
+- 戻り先を必ず明示する
+- モードは2つだけ（移動 / 現場）
 
 ---
 
-## Travel Mode (移動モード)
-- `TravelModeScreen`
-  - `openMap()` → (外部アプリ: Google Maps)
-  - `arrivedButton` → `SiteModeScreen`
+## 0. ENTRY
+`/`  →  `SiteSelectScreen`
+※起動時は必ず現場選択へ。単純性優先。
 
 ---
 
-## Site Mode (現場モード)
-- `SiteModeScreen`
-  - `CameraButton` → `CameraScreen`
-  - `EndWorkButton` → `WorkSummaryScreen`
+## 1. SITE SELECT
+`SiteSelectScreen`
+- 操作: `onSelect(site_id)` → `TravelModeScreen(site_id)`
 
 ---
 
-## Camera (撮影)
-- `CameraScreen`
-  - `savePhoto()`
-  - `back` → `SiteModeScreen`
+## 2. TRAVEL MODE（現場へ移動モード）
+`TravelModeScreen(site_id)`
+- 操作: 
+    - `openMap()` → 外部GoogleMap
+    - `arrivedButton` → `SiteModeScreen(site_id)`
+    - `cancel` → `SiteSelectScreen`
 
 ---
 
-## Work Summary (日報・要約)
-- `WorkSummaryScreen`
-  - `showTime`
-  - `showExpense`
-  - `confirm` → `SiteSelectScreen`
+## 3. SITE MODE（現場モード）
+`SiteModeScreen(site_id)`
+- 操作:
+    - `CameraButton` → `CameraScreen(site_id)`
+    - `EndWorkButton` → `WorkSummaryScreen(site_id)`
+
+---
+
+## 4. CAMERA
+`CameraScreen(site_id)`
+- 動作: 写真撮影・自動保存
+- 操作: `back` → `SiteModeScreen`
+
+---
+
+## 5. WORK SUMMARY
+`WorkSummaryScreen(site_id)`
+- 操作: `confirm` → `SiteSelectScreen`
+
+---
+
+## 6. INVOICE PREVIEW（v0 月末固定）
+`InvoiceDraftScreen(site_id)`
+- 操作:
+    - `generateSnapshot()` → InvoiceSnapshot保存
+    - `copyDraft()` → クリップボードコピー
+    - `back` → `SiteSelectScreen`
