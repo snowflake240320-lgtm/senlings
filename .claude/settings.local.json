@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(curl -s http://localhost:8080/)",
+      "Bash(curl -s http://localhost:8080/web/)",
+      "Bash(curl -s http://localhost:8080/web/index.html)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8080/src/pwa/work.js)",
+      "Bash(netstat -ano)",
+      "Bash(taskkill /PID 8876 /F)",
+      "Bash(taskkill /PID 28832 /F)",
+      "Bash(taskkill /PID 28612 /F)",
+      "Bash(cmd:*)",
+      "Bash(curl -s -o /dev/null -w \"web/index.html → HTTP %{http_code}\\\\n\" http://localhost:5500/web/index.html)",
+      "Bash(curl -s -o /dev/null -w \"src/pwa/work.js → HTTP %{http_code}\\\\n\" http://localhost:5500/src/pwa/work.js)",
+      "Bash(curl -s -o /dev/null -w \"expense.js → %{http_code}\\\\n\" http://localhost:5500/src/pwa/expense.js)",
+      "Bash(curl -s -o /dev/null -w \"expenseQuery.js → %{http_code}\\\\n\" http://localhost:5500/src/pwa/expenseQuery.js)",
+      "Bash(git add:*)"
+    ]
+  }
+}

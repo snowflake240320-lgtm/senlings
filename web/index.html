@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Senlings v0.2.0</title>
+  <link rel="manifest" href="manifest.json" />
+  <style>
+    body { font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 16px; }
+    h1 { font-size: 1.4rem; }
+    h2 { font-size: 1rem; margin-top: 24px; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
+    button { padding: 10px 18px; margin: 4px 2px; font-size: 0.95rem; cursor: pointer; }
+    button:disabled { opacity: 0.4; cursor: default; }
+    #status-display { font-weight: bold; margin: 8px 0; }
+    #summary-display, #invoice-display { background: #f5f5f5; padding: 10px; margin-top: 8px; white-space: pre-wrap; font-size: 0.85rem; border-radius: 4px; min-height: 40px; }
+    .warn { color: #c00; }
+  </style>
+</head>
+<body>
+  <h1>Senlings</h1>
+
+  <section>
+    <h2>現場一覧</h2>
+    <ul>
+      <li id="project-item">2025-02-01_渋谷改装工事</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>勤怠</h2>
+    <p id="status-display">状態: Idle</p>
+    <button id="btn-checkin">出勤</button>
+    <button id="btn-checkout" disabled>退勤</button>
+  </section>
+
+  <section>
+    <h2>月次サマリー</h2>
+    <button id="btn-summary">サマリー表示</button>
+    <div id="summary-display"></div>
+  </section>
+
+  <section>
+    <h2>請求下書き</h2>
+    <button id="btn-invoice">請求下書き生成</button>
+    <button id="btn-skip-expense" style="display:none">経費をスキップして確定</button>
+    <div id="invoice-display"></div>
+  </section>
+
+  <script type="module" src="app.js"></script>
+
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("service-worker.js")
+          .then(reg => console.log("SW: Registered", reg.scope))
+          .catch(err => console.error("SW: Registration failed", err));
+      });
+    }
+  </script>
+</body>
+</html>
