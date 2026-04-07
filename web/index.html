@@ -3,29 +3,141 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Senlings v0.2.0</title>
+  <title>Senlings v0.3.0</title>
   <link rel="manifest" href="manifest.json" />
   <style>
+    *, *::before, *::after { box-sizing: border-box; }
     body { font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 16px; }
     h1 { font-size: 1.4rem; }
     h2 { font-size: 1rem; margin-top: 24px; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
+    h3 { font-size: 0.9rem; color: #555; margin: 16px 0 8px; }
     button { padding: 10px 18px; margin: 4px 2px; font-size: 0.95rem; cursor: pointer; }
     button:disabled { opacity: 0.4; cursor: default; }
     #status-display { font-weight: bold; margin: 8px 0; }
     #summary-display, #invoice-display { background: #f5f5f5; padding: 10px; margin-top: 8px; white-space: pre-wrap; font-size: 0.85rem; border-radius: 4px; min-height: 40px; }
     .warn { color: #c00; }
+
+    /* プロジェクト一覧 */
+    #project-list { list-style: none; padding: 0; margin: 8px 0; }
+    #project-list li { padding: 6px 8px; background: #f0f0f0; border-radius: 4px; margin-bottom: 4px; font-size: 0.9rem; }
+
+    /* 登録フォーム */
+    #registration-form { display: none; background: #fafafa; border: 1px solid #ddd; border-radius: 6px; padding: 16px; margin-top: 12px; }
+    #registration-form.open { display: block; }
+    .form-step { margin-bottom: 16px; }
+    .form-row { margin-bottom: 10px; }
+    .form-row label { display: block; font-size: 0.85rem; color: #333; margin-bottom: 3px; }
+    .form-row input, .form-row select, .form-row textarea {
+      width: 100%; padding: 7px 9px; font-size: 0.9rem;
+      border: 1px solid #bbb; border-radius: 4px;
+    }
+    .form-row input.error, .form-row select.error { border-color: #c00; }
+    .field-error { color: #c00; font-size: 0.78rem; margin-top: 2px; }
+    #project-id-preview { font-size: 0.8rem; color: #666; margin-top: 4px; font-family: monospace; }
+    .optional { color: #999; font-size: 0.78rem; }
+    #form-result { margin-top: 10px; font-size: 0.85rem; font-weight: bold; }
+    #form-result.success { color: #080; }
+    #form-result.error   { color: #c00; }
   </style>
 </head>
 <body>
   <h1>Senlings</h1>
 
+  <!-- ── 現場一覧 ── -->
   <section>
     <h2>現場一覧</h2>
-    <ul>
-      <li id="project-item">2025-02-01_渋谷改装工事</li>
-    </ul>
+    <ul id="project-list"><li>（登録なし）</li></ul>
+    <button id="btn-new-project">＋ 新規現場を登録</button>
+
+    <!-- 登録フォーム（3ステップ） -->
+    <form id="registration-form" novalidate>
+
+      <!-- STEP 1: 基本情報 -->
+      <div class="form-step">
+        <h3>STEP 1 — 基本情報</h3>
+
+        <div class="form-row">
+          <label>工期開始日 <span style="color:#c00">*</span></label>
+          <input type="date" id="f-start-date" required />
+          <div class="field-error" id="err-start-date"></div>
+        </div>
+
+        <div class="form-row">
+          <label>現場略称（slug） <span style="color:#c00">*</span> <span class="optional">英数字・ハイフン・20文字以内</span></label>
+          <input type="text" id="f-slug" placeholder="SHIBUYA-KAISO" maxlength="20" />
+          <div id="project-id-preview"></div>
+          <div class="field-error" id="err-slug"></div>
+        </div>
+
+        <div class="form-row">
+          <label>住所 <span style="color:#c00">*</span></label>
+          <input type="text" id="f-address" placeholder="東京都渋谷区…" />
+          <div class="field-error" id="err-address"></div>
+        </div>
+
+        <div class="form-row">
+          <label>工事コード <span class="optional">（任意・後日入力可）</span></label>
+          <input type="text" id="f-project-code" placeholder="不明" />
+        </div>
+      </div>
+
+      <!-- STEP 2: 現場窓口 -->
+      <div class="form-step">
+        <h3>STEP 2 — 現場窓口</h3>
+        <div class="form-row">
+          <label>担当者 <span style="color:#c00">*</span></label>
+          <select id="f-contact">
+            <option value="">— 選択してください —</option>
+          </select>
+          <div class="field-error" id="err-contact"></div>
+        </div>
+      </div>
+
+      <!-- STEP 3: 攻略情報（任意） -->
+      <div class="form-step">
+        <h3>STEP 3 — 攻略情報 <span class="optional">（任意・不明可）</span></h3>
+
+        <div class="form-row">
+          <label>入口</label>
+          <input type="text" id="f-entrance" placeholder="不明" />
+        </div>
+        <div class="form-row">
+          <label>駐車場</label>
+          <input type="text" id="f-parking" placeholder="不明" />
+        </div>
+        <div class="form-row">
+          <label>搬入方法</label>
+          <input type="text" id="f-delivery" placeholder="不明" />
+        </div>
+        <div class="form-row">
+          <label>朝礼</label>
+          <select id="f-morning-assembly">
+            <option value="">不明</option>
+            <option value="true">あり</option>
+            <option value="false">なし</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>特殊装備</label>
+          <input type="text" id="f-equipment" placeholder="不明" />
+        </div>
+        <div class="form-row">
+          <label>トイレ</label>
+          <input type="text" id="f-toilet" placeholder="不明" />
+        </div>
+        <div class="form-row">
+          <label>喫煙所</label>
+          <input type="text" id="f-smoking" placeholder="不明" />
+        </div>
+      </div>
+
+      <button type="submit" id="btn-submit-project">登録する</button>
+      <button type="button" id="btn-cancel-project">キャンセル</button>
+      <div id="form-result"></div>
+    </form>
   </section>
 
+  <!-- ── 勤怠 ── -->
   <section>
     <h2>勤怠</h2>
     <p id="status-display">状態: Idle</p>
@@ -33,12 +145,14 @@
     <button id="btn-checkout" disabled>退勤</button>
   </section>
 
+  <!-- ── 月次サマリー ── -->
   <section>
     <h2>月次サマリー</h2>
     <button id="btn-summary">サマリー表示</button>
     <div id="summary-display"></div>
   </section>
 
+  <!-- ── 請求下書き ── -->
   <section>
     <h2>請求下書き</h2>
     <button id="btn-invoice">請求下書き生成</button>
