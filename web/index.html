@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Senlings v0.6.0</title>
+  <title>Senlings v0.7.0</title>
   <link rel="manifest" href="manifest.json" />
   <style>
     *, *::before, *::after { box-sizing: border-box; }
@@ -92,6 +92,31 @@
     #btn-nav { background: #3355cc; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
     #btn-arrive { background: #2a9d4e; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
     #btn-exit-site { background: #888; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
+
+    /* 経費フォーム */
+    #expense-section { margin-top: 14px; border-top: 1px solid #b8d4b8; padding-top: 12px; }
+    #expense-section h4 { font-size: 0.88rem; margin: 0 0 8px; color: #1a6b35; }
+    #expense-form { display: flex; flex-direction: column; gap: 6px; }
+    #expense-form select, #expense-form input[type="number"], #expense-form input[type="text"] {
+      padding: 6px 8px; font-size: 0.88rem;
+      border: 1px solid #aaa; border-radius: 4px; width: 100%;
+    }
+    #expense-form .expense-row { display: flex; gap: 6px; }
+    #expense-form .expense-row select { flex: 1.4; }
+    #expense-form .expense-row input  { flex: 1; }
+    #btn-add-expense {
+      padding: 8px; font-size: 0.88rem; font-weight: bold; cursor: pointer;
+      background: #1a6b35; color: #fff; border: none; border-radius: 4px;
+    }
+    #expense-list { margin-top: 10px; font-size: 0.82rem; }
+    #expense-list li {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 4px 2px; border-bottom: 1px solid #ddeedd;
+    }
+    #expense-list li .exp-label { color: #444; }
+    #expense-list li .exp-amount { font-weight: bold; white-space: nowrap; }
+    #expense-total { margin-top: 6px; font-size: 0.88rem; font-weight: bold; text-align: right; color: #1a6b35; }
+    #expense-msg { font-size: 0.82rem; color: #080; min-height: 1.2em; }
   </style>
 </head>
 <body>
@@ -121,6 +146,29 @@
         <button id="btn-checkin">出勤</button>
         <button id="btn-checkout" disabled>退勤</button>
         <button id="btn-exit-site">終了</button>
+      </div>
+
+      <!-- 経費入力 -->
+      <div id="expense-section">
+        <h4>経費を追加</h4>
+        <div id="expense-form">
+          <div class="expense-row">
+            <select id="f-exp-category">
+              <option value="parking">駐車場</option>
+              <option value="toll">高速代</option>
+              <option value="fuel">燃料</option>
+              <option value="material_small">軽微材料</option>
+              <option value="tool_rental">道具レンタル</option>
+              <option value="other">その他</option>
+            </select>
+            <input type="number" id="f-exp-amount" placeholder="金額（円）" min="0" step="1" />
+          </div>
+          <input type="text" id="f-exp-memo" placeholder="メモ（任意）" />
+          <button type="button" id="btn-add-expense">追加</button>
+          <div id="expense-msg"></div>
+        </div>
+        <ul id="expense-list"></ul>
+        <div id="expense-total"></div>
       </div>
     </div>
 

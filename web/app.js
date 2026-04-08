@@ -6,7 +6,8 @@
 import { saveSession, monthlySummary } from "../src/pwa/work.js";
 import { transition, getMode, getProjectId, Mode } from "../src/pwa/state.js";
 import { generateSnapshot, UnconfirmedExpenseError } from "../src/pwa/invoice.js";
-import { setClaimStatus, ClaimStatus } from "../src/pwa/expense.js";
+import { saveExpense, setClaimStatus, ClaimStatus } from "../src/pwa/expense.js";
+import { monthlyExpenseSummary } from "../src/pwa/expenseQuery.js";
 import { ensureContactSeed, getActiveContacts, getAllContacts, updateContact } from "../src/pwa/contact.js";
 import { saveProject, listProjects, getProject, buildProjectId, validateSlug } from "../src/pwa/project.js";
 import { update as storageUpdate } from "../src/pwa/storage.js";
@@ -34,6 +35,15 @@ const btnExitSite = document.getElementById("btn-exit-site");
 const btnToggleContacts = document.getElementById("btn-toggle-contacts");
 const contactEditor     = document.getElementById("contact-editor");
 const contactRows       = document.getElementById("contact-rows");
+
+// --- DOM: 経費 ---
+const fExpCategory = document.getElementById("f-exp-category");
+const fExpAmount   = document.getElementById("f-exp-amount");
+const fExpMemo     = document.getElementById("f-exp-memo");
+const btnAddExpense = document.getElementById("btn-add-expense");
+const expenseList  = document.getElementById("expense-list");
+const expenseTotal = document.getElementById("expense-total");
+const expenseMsg   = document.getElementById("expense-msg");
 
 // --- DOM: 勤怠・請求 ---
 const statusDisplay  = document.getElementById("status-display");
@@ -190,6 +200,7 @@ btnArrive.addEventListener("click", () => {
   ].join("<br>");
 
   onsitePanel.classList.add("active");
+  renderExpenseList(projectId);
 });
 
 // ================================================================
@@ -419,6 +430,70 @@ registrationForm.addEventListener("submit", (e) => {
 });
 
 // ================================================================
+// 経費追加 → expense.js の saveExpense()
+// ================================================================
+const CATEGORY_LABEL = {
+  parking:        "駐車場",
+  toll:           "高速代",
+  fuel:           "燃料",
+  material_small: "軽微材料",
+  tool_rental:    "道具レンタル",
+  other:          "その他",
+};
+
+btnAddExpense.addEventListener("click", () => {
+  const projectId = getProjectId();
+  const category  = fExpCategory.value;
+  const amount    = parseInt(fExpAmount.value, 10);
+  const memo      = fExpMemo.value.trim() || null;
+
+  if (!amount || amount <= 0) {
+    expenseMsg.textContent = "金額を入力してください。";
+    expenseMsg.style.color = "#c00";
+    return;
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  saveExpense({
+    id:           uid(),
+    project_id:   projectId,
+    expense_date: today,
+    category,
+    amount,
+    memo,
+    created_at:   Date.now(),
+  });
+
+  fExpAmount.value = "";
+  fExpMemo.value   = "";
+  expenseMsg.textContent = `✓ 追加しました（¥${amount.toLocaleString()}）`;
+  expenseMsg.style.color = "#080";
+  setTimeout(() => { expenseMsg.textContent = ""; }, 2000);
+
+  renderExpenseList(projectId);
+});
+
+function renderExpenseList(projectId) {
+  const { expenses, total } = monthlyExpenseSummary(projectId, YEAR, MONTH);
+
+  if (expenses.length === 0) {
+    expenseList.innerHTML = "";
+    expenseTotal.textContent = "";
+    return;
+  }
+
+  expenseList.innerHTML = expenses.map((e) => `
+    <li>
+      <span class="exp-label">${esc(CATEGORY_LABEL[e.category] ?? e.category)}${e.memo ? `　${esc(e.memo)}` : ""}</span>
+      <span class="exp-amount">¥${e.amount.toLocaleString()}</span>
+    </li>
+  `).join("");
+
+  expenseTotal.textContent = `合計: ¥${total.toLocaleString()}`;
+}
+
+// ================================================================
 // 出勤ボタン → ON_SITE → WORKING（選択中の現場に紐づけ）
 // ================================================================
 btnCheckin.addEventListener("click", () => {
@@ -573,4 +648,4 @@ function formatSnapshot(s) {
 // --- 初期描画 ---
 renderProjectList();
 updateStatus();
-console.log("Senlings v0.6.0 loaded");
+console.log("Senlings v0.7.0 loaded");
