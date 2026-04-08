@@ -3,7 +3,7 @@
  * src/pwa/ モジュールとUIを接続する
  */
 
-import { saveSession, monthlySummary } from "../src/pwa/work.js";
+import { saveSession, monthlySummary, dailySummary } from "../src/pwa/work.js";
 import { transition, getMode, getProjectId, Mode } from "../src/pwa/state.js";
 import { generateSnapshot, UnconfirmedExpenseError } from "../src/pwa/invoice.js";
 import { saveExpense, setClaimStatus, ClaimStatus } from "../src/pwa/expense.js";
@@ -22,13 +22,16 @@ let checkInAt       = null;
 let activeProjectId = null;  // 作業フロー外でも保持（サマリー・請求用）
 
 // --- DOM: 移動モード・現場モード ---
-const movePanel   = document.getElementById("move-panel");
-const onsitePanel = document.getElementById("onsite-panel");
-const moveInfo    = document.getElementById("move-info");
-const onsiteInfo  = document.getElementById("onsite-info");
-const btnNav      = document.getElementById("btn-nav");
-const btnArrive   = document.getElementById("btn-arrive");
-const btnExitSite = document.getElementById("btn-exit-site");
+const movePanel          = document.getElementById("move-panel");
+const onsitePanel        = document.getElementById("onsite-panel");
+const moveInfo           = document.getElementById("move-info");
+const onsiteInfo         = document.getElementById("onsite-info");
+const btnNav             = document.getElementById("btn-nav");
+const btnArrive          = document.getElementById("btn-arrive");
+const btnExitSite        = document.getElementById("btn-exit-site");
+const btnGoHome          = document.getElementById("btn-go-home");
+const btnDailySummary    = document.getElementById("btn-daily-summary");
+const dailySummaryDisplay = document.getElementById("daily-summary-display");
 
 // --- DOM: ContactMaster ---
 const btnToggleContacts = document.getElementById("btn-toggle-contacts");
@@ -237,6 +240,65 @@ btnArrive.addEventListener("click", () => {
 
   onsitePanel.classList.add("active");
   renderExpenseList(projectId);
+});
+
+// ================================================================
+// [帰宅] → MOVING → IDLE + 日次サマリー自動表示
+// ================================================================
+btnGoHome.addEventListener("click", () => {
+  // MOVING → IDLE
+  transition(Mode.IDLE);
+  updateStatus();
+
+  movePanel.classList.remove("active");
+  btnNewProject.disabled = false;
+
+  const today = new Date().toISOString().slice(0, 10);
+  renderDailySummary(today);
+  dailySummaryDisplay.scrollIntoView({ behavior: "smooth", block: "start" });
+});
+
+// ================================================================
+// 日次サマリー描画
+// ================================================================
+function renderDailySummary(date) {
+  const result = dailySummary(date);
+  const { expenses } = monthlyExpenseSummary(
+    result.sessions[0]?.project_id ?? activeProjectId ?? "",
+    new Date(date).getFullYear(),
+    new Date(date).getMonth() + 1
+  );
+
+  const workH  = Math.floor(result.total_work_minutes / 60);
+  const workM  = result.total_work_minutes % 60;
+  const transH = Math.floor(result.total_transport_minutes / 60);
+  const transM = result.total_transport_minutes % 60;
+  const activeH = Math.floor(result.total_active_minutes / 60);
+  const activeM = result.total_active_minutes % 60;
+
+  // 当日経費（全現場）
+  const todayExpenses = expenses.filter((e) => e.expense_date === date);
+  const expenseTotal  = todayExpenses.reduce((s, e) => s + e.amount, 0);
+
+  const projectIds = [...new Set(result.sessions.map((s) => s.project_id))];
+
+  const lines = [
+    `日付:         ${date}`,
+    `現場数:       ${projectIds.length} 件（${projectIds.join(", ") || "なし"}）`,
+    `勤務時間:     ${workH}時間${workM}分`,
+    `移動時間:     ${transH}時間${transM}分`,
+    `総稼働時間:   ${activeH}時間${activeM}分`,
+    `セッション:   ${result.session_count} 件`,
+    `当日経費:     ¥${expenseTotal.toLocaleString()}`,
+  ];
+
+  dailySummaryDisplay.textContent = lines.join("\n");
+  dailySummaryDisplay.classList.add("active");
+}
+
+btnDailySummary.addEventListener("click", () => {
+  const today = new Date().toISOString().slice(0, 10);
+  renderDailySummary(today);
 });
 
 // ================================================================
@@ -678,4 +740,4 @@ function formatSnapshot(s) {
 // --- 初期描画 ---
 renderProjectList();
 updateStatus();
-console.log("Senlings v0.8.0 loaded");
+console.log("Senlings v0.9.0 loaded");

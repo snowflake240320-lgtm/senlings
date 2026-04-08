@@ -84,6 +84,46 @@ export function monthlySummary(projectId, year, month) {
 }
 
 /**
+ * 指定日の全現場を横断した日次サマリーを返す（DAILY_TOTAL_SPEC 準拠）。
+ * @param {string} date - YYYY-MM-DD
+ * @returns {{
+ *   date: string,
+ *   total_work_minutes: number,
+ *   total_transport_minutes: number,
+ *   total_active_minutes: number,
+ *   session_count: number,
+ *   sessions: object[]
+ * }}
+ */
+export function dailySummary(date) {
+  const { work_sessions } = load();
+
+  const sessions = work_sessions.filter((s) => {
+    const sessionDate = new Date(s.check_in_at).toISOString().slice(0, 10);
+    return sessionDate === date;
+  });
+
+  let total_work_minutes      = 0;
+  let total_transport_minutes = 0;
+
+  for (const s of sessions) {
+    total_work_minutes += calcWorkMinutes(s);
+    if (s.travel_start_at && s.travel_end_at) {
+      total_transport_minutes += (s.travel_end_at - s.travel_start_at) / 60_000;
+    }
+  }
+
+  return {
+    date,
+    total_work_minutes,
+    total_transport_minutes,
+    total_active_minutes: total_work_minutes + total_transport_minutes,
+    session_count:        sessions.length,
+    sessions,
+  };
+}
+
+/**
  * 日別内訳を返す（Invoice Snapshot の daily_breakdown 用）。
  * @param {object[]} sessions
  * @returns {object[]} - { date, work_minutes, transport_minutes, session_count }

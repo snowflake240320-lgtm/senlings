@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Senlings v0.8.0</title>
+  <title>Senlings v0.9.0</title>
   <link rel="manifest" href="manifest.json" />
   <style>
     *, *::before, *::after { box-sizing: border-box; }
@@ -137,6 +137,19 @@
       border: 1px solid #99b0ee; border-radius: 3px;
       padding: 2px 7px; color: #3355cc; margin-bottom: 6px;
     }
+
+    /* 日次サマリー */
+    #daily-summary-display {
+      background: #fffbf0; border: 1px solid #e0c97a;
+      border-radius: 6px; padding: 12px; margin-top: 8px;
+      font-size: 0.85rem; white-space: pre-wrap; line-height: 1.8;
+      display: none;
+    }
+    #daily-summary-display.active { display: block; }
+    #btn-go-home {
+      background: #555; color: #fff; border: none;
+      border-radius: 6px; cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -155,6 +168,7 @@
       <div class="panel-actions">
         <button id="btn-nav">ナビ開始</button>
         <button id="btn-arrive">到着</button>
+        <button id="btn-go-home">帰宅</button>
       </div>
     </div>
 
@@ -304,6 +318,13 @@
   <section>
     <h2>勤怠</h2>
     <p id="status-display">状態: Idle</p>
+  </section>
+
+  <!-- ── 日次サマリー ── -->
+  <section>
+    <h2>日次サマリー</h2>
+    <button id="btn-daily-summary">今日のサマリー表示</button>
+    <div id="daily-summary-display"></div>
   </section>
 
   <!-- ── 月次サマリー ── -->
