@@ -25,7 +25,9 @@
       "Bash(curl -s -o /dev/null -w \"index.html  → %{http_code}\\\\n\" http://localhost:5500/web/index.html)",
       "Bash(curl -s -o /dev/null -w \"contact.js → %{http_code}\\\\n\" http://localhost:5500/src/pwa/contact.js)",
       "Bash(curl -s -o /dev/null -w \"app.js     → %{http_code}\\\\n\" http://localhost:5500/web/app.js)",
-      "Bash(curl -s http://localhost:5500/web/index.html)"
+      "Bash(curl -s http://localhost:5500/web/index.html)",
+      "Bash(curl -s -o /dev/null -w \"project.js → %{http_code}\\\\n\" http://localhost:5500/src/pwa/project.js)",
+      "Bash(curl -s http://localhost:5500/web/app.js)"
     ]
   }
 }

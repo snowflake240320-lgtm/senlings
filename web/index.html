@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Senlings v0.4.0</title>
+  <title>Senlings v0.5.0</title>
   <link rel="manifest" href="manifest.json" />
   <style>
     *, *::before, *::after { box-sizing: border-box; }
@@ -65,6 +65,33 @@
     .cm-save-btn:disabled { opacity: 0.4; }
     .cm-saved { color: #080; font-size: 0.78rem; min-width: 2rem; text-align: center; }
     .cm-inactive { opacity: 0.45; }
+
+    /* 現場選択ボタン */
+    .project-select-btn {
+      padding: 3px 10px; font-size: 0.8rem; cursor: pointer;
+      background: #1a1a1a; color: #fff; border: none; border-radius: 3px;
+      margin-left: 8px; vertical-align: middle;
+    }
+
+    /* 移動モード・現場モード パネル */
+    #move-panel, #onsite-panel {
+      display: none;
+      background: #f0f4ff;
+      border: 2px solid #3355cc;
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 12px;
+    }
+    #onsite-panel { background: #f0fff4; border-color: #2a9d4e; }
+    #move-panel.active, #onsite-panel.active { display: block; }
+    .panel-title { font-size: 1rem; font-weight: bold; margin: 0 0 10px; }
+    .panel-info { font-size: 0.85rem; margin-bottom: 12px; line-height: 1.7; }
+    .panel-info strong { display: inline-block; min-width: 4em; color: #555; }
+    .panel-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .panel-actions button { flex: 1; padding: 12px; font-size: 0.95rem; font-weight: bold; }
+    #btn-nav { background: #3355cc; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
+    #btn-arrive { background: #2a9d4e; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
+    #btn-exit-site { background: #888; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
   </style>
 </head>
 <body>
@@ -75,6 +102,25 @@
     <h2>現場一覧</h2>
     <ul id="project-list"><li>（登録なし）</li></ul>
     <button id="btn-new-project">＋ 新規現場を登録</button>
+
+    <!-- 移動モードパネル -->
+    <div id="move-panel">
+      <p class="panel-title">🚗 移動モード</p>
+      <div class="panel-info" id="move-info"></div>
+      <div class="panel-actions">
+        <button id="btn-nav">ナビ開始</button>
+        <button id="btn-arrive">到着</button>
+      </div>
+    </div>
+
+    <!-- 現場モードパネル -->
+    <div id="onsite-panel">
+      <p class="panel-title">🏗 現場モード</p>
+      <div class="panel-info" id="onsite-info"></div>
+      <div class="panel-actions">
+        <button id="btn-exit-site">終了（移動モードへ）</button>
+      </div>
+    </div>
 
     <!-- 登録フォーム（3ステップ） -->
     <form id="registration-form" novalidate>

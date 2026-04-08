@@ -62,6 +62,16 @@ export function saveProject(project) {
 }
 
 /**
+ * 単一 Project を返す。
+ * @param {string} projectId
+ * @returns {object|undefined}
+ */
+export function getProject(projectId) {
+  const { projects } = load();
+  return projects.find((p) => p.project_id === projectId);
+}
+
+/**
  * archive していない全 Project を返す。
  * @returns {object[]}
  */

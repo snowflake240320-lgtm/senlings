@@ -4,11 +4,12 @@
  */
 
 import { saveSession, monthlySummary } from "../src/pwa/work.js";
-import { transition, getMode, Mode } from "../src/pwa/state.js";
+import { transition, getMode, getProjectId, Mode } from "../src/pwa/state.js";
 import { generateSnapshot, UnconfirmedExpenseError } from "../src/pwa/invoice.js";
 import { setClaimStatus, ClaimStatus } from "../src/pwa/expense.js";
 import { ensureContactSeed, getActiveContacts, getAllContacts, updateContact } from "../src/pwa/contact.js";
-import { saveProject, listProjects, buildProjectId, validateSlug } from "../src/pwa/project.js";
+import { saveProject, listProjects, getProject, buildProjectId, validateSlug } from "../src/pwa/project.js";
+import { update as storageUpdate } from "../src/pwa/storage.js";
 
 // --- 初期化 ---
 ensureContactSeed();
@@ -22,6 +23,15 @@ const MONTH        = now.getMonth() + 1;
 
 // --- 内部状態 ---
 let checkInAt = null;
+
+// --- DOM: 移動モード・現場モード ---
+const movePanel   = document.getElementById("move-panel");
+const onsitePanel = document.getElementById("onsite-panel");
+const moveInfo    = document.getElementById("move-info");
+const onsiteInfo  = document.getElementById("onsite-info");
+const btnNav      = document.getElementById("btn-nav");
+const btnArrive   = document.getElementById("btn-arrive");
+const btnExitSite = document.getElementById("btn-exit-site");
 
 // --- DOM: ContactMaster ---
 const btnToggleContacts = document.getElementById("btn-toggle-contacts");
@@ -120,6 +130,117 @@ function esc(val) {
 }
 
 // ================================================================
+// 現場選択 → 移動モード遷移
+// ================================================================
+function selectProject(projectId) {
+  const project = getProject(projectId);
+  if (!project) return;
+
+  const contacts = getAllContacts();
+  const contact  = contacts.find((c) => c.contact_id === project.site_contact_id);
+
+  // IDLE → MOVING
+  transition(Mode.MOVING, projectId);
+  updateStatus();
+
+  // Google Maps URL（住所ベース）
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(project.address)}`;
+
+  // 移動モードパネルを表示
+  const contactLabel = contact
+    ? [contact.name, contact.phone].filter(Boolean).join("　") || contact.contact_id
+    : project.site_contact_id;
+
+  moveInfo.innerHTML = [
+    `<strong>現場</strong>${esc(project.project_id)}`,
+    `<strong>住所</strong>${esc(project.address)}`,
+    `<strong>窓口</strong>${esc(contactLabel)}`,
+  ].join("<br>");
+
+  btnNav.onclick = () => window.open(mapsUrl, "_blank");
+
+  movePanel.classList.add("active");
+  btnNewProject.disabled = true;
+}
+
+// ================================================================
+// [到着] → ON_SITE 遷移
+// ================================================================
+btnArrive.addEventListener("click", () => {
+  const projectId = getProjectId();
+  const project   = getProject(projectId);
+
+  // MOVING → ON_SITE
+  transition(Mode.ON_SITE);
+  updateStatus();
+
+  // event_log に ARRIVED_ON_SITE を記録
+  storageUpdate((data) => {
+    data.event_log.push({
+      type:       "ARRIVED_ON_SITE",
+      project_id: projectId,
+      at:         Date.now(),
+    });
+    return data;
+  });
+
+  movePanel.classList.remove("active");
+
+  onsiteInfo.innerHTML = [
+    `<strong>現場</strong>${esc(project?.project_id ?? projectId)}`,
+    `<strong>住所</strong>${esc(project?.address ?? "")}`,
+  ].join("<br>");
+
+  onsitePanel.classList.add("active");
+});
+
+// ================================================================
+// [終了] → MOVING 遷移（ON_SITE_MODE → MOVE_MODE）
+// ================================================================
+btnExitSite.addEventListener("click", () => {
+  const projectId = getProjectId();
+
+  // ON_SITE → MOVING
+  transition(Mode.MOVING);
+  updateStatus();
+
+  // event_log に EXIT_SITE を記録
+  storageUpdate((data) => {
+    data.event_log.push({
+      type:       "EXIT_SITE",
+      project_id: projectId,
+      at:         Date.now(),
+    });
+    return data;
+  });
+
+  onsitePanel.classList.remove("active");
+
+  // 移動モードパネルを再表示
+  selectProjectPanel(projectId);
+});
+
+function selectProjectPanel(projectId) {
+  const project  = getProject(projectId);
+  const contacts = getAllContacts();
+  const contact  = contacts.find((c) => c.contact_id === project?.site_contact_id);
+  const mapsUrl  = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(project?.address ?? "")}`;
+
+  const contactLabel = contact
+    ? [contact.name, contact.phone].filter(Boolean).join("　") || contact.contact_id
+    : project?.site_contact_id ?? "";
+
+  moveInfo.innerHTML = [
+    `<strong>現場</strong>${esc(project?.project_id ?? projectId)}`,
+    `<strong>住所</strong>${esc(project?.address ?? "")}`,
+    `<strong>窓口</strong>${esc(contactLabel)}`,
+  ].join("<br>");
+
+  btnNav.onclick = () => window.open(mapsUrl, "_blank");
+  movePanel.classList.add("active");
+}
+
+// ================================================================
 // プロジェクト一覧を描画する
 // ================================================================
 function renderProjectList() {
@@ -129,8 +250,19 @@ function renderProjectList() {
     return;
   }
   projectList.innerHTML = projects
-    .map((p) => `<li><strong>${p.project_id}</strong>　${p.address}</li>`)
+    .map((p) => `
+      <li>
+        <strong>${esc(p.project_id)}</strong>　${esc(p.address)}
+        <button class="project-select-btn" data-id="${esc(p.project_id)}">選択</button>
+      </li>`)
     .join("");
+
+  projectList.querySelectorAll(".project-select-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (getMode() !== Mode.IDLE) return;
+      selectProject(btn.dataset.id);
+    });
+  });
 }
 
 // ================================================================
