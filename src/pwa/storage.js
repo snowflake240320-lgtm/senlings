@@ -11,6 +11,7 @@ const DEFAULT_STATE = {
   work_sessions: [],
   expenses: [],
   invoice_snapshots: [],
+  photos: [],
   event_log: [],
 };
 

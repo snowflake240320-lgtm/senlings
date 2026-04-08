@@ -11,6 +11,7 @@ import { monthlyExpenseSummary } from "../src/pwa/expenseQuery.js";
 import { ensureContactSeed, getActiveContacts, getAllContacts, updateContact } from "../src/pwa/contact.js";
 import { saveProject, listProjects, getProject, buildProjectId, validateSlug } from "../src/pwa/project.js";
 import { update as storageUpdate } from "../src/pwa/storage.js";
+import { buildPhotoFilename, savePhotoMeta, listPhotos } from "../src/pwa/photo.js";
 
 // --- 初期化 ---
 ensureContactSeed();
@@ -20,6 +21,21 @@ const now = new Date();
 // --- 内部状態 ---
 let checkInAt       = null;
 let activeProjectId = null;  // 作業フロー外でも保持（サマリー・請求用）
+
+// --- DOM: カメラオーバーレイ ---
+const cameraOverlay    = document.getElementById("camera-overlay");
+const cameraVideo      = document.getElementById("camera-video");
+const cameraThumbnail  = document.getElementById("camera-thumbnail");
+const cameraProjectLbl = document.getElementById("camera-project-label");
+const cameraCount      = document.getElementById("camera-count");
+const cameraAtmosphere = document.getElementById("camera-atmosphere");
+const btnShutter          = document.getElementById("btn-shutter");
+const btnCameraClose      = document.getElementById("btn-camera-close");
+const btnOpenCameraMove   = document.getElementById("btn-open-camera-move");
+const btnOpenCameraOnsite = document.getElementById("btn-open-camera-onsite");
+const moveCameraError     = document.getElementById("move-camera-error");
+const onsiteCameraError   = document.getElementById("onsite-camera-error");
+const photoList           = document.getElementById("photo-list");
 
 // --- DOM: 移動モード・現場モード ---
 const movePanel          = document.getElementById("move-panel");
@@ -240,6 +256,7 @@ btnArrive.addEventListener("click", () => {
 
   onsitePanel.classList.add("active");
   renderExpenseList(projectId);
+  renderPhotoList(projectId);
 });
 
 // ================================================================
@@ -530,6 +547,129 @@ registrationForm.addEventListener("submit", (e) => {
 });
 
 // ================================================================
+// カメラ機能（PHOTO_CAPTURE_SPEC 準拠）
+// ================================================================
+let cameraStream    = null;
+let captureCanvas   = null;
+let sessionPhotoCount = 0;
+
+async function openCamera(errorEl) {
+  const projectId = getProjectId();
+  if (!projectId) return;
+
+  errorEl.textContent = "";
+
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } },
+      audio: false,
+    });
+
+    cameraVideo.srcObject = cameraStream;
+    cameraProjectLbl.textContent = projectId;
+    sessionPhotoCount = listPhotos(projectId).length;
+    cameraCount.textContent = `${sessionPhotoCount} 枚`;
+    cameraAtmosphere.value = "";
+    cameraThumbnail.classList.remove("flash");
+    cameraOverlay.classList.add("active");
+
+    if (!captureCanvas) captureCanvas = document.createElement("canvas");
+
+  } catch (err) {
+    errorEl.textContent = "📵 カメラがブロックされています。\n① アドレスバー（画面上部のURL欄）の左端のアイコンをタップ\n② カメラを「許可」に変更\n③ ページを再読み込み（リロード）してください。";
+    storageUpdate((data) => {
+      data.event_log.push({ type: "CAMERA_ERROR", error: err.message, at: Date.now() });
+      return data;
+    });
+  }
+}
+
+btnOpenCameraMove.addEventListener("click",   () => openCamera(moveCameraError));
+btnOpenCameraOnsite.addEventListener("click", () => openCamera(onsiteCameraError));
+
+btnShutter.addEventListener("click", () => {
+  const projectId = getProjectId();
+  if (!cameraStream || !projectId) return;
+
+  const { filename, takenAt } = buildPhotoFilename(projectId);
+  const atmosphere = cameraAtmosphere.value.trim().slice(0, 100) || null;
+
+  // キャプチャ
+  const vw = cameraVideo.videoWidth  || 1280;
+  const vh = cameraVideo.videoHeight || 720;
+  captureCanvas.width  = vw;
+  captureCanvas.height = vh;
+  const ctx = captureCanvas.getContext("2d");
+  ctx.drawImage(cameraVideo, 0, 0, vw, vh);
+
+  // サムネイル（64px）
+  const thumbCanvas = document.createElement("canvas");
+  thumbCanvas.width = thumbCanvas.height = 128;
+  const tctx = thumbCanvas.getContext("2d");
+  const scale = Math.min(128 / vw, 128 / vh);
+  tctx.drawImage(cameraVideo, 0, 0, vw * scale, vh * scale);
+  const thumbnail = thumbCanvas.toDataURL("image/jpeg", 0.6);
+
+  // JPEG としてダウンロード保存
+  captureCanvas.toBlob((blob) => {
+    const url = URL.createObjectURL(blob);
+    const a   = document.createElement("a");
+    a.href     = url;
+    a.download = filename;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  }, "image/jpeg", 0.92);
+
+  // メタデータ保存
+  savePhotoMeta({
+    id:         uid(),
+    project_id: projectId,
+    filename,
+    atmosphere,
+    thumbnail,
+    taken_at:   takenAt,
+  });
+
+  // サムネイルフラッシュ（1秒）
+  cameraThumbnail.src = thumbnail;
+  cameraThumbnail.classList.add("flash");
+  setTimeout(() => cameraThumbnail.classList.remove("flash"), 1000);
+
+  sessionPhotoCount++;
+  cameraCount.textContent   = `${sessionPhotoCount} 枚`;
+  cameraAtmosphere.value    = "";
+
+  renderPhotoList(projectId);
+});
+
+btnCameraClose.addEventListener("click", () => closeCamera());
+
+function closeCamera() {
+  if (cameraStream) {
+    cameraStream.getTracks().forEach((t) => t.stop());
+    cameraStream = null;
+  }
+  cameraVideo.srcObject = null;
+  cameraOverlay.classList.remove("active");
+}
+
+function renderPhotoList(projectId) {
+  const photos = listPhotos(projectId);
+  if (photos.length === 0) {
+    photoList.innerHTML = "";
+    return;
+  }
+  // 直近10枚を新しい順に表示
+  photoList.innerHTML = photos
+    .slice(-10)
+    .reverse()
+    .map((p) => p.thumbnail
+      ? `<img src="${p.thumbnail}" title="${esc(p.filename)}" />`
+      : `<span style="font-size:0.75rem;color:#888">${esc(p.filename)}</span>`
+    ).join("");
+}
+
+// ================================================================
 // 経費追加 → expense.js の saveExpense()
 // ================================================================
 const CATEGORY_LABEL = {
@@ -740,4 +880,4 @@ function formatSnapshot(s) {
 // --- 初期描画 ---
 renderProjectList();
 updateStatus();
-console.log("Senlings v0.9.0 loaded");
+console.log("Senlings v0.10.0 loaded");
