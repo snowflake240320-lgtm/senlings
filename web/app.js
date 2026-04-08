@@ -1,5 +1,5 @@
 /**
- * app.js — Senlings v0.6.0
+ * app.js — Senlings v0.8.0
  * src/pwa/ モジュールとUIを接続する
  */
 
@@ -15,12 +15,11 @@ import { update as storageUpdate } from "../src/pwa/storage.js";
 // --- 初期化 ---
 ensureContactSeed();
 
-const now   = new Date();
-const YEAR  = now.getFullYear();
-const MONTH = now.getMonth() + 1;
+const now = new Date();
 
 // --- 内部状態 ---
-let checkInAt = null;
+let checkInAt       = null;
+let activeProjectId = null;  // 作業フロー外でも保持（サマリー・請求用）
 
 // --- DOM: 移動モード・現場モード ---
 const movePanel   = document.getElementById("move-panel");
@@ -45,16 +44,32 @@ const expenseList  = document.getElementById("expense-list");
 const expenseTotal = document.getElementById("expense-total");
 const expenseMsg   = document.getElementById("expense-msg");
 
-// --- DOM: 勤怠・請求 ---
+// --- DOM: 月次サマリー ---
+const summaryProjectSelect = document.getElementById("summary-project-select");
+const summaryYearInput     = document.getElementById("summary-year");
+const summaryMonthInput    = document.getElementById("summary-month");
+const btnSummary           = document.getElementById("btn-summary");
+
+// --- DOM: 請求下書き ---
+const invoiceProjectSelect = document.getElementById("invoice-project-select");
+const invoiceYearInput     = document.getElementById("invoice-year");
+const invoiceMonthInput    = document.getElementById("invoice-month");
+
+// --- DOM: 勤怠 ---
 const statusDisplay  = document.getElementById("status-display");
 const btnCheckin     = document.getElementById("btn-checkin");
 const btnCheckout    = document.getElementById("btn-checkout");
-const btnSummary     = document.getElementById("btn-summary");
 
 const summaryDisplay = document.getElementById("summary-display");
 const btnInvoice     = document.getElementById("btn-invoice");
 const btnSkip        = document.getElementById("btn-skip-expense");
 const invoiceDisplay = document.getElementById("invoice-display");
+
+// --- セレクターの初期値（当月）---
+summaryYearInput.value  = now.getFullYear();
+summaryMonthInput.value = now.getMonth() + 1;
+invoiceYearInput.value  = now.getFullYear();
+invoiceMonthInput.value = now.getMonth() + 1;
 
 // --- DOM: プロジェクト登録フォーム ---
 const projectList      = document.getElementById("project-list");
@@ -138,6 +153,25 @@ function esc(val) {
 }
 
 // ================================================================
+// サマリー・請求セレクターにプロジェクト一覧を描画する
+// ================================================================
+function renderSectionSelects(autoSelectId = null) {
+  const projects = listProjects();
+  const makeOptions = (currentVal) => {
+    const base = '<option value="">— 現場を選択 —</option>';
+    return base + projects.map((p) =>
+      `<option value="${esc(p.project_id)}" ${p.project_id === currentVal ? "selected" : ""}>${esc(p.project_id)}</option>`
+    ).join("");
+  };
+
+  const targetId = autoSelectId ?? activeProjectId;
+  summaryProjectSelect.innerHTML = makeOptions(targetId);
+  invoiceProjectSelect.innerHTML = makeOptions(targetId);
+
+  if (targetId) activeProjectId = targetId;
+}
+
+// ================================================================
 // 現場選択 → 移動モード遷移
 // ================================================================
 function selectProject(projectId) {
@@ -149,6 +183,8 @@ function selectProject(projectId) {
 
   // IDLE → MOVING
   transition(Mode.MOVING, projectId);
+  activeProjectId = projectId;
+  renderSectionSelects(projectId);
   updateStatus();
 
   // Google Maps URL（住所ベース）
@@ -272,6 +308,8 @@ function renderProjectList() {
       selectProject(btn.dataset.id);
     });
   });
+
+  renderSectionSelects();
 }
 
 // ================================================================
@@ -529,22 +567,23 @@ btnCheckout.addEventListener("click", () => {
 });
 
 // ================================================================
-// 月次サマリー → work.js の monthlySummary()（選択中の現場）
+// 月次サマリー → work.js の monthlySummary()（セレクター連動）
 // ================================================================
 btnSummary.addEventListener("click", () => {
-  const projectId = getProjectId();
-  if (!projectId) {
-    summaryDisplay.textContent = "現場を選択してください。";
-    return;
-  }
+  const projectId = summaryProjectSelect.value;
+  const year      = parseInt(summaryYearInput.value, 10);
+  const month     = parseInt(summaryMonthInput.value, 10);
 
-  const result  = monthlySummary(projectId, YEAR, MONTH);
+  if (!projectId) { summaryDisplay.textContent = "現場を選択してください。"; return; }
+  if (!year || !month) { summaryDisplay.textContent = "年月を入力してください。"; return; }
+
+  const result  = monthlySummary(projectId, year, month);
   const hours   = Math.floor(result.total_work_minutes / 60);
   const minutes = result.total_work_minutes % 60;
 
   summaryDisplay.textContent = [
     `現場: ${projectId}`,
-    `期間: ${YEAR}/${String(MONTH).padStart(2, "0")}`,
+    `期間: ${year}/${String(month).padStart(2, "0")}`,
     `勤務日数: ${result.total_days} 日`,
     `勤務時間: ${hours}時間${minutes}分`,
     `超過時間: ${result.total_overtime_hours.toFixed(2)}時間`,
@@ -553,71 +592,62 @@ btnSummary.addEventListener("click", () => {
 });
 
 // ================================================================
-// 請求下書き → invoice.js の generateSnapshot()（選択中の現場）
+// 請求下書き → invoice.js の generateSnapshot()（セレクター連動）
 // ================================================================
 btnInvoice.addEventListener("click", () => {
-  const projectId = getProjectId();
-  if (!projectId) {
-    invoiceDisplay.textContent = "現場を選択してください。";
-    return;
-  }
+  const projectId = invoiceProjectSelect.value;
+  const year      = parseInt(invoiceYearInput.value, 10);
+  const month     = parseInt(invoiceMonthInput.value, 10);
 
+  if (!projectId) { invoiceDisplay.textContent = "現場を選択してください。"; return; }
+  if (!year || !month) { invoiceDisplay.textContent = "年月を入力してください。"; return; }
   const project = getProject(projectId);
   invoiceDisplay.textContent = "";
   invoiceDisplay.className   = "";
   btnSkip.style.display      = "none";
-
-  transition(Mode.INVOICE_REVIEW);
+  btnSkip.dataset.projectId  = projectId;
+  btnSkip.dataset.year       = year;
+  btnSkip.dataset.month      = month;
 
   try {
-    transition(Mode.SNAPSHOT_READY);
-
     const snapshot = generateSnapshot({
       snapshot_id:  uid(),
       project_id:   projectId,
       project_code: project?.project_code ?? null,
-      year:         YEAR,
-      month:        MONTH,
+      year,
+      month,
     });
 
-    transition(Mode.CONFIRMED);
-    transition(Mode.IDLE);
-    updateStatus();
     invoiceDisplay.textContent = formatSnapshot(snapshot);
 
   } catch (err) {
     if (err instanceof UnconfirmedExpenseError) {
-      transition(Mode.WARNING);
-      updateStatus();
       invoiceDisplay.className   = "warn";
       invoiceDisplay.textContent = "⚠ 経費が未確定です。\n" + err.message;
       btnSkip.style.display      = "inline-block";
     } else {
-      transition(Mode.IDLE);
-      updateStatus();
       invoiceDisplay.textContent = `エラー: ${err.message}`;
     }
   }
 });
 
 btnSkip.addEventListener("click", () => {
-  const projectId = getProjectId();
+  const projectId = btnSkip.dataset.projectId;
+  const year      = parseInt(btnSkip.dataset.year, 10);
+  const month     = parseInt(btnSkip.dataset.month, 10);
   const project   = getProject(projectId);
 
-  setClaimStatus(projectId, YEAR, MONTH, ClaimStatus.SKIPPED);
+  setClaimStatus(projectId, year, month, ClaimStatus.SKIPPED);
   btnSkip.style.display = "none";
 
   const snapshot = generateSnapshot({
     snapshot_id:  uid(),
     project_id:   projectId,
     project_code: project?.project_code ?? null,
-    year:         YEAR,
-    month:        MONTH,
+    year,
+    month,
   });
 
-  transition(Mode.CONFIRMED);
-  transition(Mode.IDLE);
-  updateStatus();
   invoiceDisplay.className   = "";
   invoiceDisplay.textContent = formatSnapshot(snapshot);
 });
@@ -648,4 +678,4 @@ function formatSnapshot(s) {
 // --- 初期描画 ---
 renderProjectList();
 updateStatus();
-console.log("Senlings v0.7.0 loaded");
+console.log("Senlings v0.8.0 loaded");

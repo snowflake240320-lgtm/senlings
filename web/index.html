@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Senlings v0.7.0</title>
+  <title>Senlings v0.8.0</title>
   <link rel="manifest" href="manifest.json" />
   <style>
     *, *::before, *::after { box-sizing: border-box; }
@@ -117,6 +117,26 @@
     #expense-list li .exp-amount { font-weight: bold; white-space: nowrap; }
     #expense-total { margin-top: 6px; font-size: 0.88rem; font-weight: bold; text-align: right; color: #1a6b35; }
     #expense-msg { font-size: 0.82rem; color: #080; min-height: 1.2em; }
+
+    /* 集計・請求セレクター */
+    .section-selector {
+      display: flex; gap: 6px; align-items: center;
+      flex-wrap: wrap; margin-bottom: 8px;
+    }
+    .section-selector select {
+      flex: 1; padding: 6px 8px; font-size: 0.88rem;
+      border: 1px solid #bbb; border-radius: 4px;
+    }
+    .section-selector input[type="number"] {
+      width: 4.5rem; padding: 6px 8px; font-size: 0.88rem;
+      border: 1px solid #bbb; border-radius: 4px; text-align: center;
+    }
+    .section-selector span { font-size: 0.85rem; color: #555; }
+    .active-project-badge {
+      display: inline-block; font-size: 0.78rem; background: #e8f0ff;
+      border: 1px solid #99b0ee; border-radius: 3px;
+      padding: 2px 7px; color: #3355cc; margin-bottom: 6px;
+    }
   </style>
 </head>
 <body>
@@ -289,6 +309,15 @@
   <!-- ── 月次サマリー ── -->
   <section>
     <h2>月次サマリー</h2>
+    <div class="section-selector">
+      <select id="summary-project-select">
+        <option value="">— 現場を選択 —</option>
+      </select>
+      <input type="number" id="summary-year"  min="2020" max="2099" />
+      <span>/</span>
+      <input type="number" id="summary-month" min="1" max="12" />
+      <span>月</span>
+    </div>
     <button id="btn-summary">サマリー表示</button>
     <div id="summary-display"></div>
   </section>
@@ -296,6 +325,15 @@
   <!-- ── 請求下書き ── -->
   <section>
     <h2>請求下書き</h2>
+    <div class="section-selector">
+      <select id="invoice-project-select">
+        <option value="">— 現場を選択 —</option>
+      </select>
+      <input type="number" id="invoice-year"  min="2020" max="2099" />
+      <span>/</span>
+      <input type="number" id="invoice-month" min="1" max="12" />
+      <span>月</span>
+    </div>
     <button id="btn-invoice">請求下書き生成</button>
     <button id="btn-skip-expense" style="display:none">経費をスキップして確定</button>
     <div id="invoice-display"></div>
