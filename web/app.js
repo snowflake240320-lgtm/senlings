@@ -7,7 +7,7 @@ import { saveSession, monthlySummary } from "../src/pwa/work.js";
 import { transition, getMode, Mode } from "../src/pwa/state.js";
 import { generateSnapshot, UnconfirmedExpenseError } from "../src/pwa/invoice.js";
 import { setClaimStatus, ClaimStatus } from "../src/pwa/expense.js";
-import { ensureContactSeed, getActiveContacts } from "../src/pwa/contact.js";
+import { ensureContactSeed, getActiveContacts, getAllContacts, updateContact } from "../src/pwa/contact.js";
 import { saveProject, listProjects, buildProjectId, validateSlug } from "../src/pwa/project.js";
 
 // --- 初期化 ---
@@ -22,6 +22,11 @@ const MONTH        = now.getMonth() + 1;
 
 // --- 内部状態 ---
 let checkInAt = null;
+
+// --- DOM: ContactMaster ---
+const btnToggleContacts = document.getElementById("btn-toggle-contacts");
+const contactEditor     = document.getElementById("contact-editor");
+const contactRows       = document.getElementById("contact-rows");
 
 // --- DOM: 勤怠・請求 ---
 const statusDisplay  = document.getElementById("status-display");
@@ -52,6 +57,66 @@ function uid() {
 
 function updateStatus() {
   statusDisplay.textContent = `状態: ${getMode()}`;
+}
+
+// ================================================================
+// ContactMaster 編集画面
+// ================================================================
+btnToggleContacts.addEventListener("click", () => {
+  const isOpen = contactEditor.classList.toggle("open");
+  btnToggleContacts.textContent = isOpen ? "閉じる" : "編集";
+  if (isOpen) renderContactRows();
+});
+
+function renderContactRows() {
+  const contacts = getAllContacts();
+  contactRows.innerHTML = "";
+
+  contacts.forEach((c) => {
+    const row = document.createElement("div");
+    row.className = "cm-row" + (c.active ? "" : " cm-inactive");
+    row.dataset.id = c.contact_id;
+
+    row.innerHTML = `
+      <span>${c.contact_id}</span>
+      <input type="text" class="cm-name"    value="${esc(c.name)}"    placeholder="氏名" />
+      <input type="text" class="cm-phone"   value="${esc(c.phone)}"   placeholder="電話" />
+      <input type="text" class="cm-company" value="${esc(c.company)}" placeholder="会社" />
+      <input type="checkbox" class="cm-active" ${c.active ? "checked" : ""} />
+      <button class="cm-save-btn">保存</button>
+      <span class="cm-saved"></span>
+    `;
+
+    const btn   = row.querySelector(".cm-save-btn");
+    const saved = row.querySelector(".cm-saved");
+
+    btn.addEventListener("click", () => {
+      const patch = {
+        name:    row.querySelector(".cm-name").value.trim()    || "",
+        phone:   row.querySelector(".cm-phone").value.trim()   || null,
+        company: row.querySelector(".cm-company").value.trim() || null,
+        active:  row.querySelector(".cm-active").checked,
+      };
+
+      try {
+        updateContact(c.contact_id, patch);
+        saved.textContent = "✓";
+        row.className = "cm-row" + (patch.active ? "" : " cm-inactive");
+        setTimeout(() => { saved.textContent = ""; }, 2000);
+      } catch (err) {
+        saved.textContent = "✗";
+        saved.style.color = "#c00";
+        console.error(err);
+      }
+    });
+
+    contactRows.appendChild(row);
+  });
+}
+
+function esc(val) {
+  if (!val) return "";
+  return String(val).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
 }
 
 // ================================================================

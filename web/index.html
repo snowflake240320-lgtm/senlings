@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Senlings v0.3.0</title>
+  <title>Senlings v0.4.0</title>
   <link rel="manifest" href="manifest.json" />
   <style>
     *, *::before, *::after { box-sizing: border-box; }
@@ -38,6 +38,33 @@
     #form-result { margin-top: 10px; font-size: 0.85rem; font-weight: bold; }
     #form-result.success { color: #080; }
     #form-result.error   { color: #c00; }
+
+    /* ContactMaster 編集 */
+    #contact-editor { display: none; margin-top: 12px; }
+    #contact-editor.open { display: block; }
+    .cm-row {
+      display: grid;
+      grid-template-columns: 3.5rem 1fr 1fr 1fr auto auto;
+      gap: 4px;
+      align-items: center;
+      padding: 6px 0;
+      border-bottom: 1px solid #eee;
+      font-size: 0.82rem;
+    }
+    .cm-row:first-child { font-weight: bold; color: #555; }
+    .cm-row input[type="text"] {
+      width: 100%; padding: 4px 6px; font-size: 0.82rem;
+      border: 1px solid #ccc; border-radius: 3px;
+    }
+    .cm-row input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
+    .cm-save-btn {
+      padding: 4px 8px; font-size: 0.78rem; cursor: pointer;
+      background: #444; color: #fff; border: none; border-radius: 3px;
+      white-space: nowrap;
+    }
+    .cm-save-btn:disabled { opacity: 0.4; }
+    .cm-saved { color: #080; font-size: 0.78rem; min-width: 2rem; text-align: center; }
+    .cm-inactive { opacity: 0.45; }
   </style>
 </head>
 <body>
@@ -135,6 +162,26 @@
       <button type="button" id="btn-cancel-project">キャンセル</button>
       <div id="form-result"></div>
     </form>
+  </section>
+
+  <!-- ── ContactMaster 編集 ── -->
+  <section>
+    <h2>ContactMaster</h2>
+    <button id="btn-toggle-contacts">編集</button>
+    <div id="contact-editor">
+      <!-- ヘッダー行 -->
+      <div class="cm-row">
+        <span>ID</span>
+        <span>氏名</span>
+        <span>電話</span>
+        <span>会社</span>
+        <span>有効</span>
+        <span></span>
+        <span></span>
+      </div>
+      <!-- CM01〜CM10 は app.js が動的に生成 -->
+      <div id="contact-rows"></div>
+    </div>
   </section>
 
   <!-- ── 勤怠 ── -->

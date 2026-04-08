@@ -41,6 +41,15 @@ export function ensureContactSeed() {
 }
 
 /**
+ * 全連絡先を返す（編集画面用・active 問わず）。
+ * @returns {object[]}
+ */
+export function getAllContacts() {
+  const { contacts } = load();
+  return contacts;
+}
+
+/**
  * active な連絡先を返す（フォームのプルダウン用）。
  * @returns {object[]}
  */
