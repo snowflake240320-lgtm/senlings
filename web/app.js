@@ -1,5 +1,5 @@
 /**
- * app.js — Senlings v0.3.0
+ * app.js — Senlings v0.6.0
  * src/pwa/ モジュールとUIを接続する
  */
 
@@ -14,12 +14,9 @@ import { update as storageUpdate } from "../src/pwa/storage.js";
 // --- 初期化 ---
 ensureContactSeed();
 
-// --- デモ用固定値（勤怠・請求） ---
-const PROJECT_ID   = "20250201_SHIBUYA";
-const PROJECT_CODE = null;
-const now          = new Date();
-const YEAR         = now.getFullYear();
-const MONTH        = now.getMonth() + 1;
+const now   = new Date();
+const YEAR  = now.getFullYear();
+const MONTH = now.getMonth() + 1;
 
 // --- 内部状態 ---
 let checkInAt = null;
@@ -43,6 +40,7 @@ const statusDisplay  = document.getElementById("status-display");
 const btnCheckin     = document.getElementById("btn-checkin");
 const btnCheckout    = document.getElementById("btn-checkout");
 const btnSummary     = document.getElementById("btn-summary");
+
 const summaryDisplay = document.getElementById("summary-display");
 const btnInvoice     = document.getElementById("btn-invoice");
 const btnSkip        = document.getElementById("btn-skip-expense");
@@ -421,13 +419,11 @@ registrationForm.addEventListener("submit", (e) => {
 });
 
 // ================================================================
-// 出勤ボタン → work.js の saveSession() への接続起点
+// 出勤ボタン → ON_SITE → WORKING（選択中の現場に紐づけ）
 // ================================================================
 btnCheckin.addEventListener("click", () => {
-  transition(Mode.MOVING,  PROJECT_ID);
-  transition(Mode.ON_SITE, PROJECT_ID);
-  transition(Mode.WORKING, PROJECT_ID);
-
+  // ON_SITE → WORKING
+  transition(Mode.WORKING);
   checkInAt = Date.now();
   btnCheckin.disabled  = true;
   btnCheckout.disabled = false;
@@ -435,23 +431,22 @@ btnCheckin.addEventListener("click", () => {
 });
 
 // ================================================================
-// 退勤ボタン → state.js の transition() + work.js の saveSession()
+// 退勤ボタン → work.js saveSession() + WORKING → ON_SITE
 // ================================================================
 btnCheckout.addEventListener("click", () => {
+  const projectId  = getProjectId();
   const checkOutAt = Date.now();
 
   saveSession({
     id:            uid(),
-    project_id:    PROJECT_ID,
+    project_id:    projectId,
     check_in_at:   checkInAt,
     check_out_at:  checkOutAt,
     break_minutes: 0,
   });
 
+  // WORKING → ON_SITE（現場モードに留まる）
   transition(Mode.ON_SITE);
-  transition(Mode.MOVING);
-  transition(Mode.IDLE);
-
   checkInAt = null;
   btnCheckin.disabled  = false;
   btnCheckout.disabled = true;
@@ -459,14 +454,21 @@ btnCheckout.addEventListener("click", () => {
 });
 
 // ================================================================
-// 月次サマリー → work.js の monthlySummary()
+// 月次サマリー → work.js の monthlySummary()（選択中の現場）
 // ================================================================
 btnSummary.addEventListener("click", () => {
-  const result  = monthlySummary(PROJECT_ID, YEAR, MONTH);
+  const projectId = getProjectId();
+  if (!projectId) {
+    summaryDisplay.textContent = "現場を選択してください。";
+    return;
+  }
+
+  const result  = monthlySummary(projectId, YEAR, MONTH);
   const hours   = Math.floor(result.total_work_minutes / 60);
   const minutes = result.total_work_minutes % 60;
 
   summaryDisplay.textContent = [
+    `現場: ${projectId}`,
     `期間: ${YEAR}/${String(MONTH).padStart(2, "0")}`,
     `勤務日数: ${result.total_days} 日`,
     `勤務時間: ${hours}時間${minutes}分`,
@@ -476,9 +478,16 @@ btnSummary.addEventListener("click", () => {
 });
 
 // ================================================================
-// 請求下書き → invoice.js の generateSnapshot()
+// 請求下書き → invoice.js の generateSnapshot()（選択中の現場）
 // ================================================================
 btnInvoice.addEventListener("click", () => {
+  const projectId = getProjectId();
+  if (!projectId) {
+    invoiceDisplay.textContent = "現場を選択してください。";
+    return;
+  }
+
+  const project = getProject(projectId);
   invoiceDisplay.textContent = "";
   invoiceDisplay.className   = "";
   btnSkip.style.display      = "none";
@@ -490,8 +499,8 @@ btnInvoice.addEventListener("click", () => {
 
     const snapshot = generateSnapshot({
       snapshot_id:  uid(),
-      project_id:   PROJECT_ID,
-      project_code: PROJECT_CODE,
+      project_id:   projectId,
+      project_code: project?.project_code ?? null,
       year:         YEAR,
       month:        MONTH,
     });
@@ -517,13 +526,16 @@ btnInvoice.addEventListener("click", () => {
 });
 
 btnSkip.addEventListener("click", () => {
-  setClaimStatus(PROJECT_ID, YEAR, MONTH, ClaimStatus.SKIPPED);
+  const projectId = getProjectId();
+  const project   = getProject(projectId);
+
+  setClaimStatus(projectId, YEAR, MONTH, ClaimStatus.SKIPPED);
   btnSkip.style.display = "none";
 
   const snapshot = generateSnapshot({
     snapshot_id:  uid(),
-    project_id:   PROJECT_ID,
-    project_code: PROJECT_CODE,
+    project_id:   projectId,
+    project_code: project?.project_code ?? null,
     year:         YEAR,
     month:        MONTH,
   });
@@ -561,4 +573,4 @@ function formatSnapshot(s) {
 // --- 初期描画 ---
 renderProjectList();
 updateStatus();
-console.log("Senlings v0.3.0 loaded");
+console.log("Senlings v0.6.0 loaded");

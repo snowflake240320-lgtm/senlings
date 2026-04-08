@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Senlings v0.5.0</title>
+  <title>Senlings v0.6.0</title>
   <link rel="manifest" href="manifest.json" />
   <style>
     *, *::before, *::after { box-sizing: border-box; }
@@ -118,7 +118,9 @@
       <p class="panel-title">🏗 現場モード</p>
       <div class="panel-info" id="onsite-info"></div>
       <div class="panel-actions">
-        <button id="btn-exit-site">終了（移動モードへ）</button>
+        <button id="btn-checkin">出勤</button>
+        <button id="btn-checkout" disabled>退勤</button>
+        <button id="btn-exit-site">終了</button>
       </div>
     </div>
 
@@ -234,8 +236,6 @@
   <section>
     <h2>勤怠</h2>
     <p id="status-display">状態: Idle</p>
-    <button id="btn-checkin">出勤</button>
-    <button id="btn-checkout" disabled>退勤</button>
   </section>
 
   <!-- ── 月次サマリー ── -->
