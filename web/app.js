@@ -3,15 +3,15 @@
  * src/pwa/ モジュールとUIを接続する
  */
 
-import { saveSession, monthlySummary, dailySummary } from "../src/pwa/work.js";
-import { transition, getMode, getProjectId, Mode } from "../src/pwa/state.js";
-import { generateSnapshot, UnconfirmedExpenseError } from "../src/pwa/invoice.js";
-import { saveExpense, setClaimStatus, ClaimStatus } from "../src/pwa/expense.js";
-import { monthlyExpenseSummary } from "../src/pwa/expenseQuery.js";
-import { ensureContactSeed, getActiveContacts, getAllContacts, updateContact } from "../src/pwa/contact.js";
-import { saveProject, listProjects, getProject, buildProjectId, validateSlug } from "../src/pwa/project.js";
-import { update as storageUpdate } from "../src/pwa/storage.js";
-import { buildPhotoFilename, savePhotoMeta, listPhotos } from "../src/pwa/photo.js";
+import { saveSession, monthlySummary, dailySummary } from "./src/pwa/work.js";
+import { transition, getMode, getProjectId, Mode } from "./src/pwa/state.js";
+import { generateSnapshot, UnconfirmedExpenseError } from "./src/pwa/invoice.js";
+import { saveExpense, setClaimStatus, ClaimStatus } from "./src/pwa/expense.js";
+import { monthlyExpenseSummary } from "./src/pwa/expenseQuery.js";
+import { ensureContactSeed, getActiveContacts, getAllContacts, updateContact } from "./src/pwa/contact.js";
+import { saveProject, listProjects, getProject, buildProjectId, validateSlug } from "./src/pwa/project.js";
+import { update as storageUpdate } from "./src/pwa/storage.js";
+import { buildPhotoFilename, savePhotoMeta, listPhotos } from "./src/pwa/photo.js";
 
 // --- 初期化 ---
 ensureContactSeed();
