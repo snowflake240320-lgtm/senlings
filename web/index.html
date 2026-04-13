@@ -18,8 +18,8 @@
   <meta name="theme-color" content="#1a1a1a" />
   <style>
     *, *::before, *::after { box-sizing: border-box; }
-    body { font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 16px; }
-    h1 { font-size: 1.4rem; }
+    body { font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 16px 16px 72px; }
+    h1 { font-size: 1.4rem; margin-bottom: 4px; }
     h2 { font-size: 1rem; margin-top: 24px; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
     h3 { font-size: 0.9rem; color: #555; margin: 16px 0 8px; }
     button { padding: 10px 18px; margin: 4px 2px; font-size: 0.95rem; cursor: pointer; }
@@ -27,6 +27,28 @@
     #status-display { font-weight: bold; margin: 8px 0; }
     #summary-display, #invoice-display { background: #f5f5f5; padding: 10px; margin-top: 8px; white-space: pre-wrap; font-size: 0.85rem; border-radius: 4px; min-height: 40px; }
     .warn { color: #c00; }
+
+    /* ── タブ構成 ── */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    #tab-bar {
+      position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+      width: 100%; max-width: 480px;
+      display: flex; border-top: 1px solid #ddd;
+      background: #fff; z-index: 200;
+      box-shadow: 0 -2px 8px rgba(0,0,0,0.08);
+    }
+    .tab-btn {
+      flex: 1; padding: 10px 4px 8px;
+      border: none; background: none; cursor: pointer;
+      color: #aaa; display: flex; flex-direction: column;
+      align-items: center; gap: 2px;
+      font-size: 0.7rem; letter-spacing: 0.02em;
+      transition: color 0.15s;
+    }
+    .tab-btn .tab-icon { font-size: 1.5rem; line-height: 1; }
+    .tab-btn.active { color: #1a1a1a; font-weight: bold; }
 
     /* プロジェクト一覧 */
     #project-list { list-style: none; padding: 0; margin: 8px 0; }
@@ -225,16 +247,154 @@
       margin-top: 6px; font-size: 0.82rem; color: #c00;
       min-height: 1em; white-space: pre-line; line-height: 1.6;
     }
+
+    /* 将来用プレースホルダー */
+    .future-placeholder {
+      margin-top: 16px; padding: 20px; border: 2px dashed #ddd;
+      border-radius: 8px; text-align: center; color: #bbb; font-size: 0.85rem;
+    }
   </style>
 </head>
 <body>
   <h1>Senlings</h1>
 
-  <!-- ── 現場一覧 ── -->
-  <section>
-    <h2>現場一覧</h2>
-    <ul id="project-list"><li>（登録なし）</li></ul>
-    <button id="btn-new-project">＋ 新規現場を登録</button>
+  <!-- ══════════════════════════════════════════
+       ⓪ 管理者タブ
+       ══════════════════════════════════════════ -->
+  <div id="tab-admin" class="tab-panel">
+
+    <!-- 現場登録 -->
+    <section>
+      <h2>現場登録</h2>
+      <button id="btn-new-project">＋ 新規現場を登録</button>
+
+      <!-- 登録フォーム（3ステップ） -->
+      <form id="registration-form" novalidate>
+
+        <!-- STEP 1: 基本情報 -->
+        <div class="form-step">
+          <h3>STEP 1 — 基本情報</h3>
+
+          <div class="form-row">
+            <label>工期開始日 <span style="color:#c00">*</span></label>
+            <input type="date" id="f-start-date" required />
+            <div class="field-error" id="err-start-date"></div>
+          </div>
+
+          <div class="form-row">
+            <label>現場略称（slug） <span style="color:#c00">*</span> <span class="optional">英数字・ハイフン・20文字以内</span></label>
+            <input type="text" id="f-slug" placeholder="SHIBUYA-KAISO" maxlength="20" />
+            <div id="project-id-preview"></div>
+            <div class="field-error" id="err-slug"></div>
+          </div>
+
+          <div class="form-row">
+            <label>住所 <span style="color:#c00">*</span></label>
+            <input type="text" id="f-address" placeholder="東京都渋谷区…" />
+            <div class="field-error" id="err-address"></div>
+          </div>
+
+          <div class="form-row">
+            <label>工事コード <span class="optional">（任意・後日入力可）</span></label>
+            <input type="text" id="f-project-code" placeholder="不明" />
+          </div>
+        </div>
+
+        <!-- STEP 2: 現場窓口 -->
+        <div class="form-step">
+          <h3>STEP 2 — 現場窓口</h3>
+          <div class="form-row">
+            <label>担当者 <span style="color:#c00">*</span></label>
+            <select id="f-contact">
+              <option value="">— 選択してください —</option>
+            </select>
+            <div class="field-error" id="err-contact"></div>
+          </div>
+        </div>
+
+        <!-- STEP 3: 攻略情報（任意） -->
+        <div class="form-step">
+          <h3>STEP 3 — 攻略情報 <span class="optional">（任意・不明可）</span></h3>
+
+          <div class="form-row">
+            <label>入口</label>
+            <input type="text" id="f-entrance" placeholder="不明" />
+          </div>
+          <div class="form-row">
+            <label>駐車場</label>
+            <input type="text" id="f-parking" placeholder="不明" />
+          </div>
+          <div class="form-row">
+            <label>搬入方法</label>
+            <input type="text" id="f-delivery" placeholder="不明" />
+          </div>
+          <div class="form-row">
+            <label>朝礼</label>
+            <select id="f-morning-assembly">
+              <option value="">不明</option>
+              <option value="true">あり</option>
+              <option value="false">なし</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>特殊装備</label>
+            <input type="text" id="f-equipment" placeholder="不明" />
+          </div>
+          <div class="form-row">
+            <label>トイレ</label>
+            <input type="text" id="f-toilet" placeholder="不明" />
+          </div>
+          <div class="form-row">
+            <label>喫煙所</label>
+            <input type="text" id="f-smoking" placeholder="不明" />
+          </div>
+        </div>
+
+        <button type="submit" id="btn-submit-project">登録する</button>
+        <button type="button" id="btn-cancel-project">キャンセル</button>
+        <div id="form-result"></div>
+      </form>
+    </section>
+
+    <!-- ContactMaster 編集 -->
+    <section>
+      <h2>ContactMaster</h2>
+      <button id="btn-toggle-contacts">編集</button>
+      <div id="contact-editor">
+        <!-- ヘッダー行 -->
+        <div class="cm-row">
+          <span>ID</span>
+          <span>氏名</span>
+          <span>電話</span>
+          <span>会社</span>
+          <span>有効</span>
+          <span></span>
+          <span></span>
+        </div>
+        <!-- CM01〜CM10 は app.js が動的に生成 -->
+        <div id="contact-rows"></div>
+      </div>
+    </section>
+
+  </div><!-- /tab-admin -->
+
+
+  <!-- ══════════════════════════════════════════
+       ① 職人タブ（デフォルト表示）
+       ══════════════════════════════════════════ -->
+  <div id="tab-worker" class="tab-panel active">
+
+    <!-- 現場一覧 -->
+    <section>
+      <h2>現場一覧</h2>
+      <ul id="project-list"><li>（登録なし）</li></ul>
+    </section>
+
+    <!-- 勤怠ステータス -->
+    <section>
+      <h2>勤怠</h2>
+      <p id="status-display">状態: Idle</p>
+    </section>
 
     <!-- 移動モードパネル -->
     <div id="move-panel">
@@ -288,161 +448,64 @@
       </div>
     </div>
 
-    <!-- 登録フォーム（3ステップ） -->
-    <form id="registration-form" novalidate>
+    <!-- 日次サマリー -->
+    <section>
+      <h2>日次サマリー</h2>
+      <button id="btn-daily-summary">今日のサマリー表示</button>
+      <div id="daily-summary-display"></div>
+    </section>
 
-      <!-- STEP 1: 基本情報 -->
-      <div class="form-step">
-        <h3>STEP 1 — 基本情報</h3>
+  </div><!-- /tab-worker -->
 
-        <div class="form-row">
-          <label>工期開始日 <span style="color:#c00">*</span></label>
-          <input type="date" id="f-start-date" required />
-          <div class="field-error" id="err-start-date"></div>
-        </div>
 
-        <div class="form-row">
-          <label>現場略称（slug） <span style="color:#c00">*</span> <span class="optional">英数字・ハイフン・20文字以内</span></label>
-          <input type="text" id="f-slug" placeholder="SHIBUYA-KAISO" maxlength="20" />
-          <div id="project-id-preview"></div>
-          <div class="field-error" id="err-slug"></div>
-        </div>
+  <!-- ══════════════════════════════════════════
+       ② 設定タブ
+       ══════════════════════════════════════════ -->
+  <div id="tab-settings" class="tab-panel">
 
-        <div class="form-row">
-          <label>住所 <span style="color:#c00">*</span></label>
-          <input type="text" id="f-address" placeholder="東京都渋谷区…" />
-          <div class="field-error" id="err-address"></div>
-        </div>
-
-        <div class="form-row">
-          <label>工事コード <span class="optional">（任意・後日入力可）</span></label>
-          <input type="text" id="f-project-code" placeholder="不明" />
-        </div>
+    <!-- 請求下書き -->
+    <section>
+      <h2>請求下書き</h2>
+      <div class="section-selector">
+        <select id="invoice-project-select">
+          <option value="">— 現場を選択 —</option>
+        </select>
+        <input type="number" id="invoice-year"  min="2020" max="2099" />
+        <span>/</span>
+        <input type="number" id="invoice-month" min="1" max="12" />
+        <span>月</span>
       </div>
+      <button id="btn-invoice">請求下書き生成</button>
+      <button id="btn-skip-expense" style="display:none">経費をスキップして確定</button>
+      <div id="invoice-display"></div>
+    </section>
 
-      <!-- STEP 2: 現場窓口 -->
-      <div class="form-step">
-        <h3>STEP 2 — 現場窓口</h3>
-        <div class="form-row">
-          <label>担当者 <span style="color:#c00">*</span></label>
-          <select id="f-contact">
-            <option value="">— 選択してください —</option>
-          </select>
-          <div class="field-error" id="err-contact"></div>
-        </div>
+    <!-- 月次サマリー -->
+    <section>
+      <h2>月次サマリー</h2>
+      <div class="section-selector">
+        <select id="summary-project-select">
+          <option value="">— 現場を選択 —</option>
+        </select>
+        <input type="number" id="summary-year"  min="2020" max="2099" />
+        <span>/</span>
+        <input type="number" id="summary-month" min="1" max="12" />
+        <span>月</span>
       </div>
+      <button id="btn-summary">サマリー表示</button>
+      <div id="summary-display"></div>
+    </section>
 
-      <!-- STEP 3: 攻略情報（任意） -->
-      <div class="form-step">
-        <h3>STEP 3 — 攻略情報 <span class="optional">（任意・不明可）</span></h3>
+    <!-- 将来用 -->
+    <section>
+      <h2>その他</h2>
+      <div class="future-placeholder">将来の機能がここに追加されます</div>
+    </section>
 
-        <div class="form-row">
-          <label>入口</label>
-          <input type="text" id="f-entrance" placeholder="不明" />
-        </div>
-        <div class="form-row">
-          <label>駐車場</label>
-          <input type="text" id="f-parking" placeholder="不明" />
-        </div>
-        <div class="form-row">
-          <label>搬入方法</label>
-          <input type="text" id="f-delivery" placeholder="不明" />
-        </div>
-        <div class="form-row">
-          <label>朝礼</label>
-          <select id="f-morning-assembly">
-            <option value="">不明</option>
-            <option value="true">あり</option>
-            <option value="false">なし</option>
-          </select>
-        </div>
-        <div class="form-row">
-          <label>特殊装備</label>
-          <input type="text" id="f-equipment" placeholder="不明" />
-        </div>
-        <div class="form-row">
-          <label>トイレ</label>
-          <input type="text" id="f-toilet" placeholder="不明" />
-        </div>
-        <div class="form-row">
-          <label>喫煙所</label>
-          <input type="text" id="f-smoking" placeholder="不明" />
-        </div>
-      </div>
+  </div><!-- /tab-settings -->
 
-      <button type="submit" id="btn-submit-project">登録する</button>
-      <button type="button" id="btn-cancel-project">キャンセル</button>
-      <div id="form-result"></div>
-    </form>
-  </section>
 
-  <!-- ── ContactMaster 編集 ── -->
-  <section>
-    <h2>ContactMaster</h2>
-    <button id="btn-toggle-contacts">編集</button>
-    <div id="contact-editor">
-      <!-- ヘッダー行 -->
-      <div class="cm-row">
-        <span>ID</span>
-        <span>氏名</span>
-        <span>電話</span>
-        <span>会社</span>
-        <span>有効</span>
-        <span></span>
-        <span></span>
-      </div>
-      <!-- CM01〜CM10 は app.js が動的に生成 -->
-      <div id="contact-rows"></div>
-    </div>
-  </section>
-
-  <!-- ── 勤怠 ── -->
-  <section>
-    <h2>勤怠</h2>
-    <p id="status-display">状態: Idle</p>
-  </section>
-
-  <!-- ── 日次サマリー ── -->
-  <section>
-    <h2>日次サマリー</h2>
-    <button id="btn-daily-summary">今日のサマリー表示</button>
-    <div id="daily-summary-display"></div>
-  </section>
-
-  <!-- ── 月次サマリー ── -->
-  <section>
-    <h2>月次サマリー</h2>
-    <div class="section-selector">
-      <select id="summary-project-select">
-        <option value="">— 現場を選択 —</option>
-      </select>
-      <input type="number" id="summary-year"  min="2020" max="2099" />
-      <span>/</span>
-      <input type="number" id="summary-month" min="1" max="12" />
-      <span>月</span>
-    </div>
-    <button id="btn-summary">サマリー表示</button>
-    <div id="summary-display"></div>
-  </section>
-
-  <!-- ── 請求下書き ── -->
-  <section>
-    <h2>請求下書き</h2>
-    <div class="section-selector">
-      <select id="invoice-project-select">
-        <option value="">— 現場を選択 —</option>
-      </select>
-      <input type="number" id="invoice-year"  min="2020" max="2099" />
-      <span>/</span>
-      <input type="number" id="invoice-month" min="1" max="12" />
-      <span>月</span>
-    </div>
-    <button id="btn-invoice">請求下書き生成</button>
-    <button id="btn-skip-expense" style="display:none">経費をスキップして確定</button>
-    <div id="invoice-display"></div>
-  </section>
-
-  <!-- ── カメラオーバーレイ（全画面） ── -->
+  <!-- ── カメラオーバーレイ（全画面・タブ外） ── -->
   <div id="camera-overlay">
     <div id="camera-header">
       <span id="camera-project-label"></span>
@@ -461,6 +524,39 @@
       </div>
     </div>
   </div>
+
+  <!-- ── 画面下部固定タブバー ── -->
+  <nav id="tab-bar" role="tablist">
+    <button class="tab-btn" data-tab="tab-admin" role="tab" aria-selected="false">
+      <span class="tab-icon">⚙️</span>
+      <span>管理者</span>
+    </button>
+    <button class="tab-btn active" data-tab="tab-worker" role="tab" aria-selected="true">
+      <span class="tab-icon">🏗</span>
+      <span>職人</span>
+    </button>
+    <button class="tab-btn" data-tab="tab-settings" role="tab" aria-selected="false">
+      <span class="tab-icon">📋</span>
+      <span>設定</span>
+    </button>
+  </nav>
+
+  <script>
+    // タブ切り替え
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const target = btn.dataset.tab;
+        document.querySelectorAll('.tab-btn').forEach(b => {
+          b.classList.remove('active');
+          b.setAttribute('aria-selected', 'false');
+        });
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        btn.setAttribute('aria-selected', 'true');
+        document.getElementById(target).classList.add('active');
+      });
+    });
+  </script>
 
   <script type="module" src="app.js"></script>
 
