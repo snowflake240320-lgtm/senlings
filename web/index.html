@@ -463,6 +463,15 @@
        ══════════════════════════════════════════ -->
   <div id="tab-settings" class="tab-panel">
 
+    <!-- お名前 -->
+    <section>
+      <h2>お名前</h2>
+      <div class="form-row">
+        <label for="input-user-name">お名前（職人タブのラベルに使用されます）</label>
+        <input type="text" id="input-user-name" placeholder="例：田中 太郎" maxlength="20" />
+      </div>
+    </section>
+
     <!-- 請求下書き -->
     <section>
       <h2>請求下書き</h2>
@@ -533,7 +542,7 @@
     </button>
     <button class="tab-btn active" data-tab="tab-worker" role="tab" aria-selected="true">
       <span class="tab-icon">🏗</span>
-      <span>職人</span>
+      <span id="tab-worker-label">現場</span>
     </button>
     <button class="tab-btn" data-tab="tab-settings" role="tab" aria-selected="false">
       <span class="tab-icon">📋</span>
@@ -555,6 +564,27 @@
         btn.setAttribute('aria-selected', 'true');
         document.getElementById(target).classList.add('active');
       });
+    });
+
+    // お名前 → 職人タブラベル
+    const LS_NAME_KEY = 'senlings_user_name';
+    const nameInput   = document.getElementById('input-user-name');
+    const workerLabel = document.getElementById('tab-worker-label');
+
+    function applyUserName(name) {
+      workerLabel.textContent = name.trim() || '現場';
+    }
+
+    // 初期値をlocalStorageから復元
+    const savedName = localStorage.getItem(LS_NAME_KEY) || '';
+    nameInput.value = savedName;
+    applyUserName(savedName);
+
+    // 入力のたびに保存・反映
+    nameInput.addEventListener('input', () => {
+      const v = nameInput.value;
+      localStorage.setItem(LS_NAME_KEY, v);
+      applyUserName(v);
     });
   </script>
 
