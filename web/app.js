@@ -17,7 +17,9 @@ import { buildPhotoFilename, savePhotoMeta, listPhotos } from "./src/pwa/photo.j
 // --- 初期化 ---
 ensureContactSeed();
 
-const now = new Date();
+const now   = new Date();
+const YEAR  = now.getFullYear();
+const MONTH = now.getMonth() + 1;
 
 // --- 内部状態 ---
 let checkInAt       = null;
