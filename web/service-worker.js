@@ -40,9 +40,13 @@ self.addEventListener('activate', (event) => {
 });
 
 // Network First: まずネットワークを試み、失敗時だけキャッシュを返す
+// GET のみキャッシュ対象。POST 等はキャッシュせずそのままネットワークに流す。
 self.addEventListener('fetch', (event) => {
   // chrome-extension など非 http スキームはスキップ
   if (!event.request.url.startsWith('http')) return;
+
+  // GET 以外はキャッシュを介さずそのまま通す
+  if (event.request.method !== 'GET') return;
 
   event.respondWith(
     fetch(event.request)
