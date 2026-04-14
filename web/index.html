@@ -563,6 +563,12 @@
         btn.classList.add('active');
         btn.setAttribute('aria-selected', 'true');
         document.getElementById(target).classList.add('active');
+
+        // 管理者タブを開いた時は登録ボタンを必ず有効化
+        if (target === 'tab-admin') {
+          const b = document.getElementById('btn-new-project');
+          if (b) b.disabled = false;
+        }
       });
     });
 
