@@ -11,7 +11,7 @@ import { monthlyExpenseSummary } from "./src/pwa/expenseQuery.js";
 import { ensureContactSeed, getActiveContacts, getAllContacts, updateContact } from "./src/pwa/contact.js";
 import { saveProject, listProjects, getProject, buildProjectId, validateSlug } from "./src/pwa/project.js";
 import { update as storageUpdate } from "./src/pwa/storage.js";
-import { saveProjectToFirestore, syncProjectsFromFirestore } from "./src/pwa/firebase.js";
+import { saveProjectToFirestore, syncProjectsFromFirestore, pushAllProjectsToFirestore } from "./src/pwa/firebase.js";
 import { buildPhotoFilename, savePhotoMeta, listPhotos } from "./src/pwa/photo.js";
 
 // --- 初期化 ---
@@ -393,6 +393,38 @@ function renderProjectList() {
 
   renderSectionSelects();
 }
+
+// ================================================================
+// Firestore 一括同期ボタン
+// ================================================================
+const btnPushFirestore      = document.getElementById("btn-push-firestore");
+const pushFirestoreResult   = document.getElementById("push-firestore-result");
+
+btnPushFirestore.addEventListener("click", async () => {
+  const projects = listProjects();
+  if (projects.length === 0) {
+    pushFirestoreResult.textContent = "同期する現場がありません。";
+    pushFirestoreResult.style.color = "#888";
+    return;
+  }
+
+  btnPushFirestore.disabled       = true;
+  pushFirestoreResult.textContent = "同期中…";
+  pushFirestoreResult.style.color = "#555";
+
+  try {
+    const { count } = await pushAllProjectsToFirestore(projects);
+    pushFirestoreResult.textContent = `✓ ${count}件をFirestoreに同期しました`;
+    pushFirestoreResult.style.color = "#080";
+  } catch (err) {
+    pushFirestoreResult.textContent = `エラー: ${err.message}`;
+    pushFirestoreResult.style.color = "#c00";
+    console.error("Firestore一括同期失敗:", err);
+  } finally {
+    btnPushFirestore.disabled = false;
+    setTimeout(() => { pushFirestoreResult.textContent = ""; }, 4000);
+  }
+});
 
 // ================================================================
 // 現場窓口プルダウンを描画する

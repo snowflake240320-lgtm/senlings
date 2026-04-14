@@ -48,6 +48,20 @@ export async function saveProjectToFirestore(project) {
  *
  * @returns {Promise<{ added: number }>}
  */
+/**
+ * localStorage の全現場を Firestore に一括保存する。
+ * 既存ドキュメントは上書き（setDoc）。
+ *
+ * @param {object[]} projects - listProjects() の戻り値
+ * @returns {Promise<{ count: number }>}
+ */
+export async function pushAllProjectsToFirestore(projects) {
+  await Promise.all(
+    projects.map((p) => setDoc(doc(db, "projects", p.project_id), p))
+  );
+  return { count: projects.length };
+}
+
 export async function syncProjectsFromFirestore() {
   const snapshot = await getDocs(collection(db, "projects"));
   const remoteProjects = snapshot.docs.map((d) => d.data());
