@@ -1,4 +1,4 @@
-const CACHE_NAME = 'senlings-v0.10.0';
+const CACHE_NAME = 'senlings-v0.11.0';
 
 const PRECACHE_URLS = [
   './index.html',
@@ -39,13 +39,19 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Cache First: キャッシュにあればキャッシュを返す、なければネットワーク
+// Network First: まずネットワークを試み、失敗時だけキャッシュを返す
 self.addEventListener('fetch', (event) => {
   // chrome-extension など非 http スキームはスキップ
   if (!event.request.url.startsWith('http')) return;
 
   event.respondWith(
-    caches.match(event.request)
-      .then((cached) => cached ?? fetch(event.request))
+    fetch(event.request)
+      .then((response) => {
+        // 成功したレスポンスをキャッシュに更新してそのまま返す
+        const cloned = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, cloned));
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
