@@ -11,6 +11,7 @@ import { monthlyExpenseSummary } from "./src/pwa/expenseQuery.js";
 import { ensureContactSeed, getActiveContacts, getAllContacts, updateContact } from "./src/pwa/contact.js";
 import { saveProject, listProjects, getProject, buildProjectId, validateSlug } from "./src/pwa/project.js";
 import { update as storageUpdate } from "./src/pwa/storage.js";
+import { saveProjectToFirestore, syncProjectsFromFirestore } from "./src/pwa/firebase.js";
 import { buildPhotoFilename, savePhotoMeta, listPhotos } from "./src/pwa/photo.js";
 
 // --- 初期化 ---
@@ -516,7 +517,7 @@ registrationForm.addEventListener("submit", (e) => {
   const project_id = buildProjectId(startDate, slug);
 
   try {
-    saveProject({
+    const projectData = {
       project_id,
       project_slug:    slug.toUpperCase(),
       start_date:      startDate,
@@ -525,7 +526,15 @@ registrationForm.addEventListener("submit", (e) => {
       site_contact_id: contactId,
       site_info:       siteInfo,
       created_at:      Date.now(),
-    });
+      archive:         false,
+    };
+
+    saveProject(projectData);
+
+    // Firestore にも保存（失敗してもローカル保存は有効）
+    saveProjectToFirestore(projectData).catch((err) =>
+      console.warn("Firestore保存失敗（ローカルには保存済み）:", err.message)
+    );
 
     formResult.textContent = `✓ 登録完了: ${project_id}`;
     formResult.className   = "success";
@@ -881,3 +890,13 @@ function formatSnapshot(s) {
 renderProjectList();
 updateStatus();
 console.log("Senlings v0.10.0 loaded");
+
+// --- Firestore 同期（バックグラウンド） ---
+syncProjectsFromFirestore()
+  .then(({ added }) => {
+    if (added > 0) {
+      renderProjectList();
+      console.log(`Firestore: ${added}件の現場を同期しました`);
+    }
+  })
+  .catch((err) => console.warn("Firestore同期失敗:", err.message));
