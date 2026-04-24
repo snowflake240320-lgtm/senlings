@@ -91,6 +91,7 @@ const emailSendMsg   = document.getElementById("email-send-msg");
 
 // --- DOM: 通知メール設定 ---
 const inputNotifyEmail = document.getElementById("input-notify-email");
+const inputAdminEmail  = document.getElementById("input-admin-email");
 const btnSaveEmail     = document.getElementById("btn-save-email");
 const emailSaveMsg     = document.getElementById("email-save-msg");
 
@@ -102,7 +103,9 @@ invoiceMonthInput.value = now.getMonth() + 1;
 
 // --- 通知メール設定の初期値 ---
 const NOTIFY_EMAIL_KEY = "senlings_notify_email";
+const ADMIN_EMAIL_KEY  = "senlings_admin_email";
 inputNotifyEmail.value = localStorage.getItem(NOTIFY_EMAIL_KEY) ?? "";
+inputAdminEmail.value  = localStorage.getItem(ADMIN_EMAIL_KEY)  ?? "";
 
 // --- DOM: プロジェクト登録フォーム ---
 const projectList      = document.getElementById("project-list");
@@ -940,8 +943,8 @@ function formatSnapshot(s) {
 // 通知メールアドレス 保存
 // ================================================================
 btnSaveEmail.addEventListener("click", () => {
-  const email = inputNotifyEmail.value.trim();
-  localStorage.setItem(NOTIFY_EMAIL_KEY, email);
+  localStorage.setItem(NOTIFY_EMAIL_KEY, inputNotifyEmail.value.trim());
+  localStorage.setItem(ADMIN_EMAIL_KEY,  inputAdminEmail.value.trim());
   emailSaveMsg.textContent = "✓ 保存しました";
   emailSaveMsg.style.color = "#080";
   setTimeout(() => { emailSaveMsg.textContent = ""; }, 2000);
@@ -952,6 +955,7 @@ btnSaveEmail.addEventListener("click", () => {
 // ================================================================
 btnSendEmail.addEventListener("click", async () => {
   const to      = localStorage.getItem(NOTIFY_EMAIL_KEY) ?? "";
+  const cc      = localStorage.getItem(ADMIN_EMAIL_KEY)  ?? "";
   const text    = invoiceDisplay.textContent;
   const subject = `【Senlings】${invoiceProjectSelect.value} ${invoiceYearInput.value}年${invoiceMonthInput.value}月 請求下書き`;
 
@@ -974,7 +978,7 @@ btnSendEmail.addEventListener("click", async () => {
     const res = await fetch("/api/send-email", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ to, subject, text }),
+      body:    JSON.stringify({ to, cc: cc || undefined, subject, text }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error ?? "送信失敗");
