@@ -26,6 +26,10 @@ let checkInAt       = null;
 let activeProjectId = null;  // 作業フロー外でも保持（サマリー・請求用）
 let lastSnapshot    = null;  // メール送信用に最後に生成したスナップショットを保持
 
+// --- DOM: Drive アップロード ---
+const btnUploadDrive  = document.getElementById("btn-upload-drive");
+const driveUploadMsg  = document.getElementById("drive-upload-msg");
+
 // --- DOM: カメラオーバーレイ ---
 const cameraOverlay    = document.getElementById("camera-overlay");
 const cameraVideo      = document.getElementById("camera-video");
@@ -1097,6 +1101,65 @@ btnSendEmail.addEventListener("click", async () => {
     btnSendEmail.disabled = false;
     setTimeout(() => { emailSendMsg.textContent = ""; }, 4000);
   }
+});
+
+// ================================================================
+// Drive 写真アップロード
+// ================================================================
+btnUploadDrive.addEventListener("click", async () => {
+  const projectId = getProjectId();
+  if (!projectId) {
+    driveUploadMsg.textContent = "現場が選択されていません。";
+    driveUploadMsg.style.color = "#c00";
+    return;
+  }
+
+  const today  = new Date().toISOString().slice(0, 10);
+  const photos = listPhotos(projectId).filter((p) => {
+    const d = new Date(p.taken_at).toISOString().slice(0, 10);
+    return d === today && p.thumbnail;
+  });
+
+  if (photos.length === 0) {
+    driveUploadMsg.textContent = "本日の写真がありません。";
+    driveUploadMsg.style.color = "#888";
+    return;
+  }
+
+  btnUploadDrive.disabled    = true;
+  driveUploadMsg.style.color = "#555";
+
+  let ok = 0;
+  let ng = 0;
+
+  for (const photo of photos) {
+    driveUploadMsg.textContent = `アップロード中… ${ok + ng + 1}/${photos.length}`;
+    try {
+      const res = await fetch("/api/upload-photo", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({
+          projectId,
+          date:     today,
+          filename: photo.filename,
+          dataUrl:  photo.thumbnail,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "upload failed");
+      ok++;
+    } catch (err) {
+      ng++;
+      console.error("Drive upload error:", photo.filename, err);
+    }
+  }
+
+  driveUploadMsg.textContent = ng === 0
+    ? `✓ ${ok}枚をDriveに送りました`
+    : `${ok}枚成功 / ${ng}枚失敗`;
+  driveUploadMsg.style.color = ng === 0 ? "#080" : "#c00";
+  btnUploadDrive.disabled    = false;
+  setTimeout(() => { driveUploadMsg.textContent = ""; }, 5000);
 });
 
 // --- 初期描画 ---
