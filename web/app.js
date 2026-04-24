@@ -86,12 +86,23 @@ const summaryDisplay = document.getElementById("summary-display");
 const btnInvoice     = document.getElementById("btn-invoice");
 const btnSkip        = document.getElementById("btn-skip-expense");
 const invoiceDisplay = document.getElementById("invoice-display");
+const btnSendEmail   = document.getElementById("btn-send-email");
+const emailSendMsg   = document.getElementById("email-send-msg");
+
+// --- DOM: 通知メール設定 ---
+const inputNotifyEmail = document.getElementById("input-notify-email");
+const btnSaveEmail     = document.getElementById("btn-save-email");
+const emailSaveMsg     = document.getElementById("email-save-msg");
 
 // --- セレクターの初期値（当月）---
 summaryYearInput.value  = now.getFullYear();
 summaryMonthInput.value = now.getMonth() + 1;
 invoiceYearInput.value  = now.getFullYear();
 invoiceMonthInput.value = now.getMonth() + 1;
+
+// --- 通知メール設定の初期値 ---
+const NOTIFY_EMAIL_KEY = "senlings_notify_email";
+inputNotifyEmail.value = localStorage.getItem(NOTIFY_EMAIL_KEY) ?? "";
 
 // --- DOM: プロジェクト登録フォーム ---
 const projectList      = document.getElementById("project-list");
@@ -864,8 +875,11 @@ btnInvoice.addEventListener("click", () => {
     });
 
     invoiceDisplay.textContent = formatSnapshot(snapshot);
+    btnSendEmail.style.display = "inline-block";
+    emailSendMsg.textContent   = "";
 
   } catch (err) {
+    btnSendEmail.style.display = "none";
     if (err instanceof UnconfirmedExpenseError) {
       invoiceDisplay.className   = "warn";
       invoiceDisplay.textContent = "⚠ 経費が未確定です。\n" + err.message;
@@ -895,6 +909,8 @@ btnSkip.addEventListener("click", () => {
 
   invoiceDisplay.className   = "";
   invoiceDisplay.textContent = formatSnapshot(snapshot);
+  btnSendEmail.style.display = "inline-block";
+  emailSendMsg.textContent   = "";
 });
 
 function formatSnapshot(s) {
@@ -919,6 +935,60 @@ function formatSnapshot(s) {
     ),
   ].join("\n");
 }
+
+// ================================================================
+// 通知メールアドレス 保存
+// ================================================================
+btnSaveEmail.addEventListener("click", () => {
+  const email = inputNotifyEmail.value.trim();
+  localStorage.setItem(NOTIFY_EMAIL_KEY, email);
+  emailSaveMsg.textContent = "✓ 保存しました";
+  emailSaveMsg.style.color = "#080";
+  setTimeout(() => { emailSaveMsg.textContent = ""; }, 2000);
+});
+
+// ================================================================
+// メールで送信
+// ================================================================
+btnSendEmail.addEventListener("click", async () => {
+  const to   = localStorage.getItem(NOTIFY_EMAIL_KEY) ?? "";
+  const text = invoiceDisplay.textContent;
+
+  if (!to) {
+    emailSendMsg.textContent = "送信先メールアドレスを設定してください。";
+    emailSendMsg.style.color = "#c00";
+    return;
+  }
+  if (!text) {
+    emailSendMsg.textContent = "先に請求下書きを生成してください。";
+    emailSendMsg.style.color = "#c00";
+    return;
+  }
+
+  btnSendEmail.disabled    = true;
+  emailSendMsg.textContent = "送信中…";
+  emailSendMsg.style.color = "#555";
+
+  try {
+    const res = await fetch("/api/send-email", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ to, text }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? "送信失敗");
+
+    emailSendMsg.textContent = `✓ 送信しました（${to}）`;
+    emailSendMsg.style.color = "#080";
+  } catch (err) {
+    emailSendMsg.textContent = `エラー: ${err.message}`;
+    emailSendMsg.style.color = "#c00";
+    console.error("メール送信エラー:", err);
+  } finally {
+    btnSendEmail.disabled = false;
+    setTimeout(() => { emailSendMsg.textContent = ""; }, 4000);
+  }
+});
 
 // --- 初期描画 ---
 renderProjectList();

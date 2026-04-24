@@ -474,6 +474,17 @@
       </div>
     </section>
 
+    <!-- 通知メール -->
+    <section>
+      <h2>通知メール</h2>
+      <div class="form-row">
+        <label for="input-notify-email">送信先メールアドレス</label>
+        <input type="email" id="input-notify-email" placeholder="例：you@example.com" maxlength="200" />
+      </div>
+      <button id="btn-save-email">メールアドレスを保存</button>
+      <span id="email-save-msg" style="margin-left:8px;font-size:0.85rem;"></span>
+    </section>
+
     <!-- 請求下書き -->
     <section>
       <h2>請求下書き</h2>
@@ -489,6 +500,8 @@
       <button id="btn-invoice">請求下書き生成</button>
       <button id="btn-skip-expense" style="display:none">経費をスキップして確定</button>
       <div id="invoice-display"></div>
+      <button id="btn-send-email" style="display:none;margin-top:8px;">メールで送信</button>
+      <span id="email-send-msg" style="margin-left:8px;font-size:0.85rem;"></span>
     </section>
 
     <!-- 月次サマリー -->

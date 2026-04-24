@@ -35,7 +35,8 @@
       "Bash(npx --version)",
       "Bash(ipconfig)",
       "Bash(curl:*)",
-      "Bash(npx:*)"
+      "Bash(npx:*)",
+      "Bash(git *)"
     ]
   }
 }
