@@ -951,8 +951,9 @@ btnSaveEmail.addEventListener("click", () => {
 // メールで送信
 // ================================================================
 btnSendEmail.addEventListener("click", async () => {
-  const to   = localStorage.getItem(NOTIFY_EMAIL_KEY) ?? "";
-  const text = invoiceDisplay.textContent;
+  const to      = localStorage.getItem(NOTIFY_EMAIL_KEY) ?? "";
+  const text    = invoiceDisplay.textContent;
+  const subject = `【Senlings】${invoiceProjectSelect.value} ${invoiceYearInput.value}年${invoiceMonthInput.value}月 請求下書き`;
 
   if (!to) {
     emailSendMsg.textContent = "送信先メールアドレスを設定してください。";
@@ -973,7 +974,7 @@ btnSendEmail.addEventListener("click", async () => {
     const res = await fetch("/api/send-email", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ to, text }),
+      body:    JSON.stringify({ to, subject, text }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error ?? "送信失敗");
