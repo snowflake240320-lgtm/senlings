@@ -24,6 +24,7 @@ const MONTH = now.getMonth() + 1;
 // --- 内部状態 ---
 let checkInAt       = null;
 let activeProjectId = null;  // 作業フロー外でも保持（サマリー・請求用）
+let lastSnapshot    = null;  // メール送信用に最後に生成したスナップショットを保持
 
 // --- DOM: カメラオーバーレイ ---
 const cameraOverlay    = document.getElementById("camera-overlay");
@@ -877,11 +878,13 @@ btnInvoice.addEventListener("click", () => {
       month,
     });
 
+    lastSnapshot               = snapshot;
     invoiceDisplay.textContent = formatSnapshot(snapshot);
     btnSendEmail.style.display = "inline-block";
     emailSendMsg.textContent   = "";
 
   } catch (err) {
+    lastSnapshot               = null;
     btnSendEmail.style.display = "none";
     if (err instanceof UnconfirmedExpenseError) {
       invoiceDisplay.className   = "warn";
@@ -910,6 +913,7 @@ btnSkip.addEventListener("click", () => {
     month,
   });
 
+  lastSnapshot               = snapshot;
   invoiceDisplay.className   = "";
   invoiceDisplay.textContent = formatSnapshot(snapshot);
   btnSendEmail.style.display = "inline-block";
@@ -939,6 +943,105 @@ function formatSnapshot(s) {
   ].join("\n");
 }
 
+function formatSnapshotHTML(s) {
+  const hours   = Math.floor(s.total_work_minutes / 60);
+  const minutes = s.total_work_minutes % 60;
+
+  const breakdownRows = s.daily_breakdown.map((d) => `
+    <tr>
+      <td style="padding:6px 12px;border-bottom:1px solid #eee;">${d.date}</td>
+      <td style="padding:6px 12px;border-bottom:1px solid #eee;text-align:right;">${d.work_minutes}分</td>
+      <td style="padding:6px 12px;border-bottom:1px solid #eee;text-align:right;">${d.session_count}件</td>
+    </tr>`).join("");
+
+  return `<!DOCTYPE html>
+<html lang="ja">
+<head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:24px 0;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:8px;overflow:hidden;max-width:600px;">
+
+        <!-- ヘッダー -->
+        <tr>
+          <td style="background:#1a1a2e;padding:24px 32px;">
+            <div style="color:#fff;font-size:22px;font-weight:bold;letter-spacing:2px;">Senlings</div>
+            <div style="color:#aab;font-size:13px;margin-top:4px;">Invoice Snapshot</div>
+          </td>
+        </tr>
+
+        <!-- 現場・期間 -->
+        <tr>
+          <td style="padding:28px 32px 16px;border-bottom:1px solid #eee;">
+            <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;">現場</div>
+            <div style="font-size:24px;font-weight:bold;color:#1a1a2e;margin-top:4px;">${esc(s.project_id)}</div>
+            <div style="font-size:15px;color:#555;margin-top:6px;">${esc(s.period_start)} 〜 ${esc(s.period_end)}</div>
+          </td>
+        </tr>
+
+        <!-- サマリー数値 -->
+        <tr>
+          <td style="padding:24px 32px;border-bottom:1px solid #eee;">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="width:33%;text-align:center;padding:12px 8px;background:#f8f8ff;border-radius:6px;">
+                  <div style="font-size:11px;color:#888;">勤務日数</div>
+                  <div style="font-size:28px;font-weight:bold;color:#1a1a2e;margin-top:4px;">${s.total_work_days}</div>
+                  <div style="font-size:12px;color:#888;">日</div>
+                </td>
+                <td style="width:4%;"></td>
+                <td style="width:33%;text-align:center;padding:12px 8px;background:#f8f8ff;border-radius:6px;">
+                  <div style="font-size:11px;color:#888;">勤務時間</div>
+                  <div style="font-size:28px;font-weight:bold;color:#1a1a2e;margin-top:4px;">${hours}<span style="font-size:14px;">時間</span>${minutes}<span style="font-size:14px;">分</span></div>
+                </td>
+                <td style="width:4%;"></td>
+                <td style="width:33%;text-align:center;padding:12px 8px;background:#f8f8ff;border-radius:6px;">
+                  <div style="font-size:11px;color:#888;">経費合計</div>
+                  <div style="font-size:24px;font-weight:bold;color:#1a1a2e;margin-top:4px;">¥${s.total_expense_amount.toLocaleString()}</div>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- 日別内訳 -->
+        <tr>
+          <td style="padding:24px 32px;border-bottom:1px solid #eee;">
+            <div style="font-size:13px;font-weight:bold;color:#555;margin-bottom:12px;">日別内訳</div>
+            <table width="100%" cellpadding="0" cellspacing="0" style="font-size:13px;">
+              <tr style="background:#f4f4f4;">
+                <th style="padding:6px 12px;text-align:left;font-weight:600;color:#555;">日付</th>
+                <th style="padding:6px 12px;text-align:right;font-weight:600;color:#555;">勤務時間</th>
+                <th style="padding:6px 12px;text-align:right;font-weight:600;color:#555;">セッション</th>
+              </tr>
+              ${breakdownRows}
+            </table>
+          </td>
+        </tr>
+
+        <!-- メタ情報 -->
+        <tr>
+          <td style="padding:16px 32px;border-bottom:1px solid #eee;font-size:12px;color:#999;">
+            超過時間: ${s.total_overtime_hours.toFixed(2)}時間　／
+            経費状態: ${esc(s.expense_claim_status)}　／
+            生成日時: ${new Date(s.generated_at).toLocaleString("ja-JP")}
+          </td>
+        </tr>
+
+        <!-- フッター -->
+        <tr>
+          <td style="padding:20px 32px;background:#f8f8f8;text-align:center;font-size:12px;color:#aaa;">
+            このメールはSenlingsから自動送信されました
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
 // ================================================================
 // 通知メールアドレス 保存
 // ================================================================
@@ -956,7 +1059,6 @@ btnSaveEmail.addEventListener("click", () => {
 btnSendEmail.addEventListener("click", async () => {
   const to      = localStorage.getItem(NOTIFY_EMAIL_KEY) ?? "";
   const cc      = localStorage.getItem(ADMIN_EMAIL_KEY)  ?? "";
-  const text    = invoiceDisplay.textContent;
   const subject = `【Senlings】${invoiceProjectSelect.value} ${invoiceYearInput.value}年${invoiceMonthInput.value}月 請求下書き`;
 
   if (!to) {
@@ -964,11 +1066,13 @@ btnSendEmail.addEventListener("click", async () => {
     emailSendMsg.style.color = "#c00";
     return;
   }
-  if (!text) {
+  if (!lastSnapshot) {
     emailSendMsg.textContent = "先に請求下書きを生成してください。";
     emailSendMsg.style.color = "#c00";
     return;
   }
+
+  const html = formatSnapshotHTML(lastSnapshot);
 
   btnSendEmail.disabled    = true;
   emailSendMsg.textContent = "送信中…";
@@ -978,7 +1082,7 @@ btnSendEmail.addEventListener("click", async () => {
     const res = await fetch("/api/send-email", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ to, cc: cc || undefined, subject, text }),
+      body:    JSON.stringify({ to, cc: cc || undefined, subject, html }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error ?? "送信失敗");
