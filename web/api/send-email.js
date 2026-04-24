@@ -5,7 +5,7 @@ module.exports = async function handler(req, res) {
 
   const { to, cc, subject, html, text } = req.body ?? {};
 
-  if (!to || !text) {
+  if (!to || (!text && !html)) {
     return res.status(400).json({ error: "Missing required fields: to, text" });
   }
 
