@@ -1,8 +1,5 @@
 {
   "name": "senlings-web",
   "version": "0.1.0",
-  "private": true,
-  "dependencies": {
-    "googleapis": "^144.0.0"
-  }
+  "private": true
 }
