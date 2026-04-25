@@ -3,7 +3,7 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { to, cc, subject, html, text } = req.body ?? {};
+  const { to, cc, subject, html, text, attachments } = req.body ?? {};
 
   if (!to || (!text && !html)) {
     return res.status(400).json({ error: "Missing required fields: to, text" });
@@ -26,6 +26,7 @@ module.exports = async function handler(req, res) {
       ...(cc ? { cc: [cc] } : {}),
       subject: subject || "Invoice Snapshot",
       ...(html ? { html } : { text }),
+      ...(attachments?.length ? { attachments } : {}),
     }),
   });
 

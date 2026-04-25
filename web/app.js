@@ -1114,6 +1114,14 @@ btnUploadDrive.addEventListener("click", async () => {
     return;
   }
 
+  const to    = localStorage.getItem(NOTIFY_EMAIL_KEY) ?? "";
+  const cc    = localStorage.getItem(ADMIN_EMAIL_KEY)  ?? "";
+  if (!to) {
+    driveUploadMsg.textContent = "送信先メールアドレスを設定してください（設定タブ）。";
+    driveUploadMsg.style.color = "#c00";
+    return;
+  }
+
   const today  = new Date().toISOString().slice(0, 10);
   const photos = listPhotos(projectId).filter((p) => {
     const d = new Date(p.taken_at).toISOString().slice(0, 10);
@@ -1127,39 +1135,41 @@ btnUploadDrive.addEventListener("click", async () => {
   }
 
   btnUploadDrive.disabled    = true;
+  driveUploadMsg.textContent = "送信中…";
   driveUploadMsg.style.color = "#555";
 
-  let ok = 0;
-  let ng = 0;
+  const attachments = photos.map((p) => ({
+    filename: p.filename,
+    content:  p.thumbnail.replace(/^data:image\/\w+;base64,/, ""),
+    type:     "image/jpeg",
+    disposition: "attachment",
+  }));
 
-  for (const photo of photos) {
-    driveUploadMsg.textContent = `アップロード中… ${ok + ng + 1}/${photos.length}`;
-    try {
-      const res = await fetch("/api/upload-photo", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({
-          projectId,
-          date:     today,
-          filename: photo.filename,
-          dataUrl:  photo.thumbnail,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "upload failed");
-      ok++;
-    } catch (err) {
-      ng++;
-      console.error("Drive upload error:", photo.filename, err);
-    }
+  try {
+    const res = await fetch("/api/send-email", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({
+        to,
+        cc:      cc || undefined,
+        subject: `【Senlings】${projectId} ${today} 現場写真（${photos.length}枚）`,
+        text:    `${projectId} ${today} の現場写真 ${photos.length}枚を添付します。`,
+        attachments,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? "送信失敗");
+
+    driveUploadMsg.textContent = `✓ ${photos.length}枚をメールで送りました`;
+    driveUploadMsg.style.color = "#080";
+  } catch (err) {
+    driveUploadMsg.textContent = `エラー: ${err.message}`;
+    driveUploadMsg.style.color = "#c00";
+    console.error("写真メール送信エラー:", err);
+  } finally {
+    btnUploadDrive.disabled = false;
+    setTimeout(() => { driveUploadMsg.textContent = ""; }, 5000);
   }
-
-  driveUploadMsg.textContent = ng === 0
-    ? `✓ ${ok}枚をDriveに送りました`
-    : `${ok}枚成功 / ${ng}枚失敗`;
-  driveUploadMsg.style.color = ng === 0 ? "#080" : "#c00";
-  btnUploadDrive.disabled    = false;
-  setTimeout(() => { driveUploadMsg.textContent = ""; }, 5000);
 });
 
 // --- 初期描画 ---
