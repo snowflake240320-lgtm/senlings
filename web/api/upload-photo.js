@@ -61,7 +61,7 @@ async function getOrCreateFolder(name, parentId, token) {
   const q = `mimeType='application/vnd.google-apps.folder' and name='${name.replace(/'/g, "\\'")}' and '${parentId}' in parents and trashed=false`;
   const { files } = await driveGet(`/files?q=${encodeURIComponent(q)}&fields=files(id)&spaces=drive`, token);
   if (files.length > 0) return files[0].id;
-  const folder = await drivePost("/files?fields=id", {
+  const folder = await drivePost("/files?fields=id&supportsAllDrives=true", {
     name,
     mimeType: "application/vnd.google-apps.folder",
     parents:  [parentId],
@@ -69,9 +69,9 @@ async function getOrCreateFolder(name, parentId, token) {
   return folder.id;
 }
 
-async function uploadFile(filename, imageBuffer, parentId, token) {
+async function uploadFile(filename, imageBuffer, token) {
   const boundary = "senlingsbound";
-  const meta     = JSON.stringify({ name: filename, parents: [parentId] });
+  const meta     = JSON.stringify({ name: filename });
   const body     = Buffer.concat([
     Buffer.from(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n--${boundary}\r\nContent-Type: image/jpeg\r\n\r\n`),
     imageBuffer,
@@ -79,7 +79,7 @@ async function uploadFile(filename, imageBuffer, parentId, token) {
   ]);
 
   const res = await fetch(
-    "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink",
+    "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink&supportsAllDrives=true",
     {
       method:  "POST",
       headers: {
@@ -123,11 +123,9 @@ module.exports = async function handler(req, res) {
     const token       = await getAccessToken(credentials);
     const imageBuffer = Buffer.from(dataUrl.replace(/^data:image\/\w+;base64,/, ""), "base64");
 
-    const senlingsId = await getOrCreateFolder("Senlings写真", rootFolderId, token);
-    const projectFId = await getOrCreateFolder(projectId,      senlingsId,   token);
-    const dateFId    = await getOrCreateFolder(date,           projectFId,   token);
+    await getOrCreateFolder("Senlings写真", rootFolderId, token);
 
-    const file = await uploadFile(filename, imageBuffer, dateFId, token);
+    const file = await uploadFile(filename, imageBuffer, token);
     return res.status(200).json({ id: file.id, name: file.name, url: file.webViewLink });
 
   } catch (err) {
