@@ -12,7 +12,7 @@ import { ensureContactSeed, getActiveContacts, getAllContacts, updateContact } f
 import { saveProject, listProjects, getProject, buildProjectId, validateSlug } from "./src/pwa/project.js";
 import { update as storageUpdate } from "./src/pwa/storage.js";
 import { saveProjectToFirestore, syncProjectsFromFirestore, pushAllProjectsToFirestore } from "./src/pwa/firebase.js";
-import { buildPhotoFilename, savePhotoMeta, listPhotos } from "./src/pwa/photo.js";
+import { buildPhotoFilename, savePhotoMeta, listPhotos, deletePhoto } from "./src/pwa/photo.js";
 
 // --- 初期化 ---
 ensureContactSeed();
@@ -1160,6 +1160,8 @@ btnUploadDrive.addEventListener("click", async () => {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error ?? "送信失敗");
 
+    photos.forEach((p) => deletePhoto(p.id));
+    renderPhotoList(projectId);
     driveUploadMsg.textContent = `✓ ${photos.length}枚をメールで送りました`;
     driveUploadMsg.style.color = "#080";
   } catch (err) {
