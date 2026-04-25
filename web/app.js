@@ -13,6 +13,7 @@ import { saveProject, listProjects, getProject, buildProjectId, validateSlug } f
 import { update as storageUpdate } from "./src/pwa/storage.js";
 import { saveProjectToFirestore, syncProjectsFromFirestore, pushAllProjectsToFirestore } from "./src/pwa/firebase.js";
 import { buildPhotoFilename, savePhotoMeta, listPhotos, deletePhoto } from "./src/pwa/photo.js";
+import { exportInvoiceToExcel } from "./src/pwa/invoiceExport.js";
 
 // --- 初期化 ---
 ensureContactSeed();
@@ -89,6 +90,7 @@ const btnCheckout    = document.getElementById("btn-checkout");
 
 const summaryDisplay = document.getElementById("summary-display");
 const btnInvoice     = document.getElementById("btn-invoice");
+const btnExcelExport = document.getElementById("btn-excel-export");
 const btnSkip        = document.getElementById("btn-skip-expense");
 const invoiceDisplay = document.getElementById("invoice-display");
 const btnSendEmail   = document.getElementById("btn-send-email");
@@ -897,6 +899,41 @@ btnInvoice.addEventListener("click", () => {
     } else {
       invoiceDisplay.textContent = `エラー: ${err.message}`;
     }
+  }
+});
+
+// ================================================================
+// Excel書き出し → invoiceExport.js の exportInvoiceToExcel()
+// ================================================================
+btnExcelExport.addEventListener("click", async () => {
+  const projectId = invoiceProjectSelect.value;
+  const year      = parseInt(invoiceYearInput.value, 10);
+  const month     = parseInt(invoiceMonthInput.value, 10);
+
+  if (!projectId) { alert("現場を選択してください。"); return; }
+  if (!year || !month) { alert("年月を入力してください。"); return; }
+
+  const project = getProject(projectId);
+
+  if (!project?.project_code) {
+    if (!confirm("工事コードが未設定です。このまま書き出しますか？")) return;
+  }
+
+  const contact = getAllContacts().find((c) => c.contact_id === project?.site_contact_id);
+  const contactName = contact?.name ?? "";
+  if (!contactName || contactName === "nan") {
+    if (!confirm("藤田建装担当者名がContactMasterに未登録です。このまま書き出しますか？")) return;
+  }
+
+  btnExcelExport.disabled = true;
+  btnExcelExport.textContent = "書き出し中…";
+  try {
+    await exportInvoiceToExcel({ project_id: projectId, year, month });
+  } catch (err) {
+    alert(`書き出しに失敗しました。\n${err.message}`);
+  } finally {
+    btnExcelExport.disabled = false;
+    btnExcelExport.textContent = "Excelを書き出す";
   }
 });
 
