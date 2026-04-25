@@ -1123,13 +1123,10 @@ btnUploadDrive.addEventListener("click", async () => {
   }
 
   const today  = new Date().toISOString().slice(0, 10);
-  const photos = listPhotos(projectId).filter((p) => {
-    const d = new Date(p.taken_at).toISOString().slice(0, 10);
-    return d === today && p.thumbnail;
-  });
+  const photos = listPhotos(projectId).filter((p) => p.thumbnail);
 
   if (photos.length === 0) {
-    driveUploadMsg.textContent = "本日の写真がありません。";
+    driveUploadMsg.textContent = "送信できる写真がありません。";
     driveUploadMsg.style.color = "#888";
     return;
   }
