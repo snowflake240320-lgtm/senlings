@@ -79,24 +79,23 @@
     .tab .tab-icon-svg {
       width: 20px;
       height: 20px;
-      color: #444;
+      color: #777;
     }
     .tab .tab-label {
       font-size: 11px;
-      color: #444;
+      color: #777;
       letter-spacing: 0.12em;
       font-family: 'Noto Serif JP', serif;
+      font-weight: 500;
     }
     .tab.active {
       border-top: 2px solid #c5a059;
       box-shadow: 0 -2px 8px rgba(197, 160, 89, 0.3);
     }
-    .tab.active .tab-icon-svg { color: #e8e5df; }
-    .tab.active .tab-label    { color: #c5a059; }
+    .tab.active .tab-icon-svg { color: #c5a059; }
+    .tab.active .tab-label    { color: #c5a059; font-weight: 700; }
     .tab-icon-svg {
       display: block;
-      stroke: currentColor;
-      fill: none;
     }
 
     /* ── 画面1: 現場トップ ── */
@@ -248,14 +247,14 @@
   <!-- ── 下部タブバー（全画面共通） ── -->
   <nav class="tab-bar">
     <button class="tab active" data-tab="genba">
-      <svg class="tab-icon-svg" viewBox="0 0 24 24" fill="none">
-        <path d="M2 20 L12 4 L22 20 Z" stroke="currentColor" stroke-width="1.5"/>
+      <svg class="tab-icon-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M2 20 L12 4 L22 20 Z" fill="currentColor"/>
       </svg>
       <span class="tab-label">現場</span>
     </button>
     <button class="tab" data-tab="shimai">
-      <svg class="tab-icon-svg" viewBox="0 0 24 24" fill="none">
-        <path d="M12 3 L21 12 L12 21 L3 12 Z" stroke="currentColor" stroke-width="1.5"/>
+      <svg class="tab-icon-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 3 L21 12 L12 21 L3 12 Z" fill="currentColor"/>
       </svg>
       <span class="tab-label">仕舞い</span>
     </button>
