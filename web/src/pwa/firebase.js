@@ -11,7 +11,7 @@
 
 import { initializeApp }
   from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
-import { getFirestore, collection, getDocs, setDoc, doc }
+import { getFirestore, collection, getDocs, getDoc, setDoc, doc, query, where, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 import { update as storageUpdate } from "./storage.js";
@@ -80,4 +80,43 @@ export async function syncProjectsFromFirestore() {
   });
 
   return { added };
+}
+
+// ── users コレクション ───────────────────────────────────
+
+export async function saveUserToFirestore(uid, data) {
+  const ref = doc(db, 'users', uid);
+  await setDoc(ref, {
+    displayName:  data.displayName  ?? null,
+    phoneNumber:  data.phoneNumber  ?? null,
+    email:        data.email        ?? null,
+    role:         data.role         ?? 'hunter',
+    updatedAt:    serverTimestamp(),
+  }, { merge: true });
+}
+
+export async function getUserFromFirestore(uid) {
+  const ref = doc(db, 'users', uid);
+  const snap = await getDoc(ref);
+  return snap.exists() ? snap.data() : null;
+}
+
+// ── users/{uid}/assignments サブコレクション ────────────
+
+export async function saveUserAssignment(uid, projectId, data) {
+  const ref = doc(db, 'users', uid, 'assignments', projectId);
+  await setDoc(ref, {
+    projectId:  data.projectId,
+    propertyId: data.propertyId  ?? null,
+    role:       data.role        ?? 'hunter',
+    status:     data.status      ?? 'active',
+    joinedAt:   data.joinedAt    ?? serverTimestamp(),
+  }, { merge: true });
+}
+
+export async function getUserAssignments(uid) {
+  const ref = collection(db, 'users', uid, 'assignments');
+  const q = query(ref, where('status', '==', 'active'));
+  const snap = await getDocs(q);
+  return snap.docs.map(d => d.data());
 }
