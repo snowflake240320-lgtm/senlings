@@ -14,6 +14,7 @@ import { update as storageUpdate } from "./src/pwa/storage.js";
 import { saveProjectToFirestore, syncProjectsFromFirestore, pushAllProjectsToFirestore } from "./src/pwa/firebase.js";
 import { buildPhotoFilename, savePhotoMeta, listPhotos, deletePhoto } from "./src/pwa/photo.js";
 import { exportInvoiceToExcel } from "./src/pwa/invoiceExport.js";
+import { exportAllDataAsJSON } from './src/pwa/export.js';
 
 // --- 初期化 ---
 ensureContactSeed();
@@ -1222,3 +1223,17 @@ syncProjectsFromFirestore()
     }
   })
   .catch((err) => console.warn("Firestore同期失敗:", err.message));
+
+// ===== データエクスポート（STEP 2） =====
+document.getElementById('btn-export-json').addEventListener('click', () => {
+  const errEl = document.getElementById('export-error');
+  errEl.style.display = 'none';
+  errEl.textContent = '';
+  try {
+    exportAllDataAsJSON();
+  } catch (err) {
+    errEl.textContent = 'エクスポートに失敗しました：' + err.message;
+    errEl.style.display = 'block';
+  }
+});
+// ===== /データエクスポート =====

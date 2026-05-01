@@ -253,6 +253,38 @@
       margin-top: 16px; padding: 20px; border: 2px dashed #ddd;
       border-radius: 8px; text-align: center; color: #bbb; font-size: 0.85rem;
     }
+
+    /* データエクスポート */
+    .export-section {
+      margin-top: 2rem;
+      padding: 1.25rem;
+      background: #181818;
+      border: 1px solid #222;
+      border-radius: 8px;
+    }
+    .export-note {
+      margin: 0 0 1rem;
+      font-size: 0.85rem;
+      color: #888;
+    }
+    .export-btn {
+      width: 100%;
+      padding: 0.875rem;
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 6px;
+      color: #f0ede8;
+      font-size: 0.95rem;
+      cursor: pointer;
+    }
+    .export-btn:active {
+      background: #222;
+    }
+    .export-error {
+      margin-top: 0.75rem;
+      font-size: 0.85rem;
+      color: #e05555;
+    }
   </style>
 </head>
 <body>
@@ -534,6 +566,16 @@
       <h2>その他</h2>
       <div class="future-placeholder">将来の機能がここに追加されます</div>
     </section>
+
+    <!-- ===== データエクスポート（STEP 2） ===== -->
+    <section class="export-section" id="export-section">
+      <p class="export-note">このデータはあなたのものです。いつでも持ち出せます。</p>
+      <button class="export-btn" id="btn-export-json">
+        JSON（全データ）をダウンロード
+      </button>
+      <p class="export-error" id="export-error" style="display:none;"></p>
+    </section>
+    <!-- ===== /データエクスポート ===== -->
 
   </div><!-- /tab-settings -->
 
