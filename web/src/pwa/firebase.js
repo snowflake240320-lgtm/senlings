@@ -268,3 +268,26 @@ export async function getInvoiceDraft(invoiceId) {
   const snap = await getDoc(doc(db, 'invoiceDrafts', invoiceId));
   return snap.exists() ? { invoiceId: snap.id, ...snap.data() } : null;
 }
+
+// ── expenses サブコレクション ────────────────────────────
+
+export async function saveExpense(sessionId, data) {
+  const ref = data.expenseId
+    ? doc(db, 'workSessions', sessionId, 'expenses', data.expenseId)
+    : doc(collection(db, 'workSessions', sessionId, 'expenses'));
+  await setDoc(ref, {
+    sessionId:  sessionId,
+    projectId:  data.projectId   ?? null,
+    propertyId: data.propertyId  ?? null,
+    hunterUid:  data.hunterUid   ?? null,
+    date:       data.date        ?? null,
+    category:   data.category    ?? 'other',
+    amount:     data.amount      ?? 0,
+    status:     data.status      ?? 'draft',
+    memo:       data.memo        ?? null,
+    photoIds:   data.photoIds    ?? [],
+    createdAt:  data.createdAt   ?? serverTimestamp(),
+    updatedAt:  serverTimestamp(),
+  }, { merge: true });
+  return ref.id;
+}
