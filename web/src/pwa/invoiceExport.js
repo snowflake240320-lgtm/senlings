@@ -16,6 +16,11 @@ const TEMPLATE_PATH = "/public/templates/Invoice_Gen_WithDetails.xlsx";
 const DATA_SHEET    = "請求データ入力";
 const DATA_ROW      = 18; // 1-indexed（テンプレート仕様）
 
+function getUnitPrice() {
+  const v = localStorage.getItem('senlings_work_unit_price');
+  return v ? Number(v) : 25000;
+}
+
 /**
  * 指定現場・年月のデータをテンプレートExcelに書き込み、ダウンロードする。
  * @param {object} opts
@@ -48,12 +53,14 @@ export async function exportInvoiceToExcel({ project_id, year, month }) {
   // 御社ご担当者名（設定タブのお名前）
   const userName = localStorage.getItem("senlings_user_name") ?? "";
 
-  // 金額計算（経費のみ。労務費は単価未設定のため M 列は経費合計のみ）
-  const amountExTax = expSummary.claim_status === ClaimStatus.SKIPPED
-    ? 0
-    : expSummary.total;
-  const tax         = Math.floor(amountExTax * 0.1);
-  const amountInTax = amountExTax + tax;
+  // 金額計算（労務費 + 経費合計）
+  const unitPrice      = getUnitPrice();
+  const workDays       = work.sessions.length;
+  const subtotalWork   = workDays * unitPrice;
+  const subtotalExpense = expSummary.claim_status === ClaimStatus.SKIPPED ? 0 : expSummary.total;
+  const amountExTax    = subtotalWork + subtotalExpense;
+  const tax            = Math.floor(amountExTax * 0.1);
+  const amountInTax    = amountExTax + tax;
 
   // テンプレート読み込み
   const res = await fetch(TEMPLATE_PATH);
@@ -84,12 +91,12 @@ export async function exportInvoiceToExcel({ project_id, year, month }) {
   ws[addr(4)]  = { v: userName,                    t: "s" }; // E: 御社ご担当者名
   ws[addr(5)]  = { v: contactName,                 t: "s" }; // F: 藤田建装担当者
   ws[addr(6)]  = { v: project.project_code ?? "",  t: "s" }; // G: 工事コード
-  ws[addr(7)]  = { v: project.project_slug ?? "",  t: "s" }; // H: 工事名（現場略称）
+  ws[addr(7)]  = { v: project.title ?? project.project_slug ?? "", t: "s" }; // H: 工事名
   ws[addr(8)]  = { v: "明細書1参照",               t: "s" }; // I: 内容
   ws[addr(9)]  = { v: 1,                           t: "n" }; // J: 数量
   ws[addr(10)] = { v: "式",                        t: "s" }; // K: 単価単位
   // addr(11) = L: 単価 → 空欄のまま（単価は Senlings に持たない方針）
-  ws[addr(12)] = { v: amountExTax,                 t: "n" }; // M: 金額税抜（経費合計）
+  ws[addr(12)] = { v: amountExTax,                 t: "n" }; // M: 金額税抜（労務費+経費）
   ws[addr(13)] = { v: tax,                         t: "n" }; // N: 消費税（10%・切捨）
   ws[addr(14)] = { v: amountInTax,                 t: "n" }; // O: 金額税込（M+N）
 
