@@ -45,13 +45,11 @@
     .tab-bar {
       position: fixed;
       bottom: 0;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 100%;
-      max-width: 600px;
+      left: 0;
+      right: 0;
       display: flex;
-      border-top: 1px solid #1e1e1a;
       background: #0d0d0b;
+      border-top: 1px solid #222;
       z-index: 100;
     }
     .tab {
@@ -59,20 +57,38 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 3px;
-      padding: 10px 4px 14px;
-      border: none;
+      justify-content: center;
+      padding: 12px 8px 20px;
       background: none;
+      border: none;
+      border-top: 2px solid transparent;
       cursor: pointer;
-      color: #4a4a42;
       font-family: inherit;
-      transition: color 0.15s;
+      transition: border-color 0.2s, color 0.2s;
+      gap: 5px;
     }
-    .tab.active { color: #e8e4d8; }
-    .tab.active .tab-label { color: #e8e5df; }
-    .tab.active .tab-icon { filter: drop-shadow(0 0 4px #c5a059); }
-    .tab-icon { font-size: 20px; line-height: 1; }
-    .tab-label { font-size: 12px; letter-spacing: 0.06em; color: #888880; }
+    .tab .tab-icon-svg {
+      width: 20px;
+      height: 20px;
+      color: #444;
+    }
+    .tab .tab-label {
+      font-size: 11px;
+      color: #444;
+      letter-spacing: 0.12em;
+      font-family: 'Noto Serif JP', serif;
+    }
+    .tab.active {
+      border-top: 2px solid #c5a059;
+      box-shadow: 0 -2px 8px rgba(197, 160, 89, 0.3);
+    }
+    .tab.active .tab-icon-svg { color: #e8e5df; }
+    .tab.active .tab-label    { color: #c5a059; }
+    .tab-icon-svg {
+      display: block;
+      stroke: currentColor;
+      fill: none;
+    }
 
     /* ── 画面1: 現場トップ ── */
     .site-top-header {
@@ -229,11 +245,15 @@
   <!-- ── 下部タブバー（全画面共通） ── -->
   <nav class="tab-bar">
     <button class="tab active" data-tab="genba">
-      <span class="tab-icon">🏗</span>
+      <svg class="tab-icon-svg" viewBox="0 0 24 24" fill="none">
+        <path d="M2 20 L12 4 L22 20 Z" stroke="currentColor" stroke-width="1.5"/>
+      </svg>
       <span class="tab-label">現場</span>
     </button>
     <button class="tab" data-tab="shimai">
-      <span class="tab-icon">🔥</span>
+      <svg class="tab-icon-svg" viewBox="0 0 24 24" fill="none">
+        <path d="M12 3 L21 12 L12 21 L3 12 Z" stroke="currentColor" stroke-width="1.5"/>
+      </svg>
       <span class="tab-label">仕舞い</span>
     </button>
   </nav>
