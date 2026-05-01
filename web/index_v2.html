@@ -8,7 +8,7 @@
   <link rel="icon" href="favicon.ico">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="theme-color" content="#0a0a0a">
+  <meta name="theme-color" content="#0d0d0b">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500&display=swap" rel="stylesheet">
   <style>
@@ -16,8 +16,8 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
       height: 100%;
-      background: #0a0a0a;
-      color: #f0ede8;
+      background: #0d0d0b;
+      color: #e8e4d8;
       font-family: 'Noto Sans JP', sans-serif;
       font-size: 14px;
       -webkit-font-smoothing: antialiased;
@@ -50,8 +50,8 @@
       width: 100%;
       max-width: 600px;
       display: flex;
-      border-top: 1px solid #1a1a1a;
-      background: #0a0a0a;
+      border-top: 1px solid #1e1e1a;
+      background: #0d0d0b;
       z-index: 100;
     }
     .tab {
@@ -64,12 +64,12 @@
       border: none;
       background: none;
       cursor: pointer;
-      color: #555;
+      color: #4a4a42;
       font-family: inherit;
       transition: color 0.15s;
     }
-    .tab.active { color: #f0ede8; }
-    .tab.active .tab-label { color: #8db89a; }
+    .tab.active { color: #e8e4d8; }
+    .tab.active .tab-label { color: #c5a059; }
     .tab-icon { font-size: 20px; line-height: 1; }
     .tab-label { font-size: 12px; letter-spacing: 0.06em; }
 
@@ -79,15 +79,15 @@
     }
     .site-top-eyebrow {
       font-size: 12px;
-      color: #555;
-      letter-spacing: 0.18em;
+      color: #4a4a42;
+      letter-spacing: 0.25em;
       text-transform: uppercase;
       margin-bottom: 10px;
     }
     .site-top-heading {
       font-size: 20px;
       font-weight: 300;
-      color: #f0ede8;
+      color: #e8e4d8;
       line-height: 1.5;
     }
 
@@ -107,8 +107,8 @@
       gap: 5px;
       padding: 18px 20px;
       min-height: 72px;
-      background: #181818;
-      border: 1px solid #2a2a2a;
+      background: #161614;
+      border: 1px solid #2a2a24;
       border-radius: 12px;
       cursor: pointer;
       font-family: inherit;
@@ -116,19 +116,19 @@
       transition: border-color 0.15s, background 0.15s;
     }
     .site-card:active {
-      background: #1e1e1e;
+      background: #1e1e1a;
       border-color: #333;
     }
     .site-slug {
       font-size: 18px;
       font-weight: 500;
-      color: #f0ede8;
-      letter-spacing: 0.04em;
+      color: #c5a059;
+      letter-spacing: 0.05em;
     }
     .site-address {
       font-size: 14px;
       font-weight: 300;
-      color: #aaa;
+      color: #9a9a8e;
     }
 
     /* 空状態 */
@@ -136,7 +136,7 @@
       padding: 40px 20px;
       text-align: center;
       font-size: 13px;
-      color: #555;
+      color: #4a4a42;
       font-weight: 300;
     }
 
@@ -146,10 +146,10 @@
       padding: 0;
     }
     .site-fallback-label {
-      font-size: 13px;
-      color: #666;
-      margin-bottom: 10px;
-      letter-spacing: 0.04em;
+      font-size: 12px;
+      color: #4a4a42;
+      margin-bottom: 12px;
+      letter-spacing: 0.15em;
     }
     .site-fallback-links {
       display: flex;
@@ -161,9 +161,9 @@
       align-items: center;
       justify-content: space-between;
       padding: 12px 0;
-      border-bottom: 1px solid #181818;
+      border-bottom: 1px solid #1e1e1a;
       font-size: 14px;
-      color: #888;
+      color: #6a6a5e;
       font-weight: 300;
       background: none;
       border-top: none;
@@ -177,7 +177,7 @@
     .site-fallback-link::after {
       content: '›';
       font-size: 18px;
-      color: #555;
+      color: #4a4a42;
     }
     .site-fallback-link:last-child { border-bottom: none; }
 
