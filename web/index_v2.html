@@ -277,15 +277,28 @@
       line-height: 1.7;
       white-space: pre-wrap;
     }
+    #screen-handover {
+      overflow-y: hidden;
+      padding: 0;
+      height: 100%;
+    }
+    .handover-scroll-area {
+      flex: 1;
+      overflow-y: auto;
+      padding-bottom: 8px;
+    }
     .handover-empty {
-      padding: 40px 20px;
       text-align: center;
-      font-size: 13px;
-      color: #4a4a42;
-      font-weight: 300;
+      font-size: 14px;
+      color: #777;
+      padding: 32px 20px;
     }
     .checkin-area {
-      padding: 24px 20px;
+      flex-shrink: 0;
+      padding: 16px 20px;
+      padding-bottom: calc(16px + env(safe-area-inset-bottom));
+      border-top: 1px solid #1e1e1a;
+      background: #0d0d0b;
     }
     .checkin-btn {
       width: 100%;
@@ -346,7 +359,9 @@
       <span class="screen-title" id="handover-site-name"></span>
     </div>
     <p class="screen-subtitle">入る前に、ここだけ確認</p>
-    <div id="handover-list"></div>
+    <div class="handover-scroll-area">
+      <div id="handover-list"></div>
+    </div>
     <div class="checkin-area">
       <button class="checkin-btn" id="btn-checkin">入館・作業開始</button>
     </div>
