@@ -1,0 +1,153 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── ヘルパー関数 ──────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function uid() {
+      return request.auth.uid;
+    }
+
+    function userRole() {
+      return get(/databases/$(database)/documents/users/$(uid())).data.role;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && userRole() == 'admin';
+    }
+
+    function isLeader() {
+      return isSignedIn() && (userRole() == 'leader' || userRole() == 'admin');
+    }
+
+    function isHunter() {
+      return isSignedIn();
+    }
+
+    function isAssignedToProject(projectId) {
+      return exists(/databases/$(database)/documents/users/$(uid())/assignments/$(projectId));
+    }
+
+    // ── users ────────────────────────────────────────────
+    match /users/{userId} {
+      allow read:   if isSignedIn() && (uid() == userId || isAdmin());
+      allow create: if isSignedIn() && uid() == userId;
+      allow update: if isSignedIn() && (uid() == userId || isAdmin());
+      allow delete: if isAdmin();
+
+      // assignments サブコレクション
+      match /assignments/{projectId} {
+        allow read:   if isSignedIn() && (uid() == userId || isAdmin());
+        allow write:  if isAdmin();
+      }
+    }
+
+    // ── properties ───────────────────────────────────────
+    match /properties/{propertyId} {
+      allow read:   if isHunter();
+      allow write:  if isAdmin();
+    }
+
+    // ── projects ─────────────────────────────────────────
+    match /projects/{projectId} {
+      allow read:   if isHunter() && isAssignedToProject(projectId) || isAdmin();
+      allow write:  if isAdmin();
+
+      // assignments サブコレクション
+      match /assignments/{hunterUid} {
+        allow read:   if isSignedIn() && (uid() == hunterUid || isLeader() || isAdmin());
+        allow write:  if isAdmin();
+      }
+    }
+
+    // ── workSessions ─────────────────────────────────────
+    match /workSessions/{sessionId} {
+      allow read:   if isSignedIn() && (
+                      resource.data.hunterUid == uid() ||
+                      isLeader() ||
+                      isAdmin()
+                    );
+      allow create: if isHunter() && request.resource.data.hunterUid == uid();
+      allow update: if isSignedIn() && (
+                      resource.data.hunterUid == uid() ||
+                      isAdmin()
+                    );
+      allow delete: if isAdmin();
+
+      // expenses サブコレクション
+      match /expenses/{expenseId} {
+        allow read:   if isSignedIn() && (
+                        get(/databases/$(database)/documents/workSessions/$(sessionId)).data.hunterUid == uid() ||
+                        isLeader() ||
+                        isAdmin()
+                      );
+        allow create: if isHunter() &&
+                        get(/databases/$(database)/documents/workSessions/$(sessionId)).data.hunterUid == uid();
+        allow update: if isSignedIn() && (
+                        get(/databases/$(database)/documents/workSessions/$(sessionId)).data.hunterUid == uid() ||
+                        isAdmin()
+                      );
+        allow delete: if isAdmin();
+      }
+    }
+
+    // ── helpSignals ──────────────────────────────────────
+    match /helpSignals/{signalId} {
+      allow read:   if isSignedIn() && (
+                      resource.data.createdBy == uid() ||
+                      uid() in resource.data.notifyTo ||
+                      isLeader() ||
+                      isAdmin()
+                    );
+      allow create: if isHunter() && request.resource.data.createdBy == uid();
+      allow update: if isSignedIn() && (
+                      resource.data.createdBy == uid() ||
+                      isLeader() ||
+                      isAdmin()
+                    );
+      allow delete: if isAdmin();
+    }
+
+    // ── photos ───────────────────────────────────────────
+    match /photos/{photoId} {
+      allow read:   if isSignedIn() && (
+                      resource.data.uploaderUid == uid() ||
+                      (resource.data.type == 'work' && isAssignedToProject(resource.data.projectId)) ||
+                      (resource.data.type == 'handover' && resource.data.approvalStatus == 'approved') ||
+                      isAdmin()
+                    );
+      allow create: if isHunter() && request.resource.data.uploaderUid == uid();
+      allow update: if isSignedIn() && (
+                      resource.data.uploaderUid == uid() ||
+                      isAdmin()
+                    );
+      allow delete: if isAdmin();
+    }
+
+    // ── siteAliases ──────────────────────────────────────
+    match /siteAliases/{aliasId} {
+      allow read:   if isHunter();
+      allow create: if isHunter();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ── invoiceDrafts ────────────────────────────────────
+    match /invoiceDrafts/{invoiceId} {
+      allow read:   if isSignedIn() && (
+                      resource.data.hunterUid == uid() ||
+                      isAdmin()
+                    );
+      allow create: if isHunter() && request.resource.data.hunterUid == uid();
+      allow update: if isSignedIn() && (
+                      resource.data.hunterUid == uid() ||
+                      isAdmin()
+                    );
+      allow delete: if isAdmin();
+    }
+
+  }
+}
