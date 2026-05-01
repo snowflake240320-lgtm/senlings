@@ -120,3 +120,151 @@ export async function getUserAssignments(uid) {
   const snap = await getDocs(q);
   return snap.docs.map(d => d.data());
 }
+
+// ── properties コレクション ──────────────────────────────
+
+export async function saveProperty(data) {
+  const ref = data.propertyId
+    ? doc(db, 'properties', data.propertyId)
+    : doc(collection(db, 'properties'));
+  await setDoc(ref, {
+    displayName:  data.displayName  ?? null,
+    address:      data.address      ?? null,
+    coords:       data.coords       ?? null,
+    handoverBase: data.handoverBase ?? {
+      specialEquipment: null,
+      parking:          null,
+      toilet:           null,
+      morningBriefing:  null,
+      delivery:         null,
+      access:           null,
+      workHours:        null,
+      contact:          null,
+    },
+    createdBy:    data.createdBy    ?? null,
+    createdAt:    data.createdAt    ?? serverTimestamp(),
+    updatedAt:    serverTimestamp(),
+  }, { merge: true });
+  return ref.id;
+}
+
+export async function getProperty(propertyId) {
+  const snap = await getDoc(doc(db, 'properties', propertyId));
+  return snap.exists() ? { propertyId: snap.id, ...snap.data() } : null;
+}
+
+// ── workSessions コレクション ────────────────────────────
+
+export async function saveWorkSession(data) {
+  const ref = data.sessionId
+    ? doc(db, 'workSessions', data.sessionId)
+    : doc(collection(db, 'workSessions'));
+  await setDoc(ref, {
+    projectId:             data.projectId             ?? null,
+    propertyId:            data.propertyId            ?? null,
+    hunterUid:             data.hunterUid             ?? null,
+    date:                  data.date                  ?? null,
+    status:                data.status                ?? 'working',
+    startedAt:             data.startedAt             ?? serverTimestamp(),
+    returnedAt:            data.returnedAt            ?? null,
+    coords:                data.coords                ?? null,
+    relatedHelpSignalIds:  data.relatedHelpSignalIds  ?? [],
+    relatedPhotoIds:       data.relatedPhotoIds        ?? [],
+    createdAt:             data.createdAt             ?? serverTimestamp(),
+    updatedAt:             serverTimestamp(),
+  }, { merge: true });
+  return ref.id;
+}
+
+export async function getWorkSession(sessionId) {
+  const snap = await getDoc(doc(db, 'workSessions', sessionId));
+  return snap.exists() ? { sessionId: snap.id, ...snap.data() } : null;
+}
+
+// ── helpSignals コレクション ─────────────────────────────
+
+export async function saveHelpSignal(data) {
+  const ref = data.signalId
+    ? doc(db, 'helpSignals', data.signalId)
+    : doc(collection(db, 'helpSignals'));
+  await setDoc(ref, {
+    sessionId:   data.sessionId   ?? null,
+    projectId:   data.projectId   ?? null,
+    propertyId:  data.propertyId  ?? null,
+    fieldKey:    data.fieldKey    ?? 'other',
+    fieldLabel:  data.fieldLabel  ?? '',
+    description: data.description ?? null,
+    photoIds:    data.photoIds    ?? [],
+    moodKey:     data.moodKey     ?? null,
+    moodLabel:   data.moodLabel   ?? null,
+    status:      data.status      ?? 'open',
+    resolvedAt:  data.resolvedAt  ?? null,
+    createdBy:   data.createdBy   ?? null,
+    notifyTo:    data.notifyTo    ?? [],
+    createdAt:   data.createdAt   ?? serverTimestamp(),
+    updatedAt:   serverTimestamp(),
+  }, { merge: true });
+  return ref.id;
+}
+
+// ── siteAliases コレクション ─────────────────────────────
+
+export async function saveSiteAlias(data) {
+  const aliasKey = (data.siteLabel ?? '')
+    .replace(/\s/g, '')
+    .normalize('NFKC')
+    .toLowerCase();
+
+  const ref = data.aliasId
+    ? doc(db, 'siteAliases', data.aliasId)
+    : doc(collection(db, 'siteAliases'));
+  await setDoc(ref, {
+    siteLabel:      data.siteLabel      ?? null,
+    aliasKey:       aliasKey,
+    normalizedName: data.normalizedName ?? null,
+    propertyId:     data.propertyId     ?? null,
+    projectId:      data.projectId      ?? null,
+    sourceUid:      data.sourceUid      ?? null,
+    confidence:     data.confidence     ?? null,
+    status:         data.status         ?? 'unmatched',
+    createdAt:      data.createdAt      ?? serverTimestamp(),
+    updatedAt:      serverTimestamp(),
+  }, { merge: true });
+  return ref.id;
+}
+
+// ── invoiceDrafts コレクション ───────────────────────────
+
+export async function saveInvoiceDraft(data) {
+  const ref = data.invoiceId
+    ? doc(db, 'invoiceDrafts', data.invoiceId)
+    : doc(collection(db, 'invoiceDrafts'));
+  await setDoc(ref, {
+    projectId:        data.projectId        ?? null,
+    propertyId:       data.propertyId       ?? null,
+    hunterUid:        data.hunterUid        ?? null,
+    billingMonth:     data.billingMonth      ?? null,
+    workSessionIds:   data.workSessionIds    ?? [],
+    expenseRefs:      data.expenseRefs       ?? [],
+    status:           data.status           ?? 'draft',
+    version:          data.version          ?? 1,
+    taxRate:          data.taxRate          ?? 0.10,
+    subtotalWork:     data.subtotalWork      ?? 0,
+    subtotalExpense:  data.subtotalExpense   ?? 0,
+    subtotal:         data.subtotal          ?? 0,
+    taxAmount:        data.taxAmount         ?? 0,
+    total:            data.total             ?? 0,
+    exportedAt:       data.exportedAt        ?? null,
+    exportFileName:   data.exportFileName    ?? null,
+    pdfExportedAt:    data.pdfExportedAt     ?? null,
+    pdfFileName:      data.pdfFileName       ?? null,
+    createdAt:        data.createdAt         ?? serverTimestamp(),
+    updatedAt:        serverTimestamp(),
+  }, { merge: true });
+  return ref.id;
+}
+
+export async function getInvoiceDraft(invoiceId) {
+  const snap = await getDoc(doc(db, 'invoiceDrafts', invoiceId));
+  return snap.exists() ? { invoiceId: snap.id, ...snap.data() } : null;
+}
