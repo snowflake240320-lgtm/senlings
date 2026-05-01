@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Senlings</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="favicon.ico">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="theme-color" content="#0a0a0a">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    /* ── リセット・ベース ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      background: #0a0a0a;
+      color: #f0ede8;
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 14px;
+      -webkit-font-smoothing: antialiased;
+    }
+    body {
+      max-width: 430px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      min-height: 100dvh;
+    }
+
+    /* ── 画面コンテナ ── */
+    .screen { display: none; flex: 1; overflow-y: auto; padding: 0 0 80px; }
+    .screen.active { display: flex; flex-direction: column; }
+
+    /* ── 下部タブバー ── */
+    .tab-bar {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 430px;
+      display: flex;
+      border-top: 1px solid #1a1a1a;
+      background: #0a0a0a;
+      z-index: 100;
+    }
+    .tab {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      padding: 10px 4px 14px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      color: #444;
+      font-family: inherit;
+      transition: color 0.15s;
+    }
+    .tab.active { color: #f0ede8; }
+    .tab-icon { font-size: 20px; line-height: 1; }
+    .tab-label { font-size: 10px; letter-spacing: 0.06em; }
+
+    /* ── 画面1: 現場トップ ── */
+    .site-top-header {
+      padding: 28px 20px 20px;
+    }
+    .site-top-eyebrow {
+      font-size: 10px;
+      color: #555;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .site-top-heading {
+      font-size: 17px;
+      font-weight: 300;
+      color: #f0ede8;
+      line-height: 1.5;
+    }
+
+    /* 現場カード一覧 */
+    .site-list {
+      padding: 0 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .site-card {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+      padding: 18px 20px;
+      background: #181818;
+      border: 1px solid #222;
+      border-radius: 10px;
+      cursor: pointer;
+      font-family: inherit;
+      text-align: left;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .site-card:active {
+      background: #1e1e1e;
+      border-color: #333;
+    }
+    .site-slug {
+      font-size: 13px;
+      font-weight: 500;
+      color: #f0ede8;
+      letter-spacing: 0.04em;
+    }
+    .site-address {
+      font-size: 12px;
+      font-weight: 300;
+      color: #888;
+    }
+
+    /* 空状態 */
+    .site-empty {
+      padding: 40px 20px;
+      text-align: center;
+      font-size: 13px;
+      color: #555;
+      font-weight: 300;
+    }
+
+    /* 「現場が見つからない場合」導線 */
+    .site-fallback {
+      margin: 28px 20px 0;
+      padding: 0;
+    }
+    .site-fallback-label {
+      font-size: 11px;
+      color: #444;
+      margin-bottom: 10px;
+      letter-spacing: 0.04em;
+    }
+    .site-fallback-links {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .site-fallback-link {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 13px 0;
+      border-bottom: 1px solid #181818;
+      font-size: 13px;
+      color: #888;
+      font-weight: 300;
+      background: none;
+      border-top: none;
+      border-left: none;
+      border-right: none;
+      cursor: pointer;
+      font-family: inherit;
+      text-align: left;
+      width: 100%;
+    }
+    .site-fallback-link::after {
+      content: '›';
+      font-size: 18px;
+      color: #444;
+    }
+    .site-fallback-link:last-child { border-bottom: none; }
+  </style>
+</head>
+<body>
+
+  <!-- ── 画面1: 現場トップ ── -->
+  <div id="screen-site-top" class="screen active">
+    <div class="site-top-header">
+      <p class="site-top-eyebrow">SENLINGS</p>
+      <h1 class="site-top-heading">今日はどこへ入りますか？</h1>
+    </div>
+
+    <div class="site-list" id="site-list">
+      <!-- app_v2.js が描画 -->
+    </div>
+
+    <div class="site-fallback">
+      <p class="site-fallback-label">現場が見つからない場合</p>
+      <div class="site-fallback-links">
+        <button class="site-fallback-link" id="btn-contact-manager">担当者へ確認する</button>
+        <button class="site-fallback-link" id="btn-add-site">現場を追加する</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 下部タブバー（全画面共通） ── -->
+  <nav class="tab-bar">
+    <button class="tab active" data-tab="genba">
+      <span class="tab-icon">🏗</span>
+      <span class="tab-label">現場</span>
+    </button>
+    <button class="tab" data-tab="shimai">
+      <span class="tab-icon">🔥</span>
+      <span class="tab-label">仕舞い</span>
+    </button>
+  </nav>
+
+  <script type="module" src="app_v2.js"></script>
+</body>
+</html>
