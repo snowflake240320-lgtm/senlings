@@ -278,14 +278,15 @@
       white-space: pre-wrap;
     }
     #screen-handover {
-      overflow-y: hidden;
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - 60px);
+      overflow: hidden;
       padding: 0;
-      height: 100%;
     }
     .handover-scroll-area {
       flex: 1;
       overflow-y: auto;
-      padding-bottom: 8px;
     }
     .handover-empty {
       text-align: center;
@@ -296,7 +297,6 @@
     .checkin-area {
       flex-shrink: 0;
       padding: 16px 20px;
-      padding-bottom: calc(16px + env(safe-area-inset-bottom));
       border-top: 1px solid #1e1e1a;
       background: #0d0d0b;
     }
