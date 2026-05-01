@@ -291,3 +291,28 @@ export async function saveExpense(sessionId, data) {
   }, { merge: true });
   return ref.id;
 }
+
+// ── photos コレクション ──────────────────────────────────
+
+export async function savePhoto(data) {
+  const ref = data.photoId
+    ? doc(db, 'photos', data.photoId)
+    : doc(collection(db, 'photos'));
+
+  const approvalStatus = data.approvalStatus
+    ?? (data.type === 'handover' ? 'pending' : 'not_required');
+
+  await setDoc(ref, {
+    projectId:      data.projectId      ?? null,
+    propertyId:     data.propertyId     ?? null,
+    sessionId:      data.sessionId      ?? null,
+    uploaderUid:    data.uploaderUid    ?? null,
+    type:           data.type           ?? 'work',
+    storagePath:    data.storagePath    ?? null,
+    storageUrl:     data.storageUrl     ?? null,
+    approvalStatus: approvalStatus,
+    caption:        data.caption        ?? null,
+    createdAt:      data.createdAt      ?? serverTimestamp(),
+  }, { merge: true });
+  return ref.id;
+}
