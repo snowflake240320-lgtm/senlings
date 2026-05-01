@@ -286,6 +286,16 @@
       color: #e05555;
     }
 
+    /* CSV エクスポート */
+    .export-csv-group { margin-top: 1rem; display: flex; flex-direction: column; gap: 8px; }
+    .export-csv-row   { display: flex; gap: 8px; }
+    .export-input     {
+      flex: 1; padding: 0.625rem 0.75rem;
+      background: #111; border: 1px solid #2a2a2a; border-radius: 6px;
+      color: #f0ede8; font-size: 12px; font-family: inherit;
+    }
+    .export-btn-csv { flex-shrink: 0; width: auto; padding: 0.625rem 1rem; font-size: 12px; }
+
     /* 請求・ユーザー設定 */
     .settings-form-section {
       margin-top: 2rem;
@@ -632,6 +642,24 @@
       <button class="export-btn" id="btn-export-json">
         JSON（全データ）をダウンロード
       </button>
+      <!-- CSV エクスポート -->
+      <div class="export-csv-group">
+        <div class="export-csv-row">
+          <input class="export-input" id="export-billing-month" type="month"
+                 placeholder="YYYY-MM" title="月次エクスポート対象月">
+          <button class="export-btn export-btn-csv" id="btn-export-csv-monthly">
+            CSV（月次）
+          </button>
+        </div>
+        <div class="export-csv-row">
+          <select class="export-input" id="export-project-select">
+            <option value="">工事を選ぶ</option>
+          </select>
+          <button class="export-btn export-btn-csv" id="btn-export-csv-project">
+            CSV（工事単位）
+          </button>
+        </div>
+      </div>
       <p class="export-error" id="export-error" style="display:none;"></p>
     </section>
     <!-- ===== /データエクスポート ===== -->

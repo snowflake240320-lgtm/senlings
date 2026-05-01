@@ -1289,3 +1289,39 @@ document.getElementById('btn-save-settings')?.addEventListener('click', () => {
 
 loadSettingsToForm();
 // ===== /請求・ユーザー設定 =====
+
+// ===== CSVエクスポート（STEP 15） =====
+import { exportMonthlyCSV, exportProjectCSV } from './src/pwa/csvExport.js';
+
+// 工事セレクトボックスを現場一覧で初期化する
+function initProjectSelect() {
+  const sel = document.getElementById('export-project-select');
+  if (!sel) return;
+  const raw = localStorage.getItem('senlings_v0');
+  const projects = raw ? (JSON.parse(raw).projects ?? []) : [];
+  projects.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value       = p.project_id;
+    opt.textContent = `${p.project_slug} ${p.address ?? ''}`.trim();
+    sel.appendChild(opt);
+  });
+}
+
+// 月次CSVボタン
+document.getElementById('btn-export-csv-monthly')?.addEventListener('click', () => {
+  const month = document.getElementById('export-billing-month')?.value;
+  if (!month) { alert('対象月を選択してください'); return; }
+  const result = exportMonthlyCSV(month);
+  if (result.rows === 0) alert('該当するデータがありません');
+});
+
+// 工事単位CSVボタン
+document.getElementById('btn-export-csv-project')?.addEventListener('click', () => {
+  const projectId = document.getElementById('export-project-select')?.value;
+  if (!projectId) { alert('工事を選択してください'); return; }
+  const result = exportProjectCSV(projectId);
+  if (result.rows === 0) alert('該当するデータがありません');
+});
+
+initProjectSelect();
+// ===== /CSVエクスポート =====
