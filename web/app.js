@@ -1237,3 +1237,55 @@ document.getElementById('btn-export-json').addEventListener('click', () => {
   }
 });
 // ===== /データエクスポート =====
+
+// ===== 請求・ユーザー設定（STEP 14） =====
+import { SETTINGS_KEYS, getSetting, saveSettingsFromForm } from './src/pwa/settings.js';
+
+// 設定フォームに保存済みの値を反映する
+function loadSettingsToForm() {
+  const map = {
+    'setting-user-name':           SETTINGS_KEYS.USER_NAME,
+    'setting-unit-price':          SETTINGS_KEYS.WORK_UNIT_PRICE,
+    'setting-tax-rate':            SETTINGS_KEYS.TAX_RATE,
+    'setting-registrated-number':  SETTINGS_KEYS.REGISTRATED_NUMBER,
+    'setting-bank-name':           SETTINGS_KEYS.BANK_NAME,
+    'setting-bank-branch':         SETTINGS_KEYS.BANK_BRANCH,
+    'setting-bank-account-type':   SETTINGS_KEYS.BANK_ACCOUNT_TYPE,
+    'setting-bank-account-number': SETTINGS_KEYS.BANK_ACCOUNT_NUMBER,
+    'setting-bank-account-holder': SETTINGS_KEYS.BANK_ACCOUNT_HOLDER,
+  };
+  for (const [id, key] of Object.entries(map)) {
+    const el = document.getElementById(id);
+    if (el) el.value = getSetting(key) ?? '';
+  }
+}
+
+// 保存ボタン
+document.getElementById('btn-save-settings')?.addEventListener('click', () => {
+  const map = {
+    'setting-user-name':           SETTINGS_KEYS.USER_NAME,
+    'setting-unit-price':          SETTINGS_KEYS.WORK_UNIT_PRICE,
+    'setting-tax-rate':            SETTINGS_KEYS.TAX_RATE,
+    'setting-registrated-number':  SETTINGS_KEYS.REGISTRATED_NUMBER,
+    'setting-bank-name':           SETTINGS_KEYS.BANK_NAME,
+    'setting-bank-branch':         SETTINGS_KEYS.BANK_BRANCH,
+    'setting-bank-account-type':   SETTINGS_KEYS.BANK_ACCOUNT_TYPE,
+    'setting-bank-account-number': SETTINGS_KEYS.BANK_ACCOUNT_NUMBER,
+    'setting-bank-account-holder': SETTINGS_KEYS.BANK_ACCOUNT_HOLDER,
+  };
+  const formData = {};
+  for (const [id, key] of Object.entries(map)) {
+    const el = document.getElementById(id);
+    if (el) formData[key] = el.value;
+  }
+  saveSettingsFromForm(formData);
+
+  const msg = document.getElementById('settings-saved-msg');
+  if (msg) {
+    msg.style.display = 'block';
+    setTimeout(() => { msg.style.display = 'none'; }, 2000);
+  }
+});
+
+loadSettingsToForm();
+// ===== /請求・ユーザー設定 =====

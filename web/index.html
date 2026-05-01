@@ -285,6 +285,65 @@
       font-size: 0.85rem;
       color: #e05555;
     }
+
+    /* 請求・ユーザー設定 */
+    .settings-form-section {
+      margin-top: 2rem;
+      padding: 1.25rem;
+      background: #181818;
+      border: 1px solid #222;
+      border-radius: 8px;
+    }
+    .settings-form-title {
+      font-size: 13px;
+      color: #888;
+      font-weight: 400;
+      margin-bottom: 1rem;
+      letter-spacing: 0.1em;
+    }
+    .settings-group {
+      margin-bottom: 1rem;
+    }
+    .settings-label {
+      display: block;
+      font-size: 11px;
+      color: #555;
+      margin-bottom: 4px;
+      letter-spacing: 0.08em;
+    }
+    .settings-input {
+      width: 100%;
+      padding: 0.625rem 0.75rem;
+      background: #111;
+      border: 1px solid #2a2a2a;
+      border-radius: 6px;
+      color: #f0ede8;
+      font-size: 13px;
+      font-family: inherit;
+    }
+    .settings-input:focus {
+      outline: none;
+      border-color: #444;
+    }
+    .settings-save-btn {
+      width: 100%;
+      padding: 0.875rem;
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 6px;
+      color: #f0ede8;
+      font-size: 0.95rem;
+      cursor: pointer;
+      font-family: inherit;
+      margin-top: 0.5rem;
+    }
+    .settings-save-btn:active { background: #222; }
+    .settings-saved-msg {
+      margin-top: 0.5rem;
+      font-size: 12px;
+      color: #6ab87a;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -576,6 +635,66 @@
       <p class="export-error" id="export-error" style="display:none;"></p>
     </section>
     <!-- ===== /データエクスポート ===== -->
+
+    <!-- ===== 請求・ユーザー設定（STEP 14） ===== -->
+    <section class="settings-form-section" id="invoice-settings-section">
+      <h3 class="settings-form-title">請求書・口座設定</h3>
+
+      <div class="settings-group">
+        <label class="settings-label">お名前（請求書用）</label>
+        <input class="settings-input" id="setting-user-name" type="text" placeholder="山田 太郎">
+      </div>
+
+      <div class="settings-group">
+        <label class="settings-label">労務単価（円/人工）</label>
+        <input class="settings-input" id="setting-unit-price" type="number" placeholder="25000">
+      </div>
+
+      <div class="settings-group">
+        <label class="settings-label">消費税率</label>
+        <select class="settings-input" id="setting-tax-rate">
+          <option value="0.10">10%</option>
+          <option value="0.08">8%</option>
+        </select>
+      </div>
+
+      <div class="settings-group">
+        <label class="settings-label">インボイス登録番号（任意）</label>
+        <input class="settings-input" id="setting-registrated-number" type="text" placeholder="T1234567890123">
+      </div>
+
+      <div class="settings-group">
+        <label class="settings-label">銀行名</label>
+        <input class="settings-input" id="setting-bank-name" type="text" placeholder="○○銀行">
+      </div>
+
+      <div class="settings-group">
+        <label class="settings-label">支店名</label>
+        <input class="settings-input" id="setting-bank-branch" type="text" placeholder="○○支店">
+      </div>
+
+      <div class="settings-group">
+        <label class="settings-label">口座種別</label>
+        <select class="settings-input" id="setting-bank-account-type">
+          <option value="普通">普通</option>
+          <option value="当座">当座</option>
+        </select>
+      </div>
+
+      <div class="settings-group">
+        <label class="settings-label">口座番号</label>
+        <input class="settings-input" id="setting-bank-account-number" type="text" placeholder="1234567">
+      </div>
+
+      <div class="settings-group">
+        <label class="settings-label">口座名義</label>
+        <input class="settings-input" id="setting-bank-account-holder" type="text" placeholder="ヤマダ タロウ">
+      </div>
+
+      <button class="settings-save-btn" id="btn-save-settings">設定を保存する</button>
+      <p class="settings-saved-msg" id="settings-saved-msg" style="display:none;">保存しました</p>
+    </section>
+    <!-- ===== /請求・ユーザー設定 ===== -->
 
   </div><!-- /tab-settings -->
 
