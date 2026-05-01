@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="theme-color" content="#0d0d0b">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500&family=Noto+Serif+JP:wght@300;400&display=swap" rel="stylesheet">
   <style>
     /* ── リセット・ベース ── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -69,9 +69,10 @@
       transition: color 0.15s;
     }
     .tab.active { color: #e8e4d8; }
-    .tab.active .tab-label { color: #c5a059; }
+    .tab.active .tab-label { color: #e8e5df; }
+    .tab.active .tab-icon { filter: drop-shadow(0 0 4px #c5a059); }
     .tab-icon { font-size: 20px; line-height: 1; }
-    .tab-label { font-size: 12px; letter-spacing: 0.06em; }
+    .tab-label { font-size: 12px; letter-spacing: 0.06em; color: #888880; }
 
     /* ── 画面1: 現場トップ ── */
     .site-top-header {
@@ -83,6 +84,7 @@
       letter-spacing: 0.25em;
       text-transform: uppercase;
       margin-bottom: 10px;
+      font-family: 'Noto Serif JP', serif;
     }
     .site-top-heading {
       font-size: 20px;
@@ -109,6 +111,7 @@
       min-height: 72px;
       background: #161614;
       border: 1px solid #2a2a24;
+      border-left: 4px solid #c5a059;
       border-radius: 12px;
       cursor: pointer;
       font-family: inherit;
@@ -122,13 +125,13 @@
     .site-slug {
       font-size: 18px;
       font-weight: 500;
-      color: #c5a059;
+      color: #e8e5df;
       letter-spacing: 0.05em;
     }
     .site-address {
       font-size: 14px;
       font-weight: 300;
-      color: #9a9a8e;
+      color: #b3b3b3;
     }
 
     /* 空状態 */
@@ -147,9 +150,10 @@
     }
     .site-fallback-label {
       font-size: 12px;
-      color: #4a4a42;
+      color: #888880;
       margin-bottom: 12px;
       letter-spacing: 0.15em;
+      font-family: 'Noto Serif JP', serif;
     }
     .site-fallback-links {
       display: flex;
@@ -163,7 +167,7 @@
       padding: 12px 0;
       border-bottom: 1px solid #1e1e1a;
       font-size: 14px;
-      color: #6a6a5e;
+      color: #a0a0a0;
       font-weight: 300;
       background: none;
       border-top: none;
