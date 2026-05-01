@@ -102,8 +102,7 @@ function goToHandover(project) {
   document.getElementById('handover-site-name').textContent = project.project_slug;
   renderHandover(project);
   document.getElementById('btn-checkin').onclick = () => {
-    console.log('checkin:', project.project_id);
-    // 画面3（作業中）は後日実装
+    goToWorking(project, new Date());
   };
   showScreen('screen-handover');
 }
@@ -111,6 +110,26 @@ function goToHandover(project) {
 document.getElementById('btn-back-handover')?.addEventListener('click', () => {
   showScreen('screen-site-top');
 });
+
+// ── 画面3: 作業中 ────────────────────────────────────────
+
+function goToWorking(project, checkinTime) {
+  document.getElementById('working-site-name').textContent = project.project_slug;
+  const timeStr = checkinTime.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+  document.getElementById('working-checkin-time').textContent = `入場 ${timeStr}`;
+
+  document.getElementById('btn-sos').onclick = () => {
+    console.log('SOS:', project.project_id);
+  };
+  document.getElementById('btn-photo').onclick = () => {
+    console.log('photo:', project.project_id);
+  };
+  document.getElementById('btn-return').onclick = () => {
+    console.log('return:', project.project_id);
+  };
+
+  showScreen('screen-working');
+}
 
 // ── 初期化 ───────────────────────────────────────────────
 renderSiteTop();

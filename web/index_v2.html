@@ -315,6 +315,71 @@
       background: #2a2210;
     }
 
+    /* ── 画面3: 作業中 ── */
+    .working-header {
+      padding: 16px 20px 8px;
+      border-bottom: 1px solid #1e1e1a;
+    }
+    .working-site-name {
+      color: #e8e5df;
+      font-size: 16px;
+      font-weight: 500;
+    }
+    .working-checkin-time {
+      color: #777;
+      font-size: 12px;
+      margin-top: 4px;
+      font-family: 'Noto Serif JP', serif;
+      letter-spacing: 0.08em;
+    }
+    .working-actions {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 14px;
+      padding: 24px 20px;
+    }
+    .action-btn {
+      width: 100%;
+      padding: 20px;
+      border-radius: 12px;
+      font-size: 17px;
+      font-weight: 500;
+      font-family: 'Noto Sans JP', sans-serif;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      border: 1px solid;
+      background: none;
+      text-align: left;
+    }
+    .btn-sos {
+      background: #1a1208;
+      border-color: #d95b29;
+      color: #d95b29;
+    }
+    .btn-sos:active { background: #221508; }
+    .btn-photo {
+      background: #0c1218;
+      border-color: #2a6080;
+      color: #4090c8;
+    }
+    .btn-photo:active { background: #101820; }
+    .btn-return {
+      background: #161614;
+      border-color: #2a2a24;
+      color: #a0a0a0;
+    }
+    .btn-return:active { background: #1e1e1a; }
+    .btn-icon {
+      width: 22px;
+      height: 22px;
+      flex-shrink: 0;
+      stroke: currentColor;
+    }
+
     /* ── レスポンシブ ── */
     @media (max-width: 480px) {
       .site-slug    { font-size: 16px; }
@@ -362,6 +427,35 @@
     </div>
     <div class="checkin-area">
       <button class="checkin-btn" id="btn-checkin">入館・作業開始</button>
+    </div>
+  </div>
+
+  <!-- ── 画面3: 作業中 ── -->
+  <div id="screen-working" class="screen">
+    <div class="working-header">
+      <div class="working-site-name" id="working-site-name"></div>
+      <div class="working-checkin-time" id="working-checkin-time"></div>
+    </div>
+    <div class="working-actions">
+      <button class="action-btn btn-sos" id="btn-sos">
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="none">
+          <path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        迷ったら押す
+      </button>
+      <button class="action-btn btn-photo" id="btn-photo">
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="none">
+          <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" stroke="currentColor" stroke-width="1.5"/>
+          <circle cx="12" cy="13" r="4" stroke="currentColor" stroke-width="1.5"/>
+        </svg>
+        撮影・メモ
+      </button>
+      <button class="action-btn btn-return" id="btn-return">
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="none">
+          <path d="M2 20L8 8l4 6 4-4 6 10H2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+        </svg>
+        今日を返す
+      </button>
     </div>
   </div>
 
