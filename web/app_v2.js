@@ -29,9 +29,8 @@ function renderSiteTop() {
 
   list.querySelectorAll('.site-card').forEach(card => {
     card.addEventListener('click', () => {
-      const projectId = card.dataset.projectId;
-      console.log('selected project:', projectId);
-      // 画面2への遷移は後日実装
+      const project = projects.find(p => p.project_id === card.dataset.projectId);
+      if (project) goToHandover(project);
     });
   });
 }
@@ -44,6 +43,74 @@ function esc(val) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 }
+
+// ── 画面2: 申し送り ──────────────────────────────────────
+
+const HANDOVER_CATEGORIES = [
+  { key: 'entrance',         label: '現場アクセス' },
+  { key: 'equipment',        label: '特殊装備・入場条件', alert: true },
+  { key: 'parking',          label: '駐車場' },
+  { key: 'toilet',           label: 'トイレ' },
+  { key: 'morning_assembly', label: '朝礼' },
+  { key: 'delivery',         label: '搬入' },
+  { key: 'contact',          label: '連絡先' },
+];
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id)?.classList.add('active');
+}
+
+function renderHandover(project) {
+  const siteInfo = project.site_info ?? {};
+  const list = document.getElementById('handover-list');
+  list.innerHTML = '';
+
+  const items = HANDOVER_CATEGORIES.filter(c => siteInfo[c.key]);
+  if (items.length === 0) {
+    list.innerHTML = '<p class="handover-empty">申し送り情報はまだありません。</p>';
+    return;
+  }
+
+  const alertColor = '#d95b29';
+  items.forEach(cat => {
+    const isAlert = cat.alert === true;
+    const div = document.createElement('div');
+    div.className = 'handover-item';
+    div.innerHTML = `
+      <button class="handover-header">
+        <span class="handover-label"${isAlert ? ` style="color:${alertColor}"` : ''}>
+          ${isAlert ? '⚠ ' : ''}${cat.label}
+        </span>
+        <span class="handover-chevron"${isAlert ? ` style="color:${alertColor}"` : ''}>›</span>
+      </button>
+      <div class="handover-body" hidden>
+        <p class="handover-text">${esc(siteInfo[cat.key])}</p>
+      </div>
+    `;
+    div.querySelector('.handover-header').addEventListener('click', () => {
+      const body = div.querySelector('.handover-body');
+      const isOpen = !body.hidden;
+      body.hidden = isOpen;
+      div.classList.toggle('open', !isOpen);
+    });
+    list.appendChild(div);
+  });
+}
+
+function goToHandover(project) {
+  document.getElementById('handover-site-name').textContent = project.project_slug;
+  renderHandover(project);
+  document.getElementById('btn-checkin').onclick = () => {
+    console.log('checkin:', project.project_id);
+    // 画面3（作業中）は後日実装
+  };
+  showScreen('screen-handover');
+}
+
+document.getElementById('btn-back-handover')?.addEventListener('click', () => {
+  showScreen('screen-site-top');
+});
 
 // ── 初期化 ───────────────────────────────────────────────
 renderSiteTop();

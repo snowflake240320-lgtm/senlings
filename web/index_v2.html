@@ -210,6 +210,100 @@
     }
     .site-fallback-link:last-child { border-bottom: none; }
 
+    /* ── 画面2: 申し送り ── */
+    .screen-header {
+      display: flex;
+      align-items: center;
+      padding: 16px 20px;
+      border-bottom: 1px solid #1e1e1a;
+      gap: 12px;
+    }
+    .back-btn {
+      color: #c5a059;
+      font-size: 20px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px;
+      font-family: inherit;
+      line-height: 1;
+    }
+    .screen-title {
+      color: #e8e5df;
+      font-size: 16px;
+      font-weight: 500;
+    }
+    .screen-subtitle {
+      font-family: 'Noto Serif JP', serif;
+      color: #a0a0a0;
+      font-size: 12px;
+      padding: 12px 20px 8px;
+      letter-spacing: 0.1em;
+    }
+    .handover-item {
+      border-bottom: 1px solid #1e1e1a;
+    }
+    .handover-header {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      text-align: left;
+      font-family: inherit;
+    }
+    .handover-label {
+      color: #e8e5df;
+      font-size: 15px;
+      font-weight: 400;
+    }
+    .handover-chevron {
+      color: #c5a059;
+      font-size: 18px;
+      transition: transform 0.2s;
+    }
+    .handover-item.open .handover-chevron {
+      transform: rotate(90deg);
+    }
+    .handover-body {
+      padding: 0 20px 16px 20px;
+    }
+    .handover-text {
+      color: #c0c0c0;
+      font-size: 14px;
+      line-height: 1.7;
+      white-space: pre-wrap;
+    }
+    .handover-empty {
+      padding: 40px 20px;
+      text-align: center;
+      font-size: 13px;
+      color: #4a4a42;
+      font-weight: 300;
+    }
+    .checkin-area {
+      padding: 24px 20px;
+    }
+    .checkin-btn {
+      width: 100%;
+      padding: 16px;
+      background: #1e1a10;
+      border: 1px solid #c5a059;
+      border-radius: 12px;
+      color: #c5a059;
+      font-size: 16px;
+      font-weight: 500;
+      font-family: 'Noto Sans JP', sans-serif;
+      cursor: pointer;
+      letter-spacing: 0.05em;
+    }
+    .checkin-btn:active {
+      background: #2a2210;
+    }
+
     /* ── レスポンシブ ── */
     @media (max-width: 480px) {
       .site-slug    { font-size: 16px; }
@@ -242,6 +336,19 @@
         <button class="site-fallback-link" id="btn-contact-manager">担当者へ確認する</button>
         <button class="site-fallback-link" id="btn-add-site">現場を追加する</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ── 画面2: 申し送り ── -->
+  <div id="screen-handover" class="screen">
+    <div class="screen-header">
+      <button class="back-btn" id="btn-back-handover">‹</button>
+      <span class="screen-title" id="handover-site-name"></span>
+    </div>
+    <p class="screen-subtitle">入る前に、ここだけ確認</p>
+    <div id="handover-list"></div>
+    <div class="checkin-area">
+      <button class="checkin-btn" id="btn-checkin">入館・作業開始</button>
     </div>
   </div>
 
