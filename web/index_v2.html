@@ -472,6 +472,62 @@
       stroke: currentColor;
     }
 
+    /* ── 画面3-B: 休憩 ── */
+    #screen-rest {
+      flex: none;
+      height: calc(100dvh - 60px);
+      overflow: hidden;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .rest-map-section {
+      padding: 20px 20px 0;
+    }
+    .rest-map-label {
+      color: #777;
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      font-family: 'Noto Serif JP', serif;
+      margin-bottom: 12px;
+    }
+    .rest-map-categories {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .rest-cat-btn {
+      background: #161614;
+      border: 1px solid #2a2a24;
+      border-top: 1px solid rgba(232, 229, 223, 0.15);
+      border-radius: 20px;
+      color: #e8e5df;
+      font-size: 13px;
+      padding: 8px 14px;
+      cursor: pointer;
+      font-family: 'Noto Sans JP', sans-serif;
+    }
+    .rest-cat-btn:active {
+      background: #1e1e1a;
+      border-color: #c5a059;
+    }
+    .rest-map-placeholder {
+      background: #161614;
+      border: 1px dashed #2a2a24;
+      border-radius: 12px;
+      padding: 40px 20px;
+      text-align: center;
+      color: #444;
+      font-size: 13px;
+      line-height: 2;
+    }
+    .rest-map-note {
+      font-size: 11px;
+      color: #333;
+      font-family: 'Noto Serif JP', serif;
+    }
+
     /* ── レスポンシブ ── */
     @media (max-width: 480px) {
       .site-slug    { font-size: 16px; }
@@ -582,6 +638,58 @@
       </button>
 
     </div>
+  </div>
+
+  <!-- ── 画面3-B: 休憩 ── -->
+  <div id="screen-rest" class="screen">
+
+    <!-- ヘッダー -->
+    <div class="working-monitor">
+      <div class="screen-header">
+        <button class="back-btn" id="btn-back-rest">‹</button>
+        <span class="screen-title" id="rest-site-name"></span>
+      </div>
+      <div class="working-checkin-time" style="padding-left:52px;">休憩中</div>
+    </div>
+
+    <!-- スクロールエリア -->
+    <div class="handover-scroll-area">
+
+      <!-- 迷ったら押す（休憩中も表示） -->
+      <div style="padding: 16px 20px 0;">
+        <button class="action-btn btn-sos" id="btn-sos-rest">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none">
+            <path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <span class="btn-main-text">迷ったら押す</span>
+          <span class="btn-sub">救助信号 / SIGNAL</span>
+        </button>
+      </div>
+
+      <!-- 周辺地図セクション -->
+      <div class="rest-map-section">
+        <p class="rest-map-label">周辺を探す</p>
+        <div class="rest-map-categories">
+          <button class="rest-cat-btn">🍜 ご飯・カフェ</button>
+          <button class="rest-cat-btn">🚬 喫煙場所</button>
+          <button class="rest-cat-btn">🏪 コンビニ</button>
+          <button class="rest-cat-btn">🍱 お弁当屋</button>
+          <button class="rest-cat-btn">🔨 ホームセンター</button>
+          <button class="rest-cat-btn">⛽ ガソリンスタンド</button>
+        </div>
+        <div class="rest-map-placeholder">
+          <p>地図はここに表示されます</p>
+          <p class="rest-map-note">Google Maps連携は後日実装</p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 作業再開ボタン（下部固定） -->
+    <div class="checkin-area">
+      <button class="checkin-btn" id="btn-resume">作業再開</button>
+    </div>
+
   </div>
 
   <!-- ── 下部タブバー（全画面共通） ── -->

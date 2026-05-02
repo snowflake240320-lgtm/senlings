@@ -129,14 +129,39 @@ function goToWorking(project, checkinTime) {
     console.log('photo:', project.project_id);
   };
   document.getElementById('btn-rest').onclick = () => {
-    console.log('rest:', project.project_id);
-    // 画面3-B（休憩）は後日実装
+    goToRest(project);
   };
   document.getElementById('btn-return').onclick = () => {
     console.log('return:', project.project_id);
   };
 
   showScreen('screen-working');
+}
+
+// ── 画面3-B: 休憩 ────────────────────────────────────────
+
+function goToRest(project) {
+  document.getElementById('rest-site-name').textContent = project.project_slug;
+
+  document.getElementById('btn-back-rest').onclick = () => {
+    showScreen('screen-working');
+  };
+
+  document.getElementById('btn-resume').onclick = () => {
+    showScreen('screen-working');
+  };
+
+  document.getElementById('btn-sos-rest').onclick = () => {
+    console.log('SOS from rest:', project.project_id);
+  };
+
+  document.querySelectorAll('.rest-cat-btn').forEach(btn => {
+    btn.onclick = () => {
+      console.log('map category:', btn.textContent.trim());
+    };
+  });
+
+  showScreen('screen-rest');
 }
 
 // ── 初期化 ───────────────────────────────────────────────
