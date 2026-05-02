@@ -397,9 +397,11 @@ document.querySelectorAll('.tab').forEach(tab => {
       if (isOnSite()) {
         const modal = document.getElementById('shimai-confirm-modal');
         modal.hidden = false;
+        document.body.style.overflow = 'hidden';
 
         document.getElementById('btn-shimai-confirm-return').onclick = () => {
           modal.hidden = true;
+          document.body.style.overflow = '';
           document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
           document.querySelector('[data-tab="genba"]').classList.add('active');
           if (currentProject) {
@@ -411,12 +413,14 @@ document.querySelectorAll('.tab').forEach(tab => {
 
         document.getElementById('btn-shimai-confirm-skip').onclick = () => {
           modal.hidden = true;
+          document.body.style.overflow = '';
           renderShimai();
           showScreen('screen-shimai');
         };
 
         document.getElementById('btn-shimai-confirm-cancel').onclick = () => {
           modal.hidden = true;
+          document.body.style.overflow = '';
           document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
           document.querySelector('[data-tab="genba"]').classList.add('active');
         };
