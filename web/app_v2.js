@@ -320,7 +320,8 @@ function showReturnComplete() {
     modal.hidden = true;
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     document.querySelector('[data-tab="shimai"]').classList.add('active');
-    showScreen('screen-shimai');
+    // 画面6は後日実装のため、現時点では画面1に戻る
+    showScreen('screen-site-top');
   };
 
   modal.hidden = false;
