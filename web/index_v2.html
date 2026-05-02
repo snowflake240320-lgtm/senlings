@@ -534,6 +534,99 @@
       font-family: 'Noto Serif JP', serif;
     }
 
+    /* ── 画面4: SOS ── */
+    #screen-sos {
+      flex: none;
+      height: calc(100dvh - 60px);
+      overflow: hidden;
+      padding: 0;
+    }
+    #screen-sos .working-monitor {
+      flex: none;
+    }
+    .sos-option {
+      width: 100%;
+      padding: 16px 20px;
+      background: #161614;
+      border: 1px solid #2a2a24;
+      border-top: 1px solid rgba(232, 229, 223, 0.15);
+      border-radius: 12px;
+      color: #e8e5df;
+      font-size: 15px;
+      font-family: 'Noto Sans JP', sans-serif;
+      text-align: left;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: inset 0 -1px 0 rgba(0,0,0,0.4);
+    }
+    .sos-option:active { background: #1e1e1a; }
+    .sos-option.selected {
+      background: #1e1a10;
+      border-color: #c5a059;
+      color: #c5a059;
+    }
+    .sos-option.danger {
+      border-color: #d95b29;
+      color: #d95b29;
+    }
+    .sos-option.danger.selected {
+      background: #2a1205;
+      border-color: #d95b29;
+      color: #f0ede8;
+    }
+    .sos-check {
+      font-size: 16px;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .sos-option.selected .sos-check { opacity: 1; }
+    .sos-memo {
+      width: 100%;
+      padding: 12px 16px;
+      background: #161614;
+      border: 1px solid #2a2a24;
+      border-radius: 12px;
+      color: #e8e5df;
+      font-size: 14px;
+      font-family: 'Noto Sans JP', sans-serif;
+      resize: none;
+      min-height: 80px;
+      box-sizing: border-box;
+    }
+    .sos-memo:focus {
+      outline: none;
+      border-color: #444;
+    }
+    .sos-memo::placeholder { color: #444; }
+    .sos-memo-label {
+      color: #777;
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      font-family: 'Noto Serif JP', serif;
+      margin-bottom: 8px;
+    }
+    .sos-send-btn {
+      width: 100%;
+      padding: 16px;
+      background: #1e1a10;
+      border: 1px solid #c5a059;
+      border-radius: 12px;
+      color: #c5a059;
+      font-size: 16px;
+      font-weight: 500;
+      font-family: 'Noto Sans JP', sans-serif;
+      cursor: pointer;
+      letter-spacing: 0.05em;
+    }
+    .sos-send-btn:active { background: #2a2210; }
+    .sos-send-btn:disabled {
+      border-color: #2a2a24;
+      color: #444;
+      cursor: not-allowed;
+    }
+
     /* ── レスポンシブ ── */
     @media (max-width: 480px) {
       .site-slug    { font-size: 16px; }
@@ -694,6 +787,38 @@
     <!-- 作業再開ボタン（下部固定） -->
     <div class="checkin-area">
       <button class="checkin-btn" id="btn-resume">作業再開</button>
+    </div>
+
+  </div>
+
+  <!-- ── 画面4: SOS ── -->
+  <div id="screen-sos" class="screen">
+
+    <!-- ヘッダー -->
+    <div class="working-monitor">
+      <div class="screen-header">
+        <button class="back-btn" id="btn-back-sos">‹</button>
+        <span class="screen-title" id="sos-site-name"></span>
+      </div>
+      <div class="working-checkin-time" style="padding-left:52px; font-family:'Noto Serif JP',serif; letter-spacing:0.1em;">
+        困ったことを選んでください
+      </div>
+    </div>
+
+    <!-- スクロールエリア -->
+    <div class="handover-scroll-area">
+      <div class="sos-options-list" id="sos-options-list"></div>
+
+      <div style="padding: 20px 20px 0;">
+        <p class="sos-memo-label">ひとこと（任意）</p>
+        <textarea class="sos-memo" id="sos-memo"
+          placeholder="わかる範囲で書いてください"></textarea>
+      </div>
+    </div>
+
+    <!-- 送るボタン（下部固定） -->
+    <div class="checkin-area">
+      <button class="sos-send-btn" id="btn-sos-send" disabled>送る</button>
     </div>
 
   </div>

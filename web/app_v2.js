@@ -123,7 +123,7 @@ function goToWorking(project, checkinTime) {
   document.getElementById('working-checkin-time').textContent = `入場 ${timeStr}`;
 
   document.getElementById('btn-sos').onclick = () => {
-    console.log('SOS:', project.project_id);
+    goToSos(project);
   };
   document.getElementById('btn-photo').onclick = () => {
     console.log('photo:', project.project_id);
@@ -136,6 +136,64 @@ function goToWorking(project, checkinTime) {
   };
 
   showScreen('screen-working');
+}
+
+// ── 画面4: SOS ──────────────────────────────────────────
+
+const SOS_OPTIONS = [
+  { fieldKey: 'access_delivery', label: '入れない・搬入できない',      alert: false },
+  { fieldKey: 'drawing_diff',    label: '図面と違う',                  alert: false },
+  { fieldKey: 'fit_unknown',     label: '納まりがわからない',           alert: false },
+  { fieldKey: 'contact_unknown', label: '誰に聞けばいいかわからない',   alert: false },
+  { fieldKey: 'danger',          label: '危ない',                      alert: true  },
+];
+
+let selectedSosKey = null;
+
+function renderSosOptions() {
+  const list = document.getElementById('sos-options-list');
+  list.innerHTML = '';
+  list.style.cssText = 'display:flex;flex-direction:column;gap:10px;padding:16px 20px 0;';
+
+  SOS_OPTIONS.forEach(opt => {
+    const btn = document.createElement('button');
+    btn.className = 'sos-option' + (opt.alert ? ' danger' : '');
+    btn.dataset.key = opt.fieldKey;
+    btn.innerHTML = `<span>${opt.label}</span><span class="sos-check">✓</span>`;
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.sos-option').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      selectedSosKey = opt.fieldKey;
+      document.getElementById('btn-sos-send').disabled = false;
+    });
+    list.appendChild(btn);
+  });
+}
+
+function goToSos(project) {
+  selectedSosKey = null;
+  document.getElementById('sos-site-name').textContent = project.project_slug;
+  document.getElementById('sos-memo').value = '';
+  document.getElementById('btn-sos-send').disabled = true;
+  renderSosOptions();
+
+  document.getElementById('btn-back-sos').onclick = () => {
+    showScreen('screen-working');
+  };
+
+  document.getElementById('btn-sos-send').onclick = () => {
+    if (!selectedSosKey) return;
+    const memo = document.getElementById('sos-memo').value;
+    console.log('SOS sent:', {
+      projectId: project.project_id,
+      fieldKey: selectedSosKey,
+      description: memo,
+    });
+    alert('救助信号を送りました。\n\n止まるかどうかは、あなたが決める。');
+    showScreen('screen-working');
+  };
+
+  showScreen('screen-sos');
 }
 
 // ── 画面3-B: 休憩 ────────────────────────────────────────
