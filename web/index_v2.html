@@ -1322,6 +1322,29 @@
     </div>
   </div>
 
+  <!-- 仕舞い確認モーダル -->
+  <div id="shimai-confirm-modal" class="sos-modal" hidden>
+    <div class="sos-modal-inner">
+      <p class="sos-complete-title" style="font-size:18px;">
+        まだ「山返し」が<br>終わっていません。
+      </p>
+      <p class="sos-complete-sub">
+        このまま仕舞いへ向かうと、<br>
+        今日の痕跡は残りません。
+      </p>
+      <button class="sos-modal-btn btn-sos" id="btn-shimai-confirm-return"
+        style="flex-direction:row; min-height:auto;">
+        今日を、返す。
+      </button>
+      <button class="sos-modal-btn sos-wait-btn" id="btn-shimai-confirm-skip">
+        痕跡を残さず仕舞う
+      </button>
+      <button class="sos-modal-link" id="btn-shimai-confirm-cancel">
+        現場に戻る
+      </button>
+    </div>
+  </div>
+
   <script type="module" src="app_v2.js"></script>
 </body>
 </html>

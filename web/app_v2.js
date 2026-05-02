@@ -117,7 +117,10 @@ document.getElementById('btn-back-working')?.addEventListener('click', () => {
 
 // ── 画面3: 作業中 ────────────────────────────────────────
 
+let currentProject = null;
+
 function goToWorking(project, checkinTime) {
+  currentProject = project;
   document.getElementById('working-site-name').textContent = project.project_slug;
   const timeStr = checkinTime.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
   document.getElementById('working-checkin-time').textContent = `入場 ${timeStr}`;
@@ -373,6 +376,16 @@ function renderShimai() {
 
 // ── タブバー ──────────────────────────────────────────────
 
+function isOnSite() {
+  const activeScreen = document.querySelector('.screen.active');
+  if (!activeScreen) return false;
+  const id = activeScreen.id;
+  return id === 'screen-working' ||
+         id === 'screen-rest' ||
+         id === 'screen-sos' ||
+         id === 'screen-return';
+}
+
 document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -381,8 +394,36 @@ document.querySelectorAll('.tab').forEach(tab => {
     if (tabName === 'genba') {
       showScreen('screen-site-top');
     } else if (tabName === 'shimai') {
-      renderShimai();
-      showScreen('screen-shimai');
+      if (isOnSite()) {
+        const modal = document.getElementById('shimai-confirm-modal');
+        modal.hidden = false;
+
+        document.getElementById('btn-shimai-confirm-return').onclick = () => {
+          modal.hidden = true;
+          document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+          document.querySelector('[data-tab="genba"]').classList.add('active');
+          if (currentProject) {
+            goToReturn(currentProject);
+          } else {
+            showScreen('screen-working');
+          }
+        };
+
+        document.getElementById('btn-shimai-confirm-skip').onclick = () => {
+          modal.hidden = true;
+          renderShimai();
+          showScreen('screen-shimai');
+        };
+
+        document.getElementById('btn-shimai-confirm-cancel').onclick = () => {
+          modal.hidden = true;
+          document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+          document.querySelector('[data-tab="genba"]').classList.add('active');
+        };
+      } else {
+        renderShimai();
+        showScreen('screen-shimai');
+      }
     }
   });
 });
