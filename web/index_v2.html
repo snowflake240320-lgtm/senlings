@@ -844,6 +844,90 @@
       margin-bottom: 8px;
     }
 
+    /* ── 画面6: 仕舞い ── */
+    #screen-shimai {
+      flex: none;
+      height: calc(100dvh - 60px);
+      overflow: hidden;
+      padding: 0;
+    }
+    .shimai-header {
+      padding: 20px 20px 16px;
+      border-bottom: 1px solid #1e1e1a;
+    }
+    .shimai-header-label {
+      font-family: 'Noto Serif JP', serif;
+      font-size: 11px;
+      color: #c5a059;
+      letter-spacing: 0.4em;
+      opacity: 0.7;
+      margin-bottom: 6px;
+    }
+    .shimai-header-title {
+      font-size: 20px;
+      font-weight: 300;
+      color: #e8e5df;
+      margin-bottom: 4px;
+    }
+    .shimai-header-sub {
+      font-family: 'Noto Serif JP', serif;
+      font-size: 12px;
+      color: #a0a0a0;
+      letter-spacing: 0.1em;
+    }
+    .shimai-section {
+      padding: 20px 20px 0;
+    }
+    .shimai-section-label {
+      color: #a0a0a0;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      font-family: 'Noto Serif JP', serif;
+      margin-bottom: 10px;
+    }
+    .shimai-card {
+      background: #161614;
+      border: 1px solid #2a2a24;
+      border-top: 1px solid rgba(232, 229, 223, 0.15);
+      border-radius: 12px;
+      padding: 16px 20px;
+      box-shadow: inset 0 -1px 0 rgba(0,0,0,0.4);
+    }
+    .today-record-name {
+      color: #e8e5df;
+      font-size: 15px;
+      font-weight: 500;
+      margin-bottom: 8px;
+    }
+    .today-record-empty {
+      color: #444;
+      font-size: 13px;
+      font-family: 'Noto Serif JP', serif;
+      text-align: center;
+      padding: 12px 0;
+    }
+    .shimai-action-btn {
+      width: 100%;
+      padding: 14px 20px;
+      background: #161614;
+      border: 1px solid #2a2a24;
+      border-top: 1px solid rgba(232, 229, 223, 0.15);
+      border-radius: 12px;
+      color: #e8e5df;
+      font-size: 14px;
+      font-family: 'Noto Sans JP', sans-serif;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: inset 0 -1px 0 rgba(0,0,0,0.4);
+    }
+    .shimai-action-btn:active { background: #1e1e1a; }
+    .shimai-action-arrow {
+      color: #c5a059;
+      font-size: 18px;
+    }
+
     /* ── レスポンシブ ── */
     @media (max-width: 480px) {
       .site-slug    { font-size: 16px; }
@@ -1106,6 +1190,71 @@
       <button class="return-send-btn" id="btn-return-send">今日を、返す。</button>
     </div>
 
+  </div>
+
+  <!-- ── 画面6: 仕舞い ── -->
+  <div id="screen-shimai" class="screen">
+    <div style="display:flex; flex-direction:column; height:calc(100dvh - 60px); overflow-y:auto;">
+
+      <!-- ヘッダー -->
+      <div class="shimai-header">
+        <div class="shimai-header-label">SENLINGS</div>
+        <div class="shimai-header-title">仕舞い</div>
+        <div class="shimai-header-sub">今日を、整える。</div>
+      </div>
+
+      <!-- 今日の記録 -->
+      <div class="shimai-section">
+        <p class="shimai-section-label">今日の記録</p>
+        <div class="shimai-card" id="shimai-today-record">
+          <p class="today-record-empty">今日の記録はまだありません。</p>
+        </div>
+      </div>
+
+      <!-- 請求書下書き -->
+      <div class="shimai-section" style="margin-top:20px;">
+        <p class="shimai-section-label">請求書下書き</p>
+        <button class="shimai-action-btn" id="btn-shimai-invoice">
+          <span>今月の請求書を作る</span>
+          <span class="shimai-action-arrow">›</span>
+        </button>
+      </div>
+
+      <!-- データをエクスポートする -->
+      <div class="shimai-section" style="margin-top:20px;">
+        <p class="shimai-section-label">データをエクスポートする</p>
+        <p style="font-size:11px; color:#555; font-family:'Noto Serif JP',serif;
+          margin-bottom:10px; letter-spacing:0.05em;">
+          このデータはあなたのものです。いつでも持ち出せます。
+        </p>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <button class="shimai-action-btn" id="btn-export-json-shimai">
+            <span>JSON（全データ）をダウンロード</span>
+            <span class="shimai-action-arrow">›</span>
+          </button>
+          <div style="display:flex; gap:8px;">
+            <button class="shimai-action-btn" id="btn-export-csv-monthly-shimai"
+              style="flex:1; justify-content:center;">
+              CSV（月次）
+            </button>
+            <button class="shimai-action-btn" id="btn-export-csv-project-shimai"
+              style="flex:1; justify-content:center;">
+              CSV（工事）
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 設定 -->
+      <div class="shimai-section" style="margin-top:20px; padding-bottom:24px;">
+        <p class="shimai-section-label">設定</p>
+        <button class="shimai-action-btn" id="btn-shimai-settings">
+          <span>請求書・口座設定</span>
+          <span class="shimai-action-arrow">›</span>
+        </button>
+      </div>
+
+    </div>
   </div>
 
   <!-- ── 下部タブバー（全画面共通） ── -->

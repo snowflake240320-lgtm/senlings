@@ -320,12 +320,72 @@ function showReturnComplete() {
     modal.hidden = true;
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     document.querySelector('[data-tab="shimai"]').classList.add('active');
-    // 画面6は後日実装のため、現時点では画面1に戻る
-    showScreen('screen-site-top');
+    renderShimai();
+    showScreen('screen-shimai');
   };
 
   modal.hidden = false;
 }
+
+// ── 画面6: 仕舞い ────────────────────────────────────────
+
+function renderShimai() {
+  const data = getAllData();
+  const sessions = data.work_sessions ?? [];
+  const today = new Date().toISOString().slice(0, 10);
+  const todaySession = sessions.find(s => {
+    const d = s.check_in_at
+      ? new Date(s.check_in_at).toISOString().slice(0, 10)
+      : null;
+    return d === today;
+  });
+
+  const recordEl = document.getElementById('shimai-today-record');
+  if (todaySession) {
+    const project = (data.projects ?? []).find(p => p.project_id === todaySession.project_id);
+    recordEl.innerHTML = `
+      <div class="today-record-name">${esc(project?.project_slug ?? todaySession.project_id)}</div>
+      <div style="font-size:12px; color:#777; font-family:'Noto Serif JP',serif;">
+        ${esc(project?.address ?? '')}
+      </div>
+    `;
+  } else {
+    recordEl.innerHTML = '<p class="today-record-empty">今日の記録はまだありません。</p>';
+  }
+
+  document.getElementById('btn-export-json-shimai').onclick = () => {
+    exportAllDataAsJSON();
+  };
+  document.getElementById('btn-export-csv-monthly-shimai').onclick = () => {
+    const month = new Date().toISOString().slice(0, 7);
+    exportMonthlyCSV(month);
+  };
+  document.getElementById('btn-export-csv-project-shimai').onclick = () => {
+    console.log('CSV export by project: 後日実装');
+  };
+  document.getElementById('btn-shimai-invoice').onclick = () => {
+    console.log('invoice: 後日実装');
+  };
+  document.getElementById('btn-shimai-settings').onclick = () => {
+    console.log('settings: 後日実装');
+  };
+}
+
+// ── タブバー ──────────────────────────────────────────────
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    const tabName = tab.dataset.tab;
+    if (tabName === 'genba') {
+      showScreen('screen-site-top');
+    } else if (tabName === 'shimai') {
+      renderShimai();
+      showScreen('screen-shimai');
+    }
+  });
+});
 
 // ── 初期化 ───────────────────────────────────────────────
 renderSiteTop();
