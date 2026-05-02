@@ -316,6 +316,13 @@ function showReturnComplete() {
     showScreen('screen-site-top');
   };
 
+  document.getElementById('btn-return-to-shimai').onclick = () => {
+    modal.hidden = true;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelector('[data-tab="shimai"]').classList.add('active');
+    showScreen('screen-shimai');
+  };
+
   modal.hidden = false;
 }
 
