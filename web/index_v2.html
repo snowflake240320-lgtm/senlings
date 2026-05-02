@@ -316,7 +316,17 @@
     }
 
     /* ── 画面3: 作業中 ── */
-    .working-header {
+    #screen-working {
+      display: flex;
+      flex-direction: column;
+      height: calc(100dvh - 60px);
+      overflow: hidden;
+    }
+    .working-monitor {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
       padding: 16px 20px 8px;
       border-bottom: 1px solid #1e1e1a;
     }
@@ -333,12 +343,12 @@
       letter-spacing: 0.08em;
     }
     .working-actions {
-      flex: 1;
+      flex-shrink: 0;
       display: flex;
       flex-direction: column;
-      justify-content: center;
-      gap: 14px;
-      padding: 24px 20px;
+      gap: 10px;
+      padding: 16px 20px 20px;
+      background: #0d0d0b;
     }
     .action-btn {
       width: 100%;
@@ -375,8 +385,13 @@
       align-items: center;
       justify-content: center;
       gap: 6px;
+      box-shadow: 0 0 12px rgba(217, 91, 41, 0.4),
+                  0 0 24px rgba(217, 91, 41, 0.2);
     }
-    .btn-sos:active { background: #3a1a08; }
+    .btn-sos:active {
+      background: #3a1a08;
+      box-shadow: 0 0 6px rgba(217, 91, 41, 0.3);
+    }
     .btn-sos .btn-sub { color: #d95b29; width: auto; }
     .action-row {
       display: flex;
@@ -471,7 +486,7 @@
 
   <!-- ── 画面3: 作業中 ── -->
   <div id="screen-working" class="screen">
-    <div class="working-header">
+    <div class="working-monitor">
       <div class="working-site-name" id="working-site-name"></div>
       <div class="working-checkin-time" id="working-checkin-time"></div>
     </div>
