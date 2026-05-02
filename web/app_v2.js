@@ -233,7 +233,7 @@ function goToRest(project) {
   };
 
   document.getElementById('btn-sos-rest').onclick = () => {
-    console.log('SOS from rest:', project.project_id);
+    goToSos(project);
   };
 
   document.querySelectorAll('.rest-cat-btn').forEach(btn => {
