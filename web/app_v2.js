@@ -128,6 +128,10 @@ function goToWorking(project, checkinTime) {
   document.getElementById('btn-photo').onclick = () => {
     console.log('photo:', project.project_id);
   };
+  document.getElementById('btn-rest').onclick = () => {
+    console.log('rest:', project.project_id);
+    // 画面3-B（休憩）は後日実装
+  };
   document.getElementById('btn-return').onclick = () => {
     console.log('return:', project.project_id);
   };

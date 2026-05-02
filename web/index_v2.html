@@ -430,6 +430,13 @@
     }
     .btn-return:active { background: #1e1e1a; }
     .btn-return .btn-sub { color: #c5a059; }
+    .btn-rest {
+      background: #161614;
+      border: 1px solid #2a2a24;
+      color: #e8e5df;
+    }
+    .btn-rest:active { background: #1e1e1a; }
+    .btn-rest .btn-sub { color: #777; }
     .btn-icon {
       width: 22px;
       height: 22px;
@@ -526,6 +533,16 @@
           <span class="btn-sub">MEMO</span>
         </button>
       </div>
+
+      <!-- 休憩 -->
+      <button class="action-btn btn-rest" id="btn-rest">
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="none">
+          <path d="M18 8h1a4 4 0 010 8h-1M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8zM6 1v3M10 1v3M14 1v3"
+            stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <span class="btn-main-text">休憩</span>
+        <span class="btn-sub">REST</span>
+      </button>
 
       <!-- 儀式：今日を返す -->
       <button class="action-btn btn-return" id="btn-return">
