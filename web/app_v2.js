@@ -170,6 +170,29 @@ function renderSosOptions() {
   });
 }
 
+function showSosComplete(project, isDanger) {
+  const modal = document.getElementById('sos-complete-modal');
+  const callBtn = document.getElementById('btn-sos-call');
+
+  callBtn.hidden = !isDanger;
+
+  callBtn.onclick = () => {
+    window.location.href = 'tel:';
+  };
+
+  document.getElementById('btn-sos-wait').onclick = () => {
+    modal.hidden = true;
+    showScreen('screen-working');
+  };
+
+  document.getElementById('btn-sos-again').onclick = () => {
+    modal.hidden = true;
+    showScreen('screen-sos');
+  };
+
+  modal.hidden = false;
+}
+
 function goToSos(project) {
   selectedSosKey = null;
   document.getElementById('sos-site-name').textContent = project.project_slug;
@@ -184,13 +207,13 @@ function goToSos(project) {
   document.getElementById('btn-sos-send').onclick = () => {
     if (!selectedSosKey) return;
     const memo = document.getElementById('sos-memo').value;
+    const isDanger = selectedSosKey === 'danger';
     console.log('SOS sent:', {
       projectId: project.project_id,
       fieldKey: selectedSosKey,
       description: memo,
     });
-    alert('救助信号を送りました。\n\n止まるかどうかは、あなたが決める。');
-    showScreen('screen-working');
+    showSosComplete(project, isDanger);
   };
 
   showScreen('screen-sos');
