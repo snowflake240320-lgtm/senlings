@@ -309,8 +309,14 @@ function goToReturn(project) {
 }
 
 function showReturnComplete() {
-  alert('次のHunterへ、届きます。\n\n今日の現場は、終わりました。');
-  showScreen('screen-site-top');
+  const modal = document.getElementById('return-complete-modal');
+
+  document.getElementById('btn-return-complete').onclick = () => {
+    modal.hidden = true;
+    showScreen('screen-site-top');
+  };
+
+  modal.hidden = false;
 }
 
 // ── 初期化 ───────────────────────────────────────────────

@@ -815,6 +815,35 @@
     }
     .return-send-btn:active { background: #1e1a10; }
 
+    /* ── 山返し完了モーダル ── */
+    .return-complete-icon {
+      font-size: 48px;
+      margin-bottom: 8px;
+      animation: ember-pulse 2s ease-in-out infinite;
+    }
+    @keyframes ember-pulse {
+      0%, 100% { opacity: 1;   transform: scale(1); }
+      50%       { opacity: 0.7; transform: scale(0.95); }
+    }
+    .return-complete-title {
+      font-family: 'Noto Serif JP', serif;
+      font-size: 22px;
+      font-weight: 400;
+      color: #e8e5df;
+      letter-spacing: 0.06em;
+      text-align: center;
+      line-height: 1.7;
+      animation: sos-fadein 0.8s ease;
+    }
+    .return-complete-sub {
+      font-family: 'Noto Serif JP', serif;
+      font-size: 13px;
+      color: #777;
+      text-align: center;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+
     /* ── レスポンシブ ── */
     @media (max-width: 480px) {
       .site-slug    { font-size: 16px; }
@@ -1118,6 +1147,22 @@
       <!-- 別の救助信号も送る -->
       <button class="sos-modal-link" id="btn-sos-again">
         別の救助信号も送る
+      </button>
+
+    </div>
+  </div>
+
+  <!-- 山返し完了モーダル -->
+  <div id="return-complete-modal" class="sos-modal" hidden>
+    <div class="sos-modal-inner">
+
+      <div class="return-complete-icon">🔥</div>
+
+      <p class="return-complete-title">次のHunterへ、<br>届きます。</p>
+      <p class="return-complete-sub">今日の現場は、終わりました。</p>
+
+      <button class="sos-modal-btn sos-wait-btn" id="btn-return-complete">
+        現場トップへ戻る
       </button>
 
     </div>
