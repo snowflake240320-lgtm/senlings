@@ -111,6 +111,10 @@ document.getElementById('btn-back-handover')?.addEventListener('click', () => {
   showScreen('screen-site-top');
 });
 
+document.getElementById('btn-back-working')?.addEventListener('click', () => {
+  showScreen('screen-handover');
+});
+
 // ── 画面3: 作業中 ────────────────────────────────────────
 
 function goToWorking(project, checkinTime) {
