@@ -132,7 +132,7 @@ function goToWorking(project, checkinTime) {
     goToRest(project);
   };
   document.getElementById('btn-return').onclick = () => {
-    console.log('return:', project.project_id);
+    goToReturn(project);
   };
 
   showScreen('screen-working');
@@ -243,6 +243,74 @@ function goToRest(project) {
   });
 
   showScreen('screen-rest');
+}
+
+// ── 画面5: 山返し（帰還） ────────────────────────────────
+
+const RETURN_MOOD = [
+  { key: 'positive',    label: 'また入りたい' },
+  { key: 'conditional', label: '複雑な気持ち' },
+];
+
+const RETURN_CATEGORIES = [
+  { key: 'anzen',     label: '危なかったこと',   managementKey: '安全' },
+  { key: 'hinshitsu', label: '仕上がり・納まり', managementKey: '品質' },
+  { key: 'koutei',    label: '段取り・待ち時間', managementKey: '工程' },
+  { key: 'genka',     label: '追加・材料・経費', managementKey: '原価' },
+];
+
+let selectedMood = null;
+let selectedCategories = new Set();
+
+function goToReturn(project) {
+  selectedMood = null;
+  selectedCategories = new Set();
+  document.getElementById('return-site-name').textContent = project.project_slug;
+  document.getElementById('return-memo').value = '';
+
+  document.querySelectorAll('.mood-btn').forEach(btn => {
+    btn.classList.remove('selected');
+    btn.onclick = () => {
+      document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      selectedMood = btn.dataset.mood;
+    };
+  });
+
+  document.querySelectorAll('.category-btn').forEach(btn => {
+    btn.classList.remove('selected');
+    btn.onclick = () => {
+      btn.classList.toggle('selected');
+      const cat = btn.dataset.cat;
+      if (btn.classList.contains('selected')) {
+        selectedCategories.add(cat);
+      } else {
+        selectedCategories.delete(cat);
+      }
+    };
+  });
+
+  document.getElementById('btn-back-return').onclick = () => {
+    showScreen('screen-working');
+  };
+
+  document.getElementById('btn-return-send').onclick = () => {
+    const memo = document.getElementById('return-memo').value;
+    console.log('yamagaeshi:', {
+      projectId: project.project_id,
+      mood: selectedMood,
+      categories: [...selectedCategories],
+      message: memo,
+    });
+    showReturnComplete();
+  };
+
+  showScreen('screen-return');
+}
+
+function showReturnComplete() {
+  alert('次のHunterへ、届きます。\n\n今日の現場は、終わりました。');
+  showScreen('screen-site-top');
 }
 
 // ── 初期化 ───────────────────────────────────────────────
