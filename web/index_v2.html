@@ -297,6 +297,11 @@
     .handover-scroll-area {
       flex: 1;
       overflow-y: auto;
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    .handover-scroll-area::-webkit-scrollbar {
+      display: none;
     }
     .handover-empty {
       text-align: center;
@@ -473,6 +478,9 @@
     }
 
     /* ── 画面3-B: 休憩 ── */
+    #screen-rest .working-monitor {
+      flex: none;     /* ヘッダーを自然な高さに固定 */
+    }
     #screen-rest {
       flex: none;
       height: calc(100dvh - 60px);
