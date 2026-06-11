@@ -13,6 +13,12 @@ import { initializeApp }
   from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import { getFirestore, collection, getDocs, getDoc, setDoc, doc, query, where, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import {
+  getAuth,
+  signInWithEmailAndPassword as fbSignInWithEmailAndPassword,
+  onAuthStateChanged as fbOnAuthStateChanged,
+  signOut as fbSignOut,
+} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 
 import { update as storageUpdate } from "./storage.js";
 
@@ -26,8 +32,23 @@ const firebaseConfig = {
   appId:             "1:521527151570:web:7b13a05fa23b3377f6d60b",
 };
 
-const app = initializeApp(firebaseConfig);
-const db  = getFirestore(app);
+const app  = initializeApp(firebaseConfig);
+const db   = getFirestore(app);
+const auth = getAuth(app);
+
+// ── Authentication（マスター画面用） ─────────────────────
+
+export function signInWithEmailAndPassword(email, password) {
+  return fbSignInWithEmailAndPassword(auth, email, password);
+}
+
+export function onAuthStateChanged(callback) {
+  return fbOnAuthStateChanged(auth, callback);
+}
+
+export function signOut() {
+  return fbSignOut(auth);
+}
 
 // ── Firestore への保存 ───────────────────────────────────
 /**
