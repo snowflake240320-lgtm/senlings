@@ -5,6 +5,9 @@ import { saveSession } from './src/pwa/work.js';
 import { load, update } from './src/pwa/storage.js';
 import { exportAllDataAsJSON } from './src/pwa/export.js';
 import { exportMonthlyCSV } from './src/pwa/csvExport.js';
+import { generateSnapshot, UnconfirmedExpenseError } from './src/pwa/invoice.js';
+import { setClaimStatus } from './src/pwa/expense.js';
+import { exportInvoiceToExcel } from './src/pwa/invoiceExport.js';
 
 // ── データ読み込み ────────────────────────────────────────
 function getAllData() {
@@ -416,6 +419,37 @@ function showReturnComplete() {
   modal.hidden = false;
 }
 
+// ── 請求書スナップショットカード ────────────────────────
+
+function renderSnapshotCard(snapshot, projectSlug) {
+  const hours = Math.floor(snapshot.total_work_minutes / 60);
+  const mins  = snapshot.total_work_minutes % 60;
+  const timeStr = mins > 0 ? `${hours}時間${mins}分` : `${hours}時間`;
+  const isSkipped = snapshot.expense_claim_status === 'skipped';
+  const expStr = isSkipped
+    ? '経費:未記入のまま(0円で計上)'
+    : `${(snapshot.total_expense_amount ?? 0).toLocaleString()}円`;
+  return `
+    <p class="invoice-card-title">請求書の下書き</p>
+    <div class="invoice-card-row">
+      <span class="invoice-card-label">現場</span>
+      <span>${esc(projectSlug)}</span>
+    </div>
+    <div class="invoice-card-row">
+      <span class="invoice-card-label">稼働日数</span>
+      <span>${snapshot.total_work_days}日</span>
+    </div>
+    <div class="invoice-card-row">
+      <span class="invoice-card-label">稼働時間</span>
+      <span>${timeStr}</span>
+    </div>
+    <div class="invoice-card-row${isSkipped ? ' invoice-card-row--note' : ''}">
+      <span class="invoice-card-label">経費</span>
+      <span class="invoice-card-value">${expStr}</span>
+    </div>
+  `;
+}
+
 // ── 画面6: 仕舞い ────────────────────────────────────────
 
 function renderShimai() {
@@ -452,11 +486,85 @@ function renderShimai() {
   document.getElementById('btn-export-csv-project-shimai').onclick = () => {
     console.log('CSV export by project: 後日実装');
   };
-  document.getElementById('btn-shimai-invoice').onclick = () => {
-    console.log('invoice: 後日実装');
-  };
   document.getElementById('btn-shimai-settings').onclick = () => {
     console.log('settings: 後日実装');
+  };
+
+  // ── 請求書下書き ──────────────────────────────────────
+  const resultArea  = document.getElementById('invoice-result-area');
+  const displayEl   = document.getElementById('invoice-display');
+  const skipBtn     = document.getElementById('btn-invoice-skip-expense');
+  const excelBtn    = document.getElementById('btn-invoice-excel');
+
+  // 画面を開くたびリセット
+  resultArea.style.display  = 'none';
+  skipBtn.style.display     = 'none';
+  excelBtn.style.display    = 'none';
+  displayEl.innerHTML       = '';
+  displayEl.className       = 'invoice-display';
+
+  let invoiceCtx = null; // { project_id, project_code, year, month }
+
+  function tryGenerate() {
+    const { project_id, project_code, year, month } = invoiceCtx;
+    displayEl.innerHTML  = '';
+    displayEl.className  = 'invoice-display';
+    skipBtn.style.display = 'none';
+    excelBtn.style.display = 'none';
+    try {
+      const snapshot = generateSnapshot({ snapshot_id: uid(), project_id, project_code, year, month });
+      const proj = (getAllData().projects ?? []).find(p => p.project_id === project_id);
+      displayEl.innerHTML = renderSnapshotCard(snapshot, proj?.project_slug ?? project_id);
+      excelBtn.style.display = 'flex';
+    } catch (err) {
+      if (err instanceof UnconfirmedExpenseError) {
+        displayEl.className = 'invoice-display invoice-display--warn';
+        displayEl.textContent = '経費:未記入';
+        skipBtn.style.display = 'block';
+      } else {
+        displayEl.textContent = `エラー: ${err.message}`;
+      }
+    }
+  }
+
+  document.getElementById('btn-shimai-invoice').onclick = () => {
+    const data = getAllData();
+    const now  = new Date();
+    const year  = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const ym = `${year}-${String(month).padStart(2, '0')}`;
+    const sessions = (data.work_sessions ?? [])
+      .filter(s => s.check_in_at && new Date(s.check_in_at).toISOString().slice(0, 7) === ym)
+      .sort((a, b) => b.check_in_at - a.check_in_at);
+    if (sessions.length === 0) {
+      resultArea.style.display = 'flex';
+      displayEl.className      = 'invoice-display';
+      displayEl.textContent    = '今月の稼働記録がありません。';
+      return;
+    }
+    const project_id   = sessions[0].project_id;
+    const proj         = (data.projects ?? []).find(p => p.project_id === project_id);
+    invoiceCtx = { project_id, project_code: proj?.project_code ?? null, year, month };
+    resultArea.style.display = 'flex';
+    tryGenerate();
+  };
+
+  skipBtn.onclick = () => {
+    if (!invoiceCtx) return;
+    setClaimStatus(invoiceCtx.project_id, invoiceCtx.year, invoiceCtx.month, 'skipped');
+    tryGenerate();
+  };
+
+  excelBtn.onclick = async () => {
+    if (!invoiceCtx) return;
+    excelBtn.disabled = true;
+    try {
+      await exportInvoiceToExcel({ project_id: invoiceCtx.project_id, year: invoiceCtx.year, month: invoiceCtx.month });
+    } catch (err) {
+      alert(`書き出しに失敗しました。\n${err.message}`);
+    } finally {
+      excelBtn.disabled = false;
+    }
   };
 }
 

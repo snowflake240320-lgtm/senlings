@@ -938,6 +938,60 @@
       color: #c5a059;
       font-size: 18px;
     }
+    .invoice-display {
+      padding: 14px 16px;
+      background: #161614;
+      border: 1px solid #2a2a24;
+      border-radius: 10px;
+      font-family: 'Noto Serif JP', serif;
+      font-size: 13px;
+      color: #c8c4bc;
+    }
+    .invoice-display--warn {
+      border-left: 3px solid #c5a059;
+      color: #c5a059;
+      font-size: 14px;
+    }
+    .invoice-card-title {
+      font-family: 'Noto Serif JP', serif;
+      font-size: 11px;
+      color: #666;
+      letter-spacing: 0.1em;
+      margin: 0 0 10px 0;
+    }
+    .invoice-card-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 7px 0;
+      border-bottom: 1px solid #2a2a24;
+      font-size: 14px;
+      color: #e8e5df;
+    }
+    .invoice-card-row:last-child { border-bottom: none; }
+    .invoice-card-label {
+      font-family: 'Noto Serif JP', serif;
+      font-size: 12px;
+      color: #666;
+      letter-spacing: 0.06em;
+    }
+    .invoice-card-row--note .invoice-card-value {
+      color: #c5a059;
+      font-size: 12px;
+    }
+    .invoice-skip-btn {
+      width: 100%;
+      padding: 10px 16px;
+      background: none;
+      border: 1px solid #3a3a30;
+      border-radius: 8px;
+      color: #888;
+      font-family: 'Noto Serif JP', serif;
+      font-size: 13px;
+      cursor: pointer;
+      letter-spacing: 0.06em;
+    }
+    .invoice-skip-btn:active { background: #1c1c18; }
 
     /* ── 現場追加モーダル ── */
     .add-site-inner {
@@ -1322,6 +1376,14 @@
           <span>今月の請求書を作る</span>
           <span class="shimai-action-arrow">›</span>
         </button>
+        <div id="invoice-result-area" style="display:none; flex-direction:column; gap:8px; margin-top:12px;">
+          <div id="invoice-display" class="invoice-display"></div>
+          <button id="btn-invoice-skip-expense" class="invoice-skip-btn" style="display:none;">未記入のまま作る</button>
+          <button id="btn-invoice-excel" class="shimai-action-btn" style="display:none;">
+            <span>Excelを書き出す</span>
+            <span class="shimai-action-arrow">›</span>
+          </button>
+        </div>
       </div>
 
       <!-- データをエクスポートする -->
