@@ -83,6 +83,17 @@ export async function pushAllProjectsToFirestore(projects) {
   return { count: projects.length };
 }
 
+/**
+ * Firestore の全現場を読むだけで返す（localStorage には触れない）。
+ * マスター画面の一覧表示用。
+ *
+ * @returns {Promise<object[]>}
+ */
+export async function listProjectsFromFirestore() {
+  const snapshot = await getDocs(collection(db, "projects"));
+  return snapshot.docs.map((d) => d.data());
+}
+
 export async function syncProjectsFromFirestore() {
   const snapshot = await getDocs(collection(db, "projects"));
   const remoteProjects = snapshot.docs.map((d) => d.data());
