@@ -54,6 +54,7 @@ const HANDOVER_CATEGORIES = [
   { key: 'morning_assembly', label: '朝礼' },
   { key: 'delivery',         label: '搬入' },
   { key: 'contact',          label: '連絡先' },
+  { key: 'raw',              label: '届いた連絡' },
 ];
 
 function showScreen(id) {
@@ -85,7 +86,7 @@ function renderHandover(project) {
         <span class="handover-chevron"${isAlert ? ` style="color:${alertColor}"` : ''}>›</span>
       </button>
       <div class="handover-body" hidden>
-        <p class="handover-text">${esc(siteInfo[cat.key])}</p>
+        <p class="handover-text"${cat.key === 'raw' ? ' style="white-space:pre-wrap"' : ''}>${esc(siteInfo[cat.key])}</p>
       </div>
     `;
     div.querySelector('.handover-header').addEventListener('click', () => {
@@ -430,6 +431,56 @@ document.querySelectorAll('.tab').forEach(tab => {
       }
     }
   });
+});
+
+// ── 現場追加 ──────────────────────────────────────────────
+
+document.getElementById('btn-add-site')?.addEventListener('click', () => {
+  document.getElementById('add-site-name').value = '';
+  document.getElementById('add-site-raw').value = '';
+  document.getElementById('add-site-modal').hidden = false;
+  document.getElementById('add-site-name').focus();
+});
+
+document.getElementById('btn-add-site-cancel')?.addEventListener('click', () => {
+  document.getElementById('add-site-modal').hidden = true;
+});
+
+document.getElementById('btn-add-site-save')?.addEventListener('click', () => {
+  const name = document.getElementById('add-site-name').value.trim();
+  if (!name) {
+    document.getElementById('add-site-name').focus();
+    return;
+  }
+
+  const rawText = document.getElementById('add-site-raw').value || null;
+  const now = Date.now();
+  const d = new Date();
+  const YYYYMMDD =
+    d.getFullYear().toString() +
+    String(d.getMonth() + 1).padStart(2, '0') +
+    String(d.getDate()).padStart(2, '0');
+
+  const project = {
+    project_id:      `${YYYYMMDD}_${now}`,
+    project_slug:    name,
+    address:         null,
+    start_date:      null,
+    project_code:    null,
+    site_contact_id: null,
+    master_id:       null,
+    site_info:       { raw: rawText },
+    created_at:      now,
+    archive:         false,
+  };
+
+  const data = getAllData();
+  data.projects = data.projects ?? [];
+  data.projects.push(project);
+  localStorage.setItem('senlings_v0', JSON.stringify(data));
+
+  document.getElementById('add-site-modal').hidden = true;
+  renderSiteTop();
 });
 
 // ── 初期化 ───────────────────────────────────────────────

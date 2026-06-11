@@ -939,6 +939,48 @@
       font-size: 18px;
     }
 
+    /* ── 現場追加モーダル ── */
+    .add-site-inner {
+      width: 100%;
+      align-items: stretch;
+    }
+    .add-site-field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .add-site-label {
+      font-family: 'Noto Serif JP', serif;
+      font-size: 12px;
+      color: #888;
+      letter-spacing: 0.06em;
+    }
+    .add-site-input,
+    .add-site-textarea {
+      background: #1c1c18;
+      border: 1px solid #2a2a24;
+      border-radius: 8px;
+      color: #e8e5df;
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 15px;
+      padding: 12px 14px;
+      box-sizing: border-box;
+      outline: none;
+    }
+    .add-site-input:focus,
+    .add-site-textarea:focus {
+      border-color: #c5a059;
+    }
+    .add-site-input::placeholder,
+    .add-site-textarea::placeholder {
+      color: #444;
+    }
+    .add-site-textarea {
+      min-height: 120px;
+      resize: none;
+      line-height: 1.6;
+    }
+
     /* ── レスポンシブ ── */
     @media (max-width: 480px) {
       .site-slug    { font-size: 16px; }
@@ -1352,6 +1394,29 @@
       </button>
       <button class="sos-modal-link" id="btn-shimai-confirm-cancel">
         現場に戻る
+      </button>
+    </div>
+  </div>
+
+  <!-- 現場追加モーダル -->
+  <div id="add-site-modal" class="sos-modal" hidden>
+    <div class="sos-modal-inner add-site-inner">
+      <p class="sos-complete-title" style="font-size:18px;">現場を追加する</p>
+      <div class="add-site-field">
+        <label class="add-site-label" for="add-site-name">現場名</label>
+        <input type="text" id="add-site-name" class="add-site-input"
+          placeholder="例：〇〇マンション" autocomplete="off">
+      </div>
+      <div class="add-site-field">
+        <label class="add-site-label" for="add-site-raw">届いた連絡（任意）</label>
+        <textarea id="add-site-raw" class="add-site-textarea"
+          placeholder="LINEの文章などをそのまま貼ってください"></textarea>
+      </div>
+      <button class="sos-modal-btn sos-wait-btn" id="btn-add-site-save">
+        登録する
+      </button>
+      <button class="sos-modal-link" id="btn-add-site-cancel">
+        キャンセル
       </button>
     </div>
   </div>
