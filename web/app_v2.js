@@ -1,6 +1,11 @@
 // app_v2.js
 // Senlings 新UI メインJS
 
+import { saveSession } from './src/pwa/work.js';
+import { load, update } from './src/pwa/storage.js';
+import { exportAllDataAsJSON } from './src/pwa/export.js';
+import { exportMonthlyCSV } from './src/pwa/csvExport.js';
+
 // ── データ読み込み ────────────────────────────────────────
 function getAllData() {
   const raw = localStorage.getItem('senlings_v0');
@@ -11,6 +16,7 @@ function getAllData() {
 function renderSiteTop() {
   const projects = (getAllData().projects ?? [])
     .filter(p => !p.archive);
+  const cs = load().current_session ?? null;
 
   const list = document.getElementById('site-list');
   if (!list) return;
@@ -20,17 +26,52 @@ function renderSiteTop() {
     return;
   }
 
-  list.innerHTML = projects.map(p => `
-    <button class="site-card" data-project-id="${esc(p.project_id)}">
-      <span class="site-slug">${esc(p.project_slug)}</span>
-      <span class="site-address">${esc(p.address ?? '')}</span>
-    </button>
-  `).join('');
+  list.innerHTML = projects.map(p => {
+    if (cs && cs.project_id === p.project_id) {
+      const label = formatCheckinLabel(cs.check_in_at);
+      return `
+        <div class="site-card-pending">
+          <div class="site-card-pending-head">
+            <span class="site-slug">${esc(p.project_slug)}</span>
+            <span class="site-checkin-time">${esc(label)}</span>
+          </div>
+          <button class="site-card-resume-btn" data-project-id="${esc(p.project_id)}">続きから入る</button>
+          <button class="site-card-cancel-btn" data-project-id="${esc(p.project_id)}">この入場を取り消す</button>
+        </div>
+      `;
+    }
+    return `
+      <button class="site-card" data-project-id="${esc(p.project_id)}">
+        <span class="site-slug">${esc(p.project_slug)}</span>
+        <span class="site-address">${esc(p.address ?? '')}</span>
+      </button>
+    `;
+  }).join('');
 
   list.querySelectorAll('.site-card').forEach(card => {
     card.addEventListener('click', () => {
       const project = projects.find(p => p.project_id === card.dataset.projectId);
       if (project) goToHandover(project);
+    });
+  });
+
+  list.querySelectorAll('.site-card-resume-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const project = projects.find(p => p.project_id === btn.dataset.projectId);
+      if (!project || !cs) return;
+      goToWorking(project, new Date(cs.check_in_at));
+    });
+  });
+
+  list.querySelectorAll('.site-card-cancel-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.dataset.confirming) {
+        update(data => { data.current_session = null; return data; });
+        renderSiteTop();
+      } else {
+        btn.dataset.confirming = '1';
+        btn.textContent = '本当に取り消す';
+      }
     });
   });
 }
@@ -42,6 +83,22 @@ function esc(val) {
     .replace(/"/g, '&quot;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
+}
+
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+
+function formatCheckinLabel(tsMs) {
+  const d = new Date(tsMs);
+  const now = new Date();
+  const timeStr = d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+  const sameDay = d.getFullYear() === now.getFullYear()
+    && d.getMonth() === now.getMonth()
+    && d.getDate() === now.getDate();
+  return sameDay
+    ? `入場 ${timeStr}`
+    : `${d.getMonth() + 1}/${d.getDate()} 入場 ${timeStr}`;
 }
 
 // ── 画面2: 申し送り ──────────────────────────────────────
@@ -103,12 +160,26 @@ function goToHandover(project) {
   document.getElementById('handover-site-name').textContent = project.project_slug;
   renderHandover(project);
   document.getElementById('btn-checkin').onclick = () => {
-    goToWorking(project, new Date());
+    const cs = load().current_session ?? null;
+    if (cs && cs.project_id !== project.project_id) {
+      renderSiteTop();
+      showScreen('screen-site-top');
+      return;
+    }
+    const checkInAt = cs ? cs.check_in_at : Date.now();
+    if (!cs) {
+      update(data => {
+        data.current_session = { project_id: project.project_id, check_in_at: checkInAt };
+        return data;
+      });
+    }
+    goToWorking(project, new Date(checkInAt));
   };
   showScreen('screen-handover');
 }
 
 document.getElementById('btn-back-handover')?.addEventListener('click', () => {
+  renderSiteTop();
   showScreen('screen-site-top');
 });
 
@@ -306,6 +377,19 @@ function goToReturn(project) {
       categories: [...selectedCategories],
       message: memo,
     });
+
+    const cs = load().current_session ?? null;
+    if (cs) {
+      saveSession({
+        id:            uid(),
+        project_id:    cs.project_id,
+        check_in_at:   cs.check_in_at,
+        check_out_at:  Date.now(),
+        break_minutes: 0,
+      });
+      update(data => { data.current_session = null; return data; });
+    }
+
     showReturnComplete();
   };
 
@@ -317,6 +401,7 @@ function showReturnComplete() {
 
   document.getElementById('btn-return-complete').onclick = () => {
     modal.hidden = true;
+    renderSiteTop();
     showScreen('screen-site-top');
   };
 
@@ -393,6 +478,7 @@ document.querySelectorAll('.tab').forEach(tab => {
     tab.classList.add('active');
     const tabName = tab.dataset.tab;
     if (tabName === 'genba') {
+      renderSiteTop();
       showScreen('screen-site-top');
     } else if (tabName === 'shimai') {
       if (isOnSite()) {
