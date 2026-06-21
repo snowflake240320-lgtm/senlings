@@ -1,822 +1,1539 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Senlings v0.10.0</title>
-  <link rel="manifest" href="manifest.json" />
-  <link rel="icon" href="favicon.ico" />
-
-  <!-- iOS PWA -->
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
-  <meta name="apple-mobile-web-app-title" content="Senlings" />
-  <link rel="apple-touch-icon" href="icons/icon-192.png" />
-
-  <!-- Android / Chrome -->
-  <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="theme-color" content="#1a1a1a" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Senlings</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="favicon.ico">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="theme-color" content="#0d0d0b">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500&family=Noto+Serif+JP:wght@300;400&display=swap" rel="stylesheet">
   <style>
-    *, *::before, *::after { box-sizing: border-box; }
-    body { font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 16px 16px 72px; }
-    h1 { font-size: 1.4rem; margin-bottom: 4px; }
-    h2 { font-size: 1rem; margin-top: 24px; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
-    h3 { font-size: 0.9rem; color: #555; margin: 16px 0 8px; }
-    button { padding: 10px 18px; margin: 4px 2px; font-size: 0.95rem; cursor: pointer; }
-    button:disabled { opacity: 0.4; cursor: default; }
-    #status-display { font-weight: bold; margin: 8px 0; }
-    #summary-display, #invoice-display { background: #f5f5f5; padding: 10px; margin-top: 8px; white-space: pre-wrap; font-size: 0.85rem; border-radius: 4px; min-height: 40px; }
-    .warn { color: #c00; }
-
-    /* ── タブ構成 ── */
-    .tab-panel { display: none; }
-    .tab-panel.active { display: block; }
-
-    #tab-bar {
-      position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
-      width: 100%; max-width: 480px;
-      display: flex; border-top: 1px solid #ddd;
-      background: #fff; z-index: 200;
-      box-shadow: 0 -2px 8px rgba(0,0,0,0.08);
+    /* ── リセット・ベース ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      background: #0d0d0b;
+      color: #e8e5df;
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 14px;
+      -webkit-font-smoothing: antialiased;
     }
-    .tab-btn {
-      flex: 1; padding: 10px 4px 8px;
-      border: none; background: none; cursor: pointer;
-      color: #aaa; display: flex; flex-direction: column;
-      align-items: center; gap: 2px;
-      font-size: 0.7rem; letter-spacing: 0.02em;
-      transition: color 0.15s;
+    body {
+      display: flex;
+      justify-content: center;
+      min-height: 100dvh;
     }
-    .tab-btn .tab-icon { font-size: 1.5rem; line-height: 1; }
-    .tab-btn.active { color: #1a1a1a; font-weight: bold; }
-
-    /* プロジェクト一覧 */
-    #project-list { list-style: none; padding: 0; margin: 8px 0; }
-    #project-list li { padding: 6px 8px; background: #f0f0f0; border-radius: 4px; margin-bottom: 4px; font-size: 0.9rem; }
-
-    /* 登録フォーム */
-    #registration-form { display: none; background: #fafafa; border: 1px solid #ddd; border-radius: 6px; padding: 16px; margin-top: 12px; }
-    #registration-form.open { display: block; }
-    .form-step { margin-bottom: 16px; }
-    .form-row { margin-bottom: 10px; }
-    .form-row label { display: block; font-size: 0.85rem; color: #333; margin-bottom: 3px; }
-    .form-row input, .form-row select, .form-row textarea {
-      width: 100%; padding: 7px 9px; font-size: 0.9rem;
-      border: 1px solid #bbb; border-radius: 4px;
-    }
-    .form-row input.error, .form-row select.error { border-color: #c00; }
-    .field-error { color: #c00; font-size: 0.78rem; margin-top: 2px; }
-    #project-id-preview { font-size: 0.8rem; color: #666; margin-top: 4px; font-family: monospace; }
-    .optional { color: #999; font-size: 0.78rem; }
-    #form-result { margin-top: 10px; font-size: 0.85rem; font-weight: bold; }
-    #form-result.success { color: #080; }
-    #form-result.error   { color: #c00; }
-
-    /* ContactMaster 編集 */
-    #contact-editor { display: none; margin-top: 12px; }
-    #contact-editor.open { display: block; }
-    .cm-row {
-      display: grid;
-      grid-template-columns: 3.5rem 1fr 1fr 1fr auto auto;
-      gap: 4px;
-      align-items: center;
-      padding: 6px 0;
-      border-bottom: 1px solid #eee;
-      font-size: 0.82rem;
-    }
-    .cm-row:first-child { font-weight: bold; color: #555; }
-    .cm-row input[type="text"] {
-      width: 100%; padding: 4px 6px; font-size: 0.82rem;
-      border: 1px solid #ccc; border-radius: 3px;
-    }
-    .cm-row input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
-    .cm-save-btn {
-      padding: 4px 8px; font-size: 0.78rem; cursor: pointer;
-      background: #444; color: #fff; border: none; border-radius: 3px;
-      white-space: nowrap;
-    }
-    .cm-save-btn:disabled { opacity: 0.4; }
-    .cm-saved { color: #080; font-size: 0.78rem; min-width: 2rem; text-align: center; }
-    .cm-inactive { opacity: 0.45; }
-
-    /* 現場選択ボタン */
-    .project-select-btn {
-      padding: 3px 10px; font-size: 0.8rem; cursor: pointer;
-      background: #1a1a1a; color: #fff; border: none; border-radius: 3px;
-      margin-left: 8px; vertical-align: middle;
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.06;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+      background-repeat: repeat;
+      background-size: 128px 128px;
     }
 
-    /* 移動モード・現場モード パネル */
-    #move-panel, #onsite-panel {
-      display: none;
-      background: #f0f4ff;
-      border: 2px solid #3355cc;
-      border-radius: 8px;
-      padding: 16px;
-      margin-top: 12px;
-    }
-    #onsite-panel { background: #f0fff4; border-color: #2a9d4e; }
-    #move-panel.active, #onsite-panel.active { display: block; }
-    .panel-title { font-size: 1rem; font-weight: bold; margin: 0 0 10px; }
-    .panel-info { font-size: 0.85rem; margin-bottom: 12px; line-height: 1.7; }
-    .panel-info strong { display: inline-block; min-width: 4em; color: #555; }
-    .panel-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-    .panel-actions button { flex: 1; padding: 12px; font-size: 0.95rem; font-weight: bold; }
-    #btn-nav { background: #3355cc; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
-    #btn-arrive { background: #2a9d4e; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
-    #btn-exit-site { background: #888; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
-
-    /* 経費フォーム */
-    #expense-section { margin-top: 14px; border-top: 1px solid #b8d4b8; padding-top: 12px; }
-    #expense-section h4 { font-size: 0.88rem; margin: 0 0 8px; color: #1a6b35; }
-    #expense-form { display: flex; flex-direction: column; gap: 6px; }
-    #expense-form select, #expense-form input[type="number"], #expense-form input[type="text"] {
-      padding: 6px 8px; font-size: 0.88rem;
-      border: 1px solid #aaa; border-radius: 4px; width: 100%;
-    }
-    #expense-form .expense-row { display: flex; gap: 6px; }
-    #expense-form .expense-row select { flex: 1.4; }
-    #expense-form .expense-row input  { flex: 1; }
-    #btn-add-expense {
-      padding: 8px; font-size: 0.88rem; font-weight: bold; cursor: pointer;
-      background: #1a6b35; color: #fff; border: none; border-radius: 4px;
-    }
-    #expense-list { margin-top: 10px; font-size: 0.82rem; }
-    #expense-list li {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 4px 2px; border-bottom: 1px solid #ddeedd;
-    }
-    #expense-list li .exp-label { color: #444; }
-    #expense-list li .exp-amount { font-weight: bold; white-space: nowrap; }
-    #expense-total { margin-top: 6px; font-size: 0.88rem; font-weight: bold; text-align: right; color: #1a6b35; }
-    #expense-msg { font-size: 0.82rem; color: #080; min-height: 1.2em; }
-
-    /* 集計・請求セレクター */
-    .section-selector {
-      display: flex; gap: 6px; align-items: center;
-      flex-wrap: wrap; margin-bottom: 8px;
-    }
-    .section-selector select {
-      flex: 1; padding: 6px 8px; font-size: 0.88rem;
-      border: 1px solid #bbb; border-radius: 4px;
-    }
-    .section-selector input[type="number"] {
-      width: 4.5rem; padding: 6px 8px; font-size: 0.88rem;
-      border: 1px solid #bbb; border-radius: 4px; text-align: center;
-    }
-    .section-selector span { font-size: 0.85rem; color: #555; }
-    .active-project-badge {
-      display: inline-block; font-size: 0.78rem; background: #e8f0ff;
-      border: 1px solid #99b0ee; border-radius: 3px;
-      padding: 2px 7px; color: #3355cc; margin-bottom: 6px;
-    }
-
-    /* 日次サマリー */
-    #daily-summary-display {
-      background: #fffbf0; border: 1px solid #e0c97a;
-      border-radius: 6px; padding: 12px; margin-top: 8px;
-      font-size: 0.85rem; white-space: pre-wrap; line-height: 1.8;
-      display: none;
-    }
-    #daily-summary-display.active { display: block; }
-    #btn-go-home {
-      background: #555; color: #fff; border: none;
-      border-radius: 6px; cursor: pointer;
-    }
-
-    /* カメラオーバーレイ */
-    #camera-overlay {
-      display: none;
-      position: fixed; inset: 0; z-index: 1000;
-      background: #000;
+    /* ── アプリコンテナ（幅制御） ── */
+    #app {
+      width: 100%;
+      max-width: 430px;
+      position: relative;
+      z-index: 1;
+      min-height: 100dvh;
+      display: flex;
       flex-direction: column;
     }
-    #camera-overlay.active { display: flex; }
 
-    #camera-header {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 10px 14px; background: rgba(0,0,0,0.7); color: #fff;
-      font-size: 0.85rem; flex-shrink: 0;
-    }
-    #camera-project-label { font-weight: bold; }
-    #camera-count { color: #aaa; }
-
-    #camera-viewport { position: relative; flex: 1; overflow: hidden; }
-    #camera-video {
-      width: 100%; height: 100%; object-fit: cover;
-    }
-    #camera-thumbnail {
-      position: absolute; inset: 0;
-      display: none; object-fit: cover;
-      width: 100%; height: 100%;
-    }
-    #camera-thumbnail.flash { display: block; }
-
-    #camera-footer {
-      display: flex; flex-direction: column; gap: 8px;
-      padding: 12px 14px; background: rgba(0,0,0,0.8); flex-shrink: 0;
-    }
-    #camera-atmosphere {
-      background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3);
-      color: #fff; border-radius: 4px; padding: 7px 10px; font-size: 0.85rem;
+    /* ── 画面コンテナ ── */
+    .screen {
+      display: none;
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 0 80px;
       width: 100%;
     }
-    #camera-atmosphere::placeholder { color: rgba(255,255,255,0.4); }
-    #camera-actions { display: flex; gap: 10px; }
-    #btn-shutter {
-      flex: 1; padding: 16px; font-size: 1.1rem; font-weight: bold;
-      background: #fff; color: #000; border: none; border-radius: 50px; cursor: pointer;
-    }
-    #btn-camera-close {
-      padding: 16px 20px; font-size: 0.9rem;
-      background: rgba(255,255,255,0.15); color: #fff;
-      border: 1px solid rgba(255,255,255,0.3); border-radius: 50px; cursor: pointer;
-    }
+    .screen.active { display: flex; flex-direction: column; }
 
-    /* 現場パネル内の写真一覧 */
-    #photo-list { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
-    #photo-list img {
-      width: 64px; height: 64px; object-fit: cover;
-      border-radius: 4px; border: 1px solid #aaa; cursor: pointer;
-    }
-    .btn-open-camera {
-      margin-top: 10px; padding: 10px; width: 100%; font-size: 0.9rem; font-weight: bold;
-      background: #2a2a2a; color: #fff; border: none; border-radius: 6px; cursor: pointer;
-    }
-    .camera-error {
-      margin-top: 6px; font-size: 0.82rem; color: #c00;
-      min-height: 1em; white-space: pre-line; line-height: 1.6;
-    }
-
-    /* 将来用プレースホルダー */
-    .future-placeholder {
-      margin-top: 16px; padding: 20px; border: 2px dashed #ddd;
-      border-radius: 8px; text-align: center; color: #bbb; font-size: 0.85rem;
-    }
-
-    /* データエクスポート */
-    .export-section {
-      margin-top: 2rem;
-      padding: 1.25rem;
-      background: #181818;
-      border: 1px solid #222;
-      border-radius: 8px;
-    }
-    .export-note {
-      margin: 0 0 1rem;
-      font-size: 0.85rem;
-      color: #888;
-    }
-    .export-btn {
+    /* ── 下部タブバー ── */
+    .tab-bar {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
       width: 100%;
-      padding: 0.875rem;
-      background: #1a1a1a;
-      border: 1px solid #333;
-      border-radius: 6px;
-      color: #f0ede8;
-      font-size: 0.95rem;
+      max-width: 430px;
+      display: flex;
+      background: #0d0d0b;
+      z-index: 100;
+    }
+    .tab {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 8px 20px;
+      background: none;
+      border: none;
+      border-top: 2px solid transparent;
       cursor: pointer;
+      font-family: inherit;
+      transition: border-color 0.2s, color 0.2s;
+      gap: 5px;
     }
-    .export-btn:active {
-      background: #222;
+    .tab .tab-icon-svg {
+      width: 22px;
+      height: 22px;
+      color: #a0a0a0;
     }
-    .export-error {
-      margin-top: 0.75rem;
-      font-size: 0.85rem;
-      color: #e05555;
+    .tab .tab-label {
+      font-size: 11px;
+      color: #a0a0a0;
+      letter-spacing: 0.12em;
+      font-family: 'Noto Serif JP', serif;
+      font-weight: 500;
+    }
+    .tab.active {
+      border-top: 2px solid #c5a059;
+      box-shadow: 0 -2px 8px rgba(197, 160, 89, 0.3);
+    }
+    .tab.active .tab-icon-svg { color: #c5a059; }
+    .tab.active .tab-label    { color: #c5a059; font-weight: 700; }
+    .tab-icon-svg {
+      display: block;
     }
 
-    /* CSV エクスポート */
-    .export-csv-group { margin-top: 1rem; display: flex; flex-direction: column; gap: 8px; }
-    .export-csv-row   { display: flex; gap: 8px; }
-    .export-input     {
-      flex: 1; padding: 0.625rem 0.75rem;
-      background: #111; border: 1px solid #2a2a2a; border-radius: 6px;
-      color: #f0ede8; font-size: 12px; font-family: inherit;
+    /* ── 画面1: 現場トップ ── */
+    .site-top-header {
+      padding: 28px 20px 16px;
     }
-    .export-btn-csv { flex-shrink: 0; width: auto; padding: 0.625rem 1rem; font-size: 12px; }
+    .site-top-eyebrow {
+      color: #c5a059;
+      font-size: 11px;
+      letter-spacing: 0.4em;
+      font-family: 'Noto Serif JP', serif;
+      font-weight: 300;
+      opacity: 0.7;
+      margin-bottom: 10px;
+    }
+    .site-top-heading {
+      font-size: 20px;
+      font-weight: 300;
+      color: #e8e5df;
+      line-height: 1.5;
+    }
 
-    /* 請求・ユーザー設定 */
-    .settings-form-section {
-      margin-top: 2rem;
-      padding: 1.25rem;
-      background: #181818;
-      border: 1px solid #222;
-      border-radius: 8px;
+    /* 現場カード一覧 */
+    .site-list {
+      padding: 0 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 32px;
     }
-    .settings-form-title {
+    .site-card {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 5px;
+      padding: 18px 20px 18px 24px;
+      min-height: 72px;
+      background: #161614;
+      border: 1px solid #2a2a24;
+      border-left: 4px solid #c5a059;
+      border-radius: 12px;
+      cursor: pointer;
+      font-family: inherit;
+      text-align: left;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .site-card:active {
+      background: #1e1e1a;
+      border-color: #333;
+    }
+    .site-slug {
+      font-size: 18px;
+      font-weight: 500;
+      color: #e8e5df;
+      letter-spacing: 0.05em;
+    }
+    .site-address {
+      font-size: 14px;
+      font-weight: 300;
+      color: #c0c0c0;
+    }
+
+    /* 空状態 */
+    .site-empty {
+      padding: 40px 20px;
+      text-align: center;
       font-size: 13px;
-      color: #888;
-      font-weight: 400;
-      margin-bottom: 1rem;
+      color: #4a4a42;
+      font-weight: 300;
+    }
+
+    /* 「現場が見つからない場合」導線 */
+    .site-fallback {
+      margin: 28px 20px 0;
+      padding: 0;
+    }
+    .site-fallback-label {
+      font-size: 12px;
+      color: #888880;
+      margin-bottom: 12px;
+      letter-spacing: 0.15em;
+      font-family: 'Noto Serif JP', serif;
+    }
+    .site-fallback-links {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .site-fallback-link {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid #1e1e1a;
+      font-size: 14px;
+      color: #e8e5df;
+      font-weight: 300;
+      background: none;
+      border-top: none;
+      border-left: none;
+      border-right: none;
+      cursor: pointer;
+      font-family: inherit;
+      text-align: left;
+      width: 100%;
+    }
+    .site-fallback-link::after {
+      content: '›';
+      font-size: 18px;
+      color: #c5a059;
+    }
+    .site-fallback-link:last-child { border-bottom: none; }
+
+    /* ── 画面2: 申し送り ── */
+    .screen-header {
+      display: flex;
+      align-items: center;
+      padding: 16px 20px;
+      border-bottom: 1px solid #1e1e1a;
+      gap: 12px;
+    }
+    .back-btn {
+      color: #c5a059;
+      font-size: 20px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px;
+      font-family: inherit;
+      line-height: 1;
+    }
+    .screen-title {
+      color: #e8e5df;
+      font-size: 16px;
+      font-weight: 500;
+    }
+    .screen-subtitle {
+      font-family: 'Noto Serif JP', serif;
+      color: #a0a0a0;
+      font-size: 12px;
+      padding: 12px 20px 8px;
       letter-spacing: 0.1em;
     }
-    .settings-group {
-      margin-bottom: 1rem;
+    .handover-item {
+      border-bottom: 1px solid #1e1e1a;
     }
-    .settings-label {
-      display: block;
-      font-size: 11px;
-      color: #555;
-      margin-bottom: 4px;
-      letter-spacing: 0.08em;
-    }
-    .settings-input {
+    .handover-header {
       width: 100%;
-      padding: 0.625rem 0.75rem;
-      background: #111;
-      border: 1px solid #2a2a2a;
-      border-radius: 6px;
-      color: #f0ede8;
-      font-size: 13px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      text-align: left;
       font-family: inherit;
     }
-    .settings-input:focus {
+    .handover-label {
+      color: #e8e5df;
+      font-size: 15px;
+      font-weight: 400;
+    }
+    .handover-chevron {
+      color: #c5a059;
+      font-size: 18px;
+      transition: transform 0.2s;
+    }
+    .handover-item.open .handover-chevron {
+      transform: rotate(90deg);
+    }
+    .handover-body {
+      padding: 0 20px 16px 20px;
+    }
+    .handover-text {
+      color: #c0c0c0;
+      font-size: 14px;
+      line-height: 1.7;
+      white-space: pre-wrap;
+    }
+    #screen-handover {
+      flex: none;
+      height: calc(100dvh - 60px);
+      overflow: hidden;
+      padding: 0;
+    }
+    .handover-scroll-area {
+      flex: 1;
+      overflow-y: auto;
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    .handover-scroll-area::-webkit-scrollbar {
+      display: none;
+    }
+    .handover-empty {
+      text-align: center;
+      font-size: 14px;
+      color: #777;
+      padding: 32px 20px;
+    }
+    .checkin-area {
+      flex-shrink: 0;
+      padding: 20px 20px 24px;
+      border-top: 1px solid #2a2a24;
+      background-color: #0d0d0b;
+    }
+    .checkin-btn {
+      width: 100%;
+      padding: 16px;
+      background: #1e1a10;
+      border: 1px solid #c5a059;
+      border-radius: 12px;
+      color: #c5a059;
+      font-size: 16px;
+      font-weight: 500;
+      font-family: 'Noto Sans JP', sans-serif;
+      cursor: pointer;
+      letter-spacing: 0.05em;
+    }
+    .checkin-btn:active {
+      background: #2a2210;
+    }
+
+    /* ── 画面3: 作業中 ── */
+    #screen-working {
+      flex: none;
+      height: calc(100dvh - 60px);
+      overflow: hidden;
+      padding: 0;
+    }
+    .working-monitor {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      padding: 0;
+      border-top: 1px solid #c5a059;
+      border-bottom: 1px solid #1e1e1a;
+    }
+    .working-site-name {
+      color: #e8e5df;
+      font-size: 16px;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+    }
+    .working-checkin-time {
+      color: #a0a0a0;
+      font-size: 12px;
+      margin-top: 4px;
+      padding-left: 52px;
+      font-family: 'Noto Serif JP', serif;
+      letter-spacing: 0.08em;
+    }
+    .working-actions {
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 16px 20px 20px;
+      background: #0d0d0b;
+    }
+    .action-btn {
+      width: 100%;
+      padding: 20px;
+      border-radius: 12px;
+      font-family: 'Noto Sans JP', sans-serif;
+      cursor: pointer;
+      display: flex;
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid;
+      border-top: 1px solid rgba(232, 229, 223, 0.25);
+      background: none;
+      text-align: left;
+      box-shadow: inset 0 -2px 4px rgba(0, 0, 0, 0.5),
+                  inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+    .btn-main-text {
+      font-size: 17px;
+      font-weight: 500;
+    }
+    .btn-sub {
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      opacity: 0.6;
+      font-family: 'Noto Serif JP', serif;
+      width: 100%;
+    }
+    .btn-sos {
+      background: radial-gradient(
+        ellipse at center,
+        #3d1a08 0%,
+        #2a1205 50%,
+        #1a0c03 100%
+      );
+      border-color: #d95b29;
+      border-top: 1px solid rgba(217, 91, 41, 0.4);
+      color: #f0ede8;
+      min-height: 120px;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      box-shadow: 0 0 12px rgba(217, 91, 41, 0.4),
+                  0 0 24px rgba(217, 91, 41, 0.2),
+                  inset 0 -1px 0 rgba(0, 0, 0, 0.6),
+                  inset 0 1px 0 rgba(217, 91, 41, 0.2);
+    }
+    .btn-sos:active {
+      background: radial-gradient(
+        ellipse at center,
+        #4a2010 0%,
+        #3a1a08 50%,
+        #2a1205 100%
+      );
+      box-shadow: 0 0 6px rgba(217, 91, 41, 0.3);
+    }
+    .btn-sos .btn-sub { color: #d95b29; width: auto; }
+    .action-row {
+      display: flex;
+      gap: 10px;
+    }
+    .action-row .action-btn {
+      flex: 1;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 80px;
+    }
+    .action-row .action-btn .btn-sub { width: auto; }
+    .btn-photo {
+      background: #161614;
+      border-color: #2a2a24;
+      color: #e8e5df;
+    }
+    .btn-photo:active { background: #1e1e1a; }
+    .btn-photo .btn-sub { color: #777; }
+    .btn-memo {
+      background: #161614;
+      border-color: #2a2a24;
+      color: #e8e5df;
+    }
+    .btn-memo:active { background: #1e1e1a; }
+    .btn-memo .btn-sub { color: #777; }
+    .btn-return {
+      background: #161614;
+      border-color: #c5a059;
+      color: #a0a0a0;
+    }
+    .btn-return:active { background: #1e1e1a; }
+    .btn-return .btn-sub { color: #c5a059; }
+    .btn-rest {
+      background: #161614;
+      border: 1px solid #2a2a24;
+      color: #e8e5df;
+    }
+    .btn-rest:active { background: #1e1e1a; }
+    .btn-rest .btn-sub { color: #777; }
+    .btn-icon {
+      width: 22px;
+      height: 22px;
+      flex-shrink: 0;
+      stroke: currentColor;
+    }
+
+    /* ── 画面3-B: 休憩 ── */
+    #screen-rest .working-monitor {
+      flex: none;     /* ヘッダーを自然な高さに固定 */
+    }
+    #screen-rest {
+      flex: none;
+      height: calc(100dvh - 60px);
+      overflow: hidden;
+      padding: 0;
+    }
+    .rest-map-section {
+      padding: 20px 20px 0;
+    }
+    .rest-map-label {
+      color: #777;
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      font-family: 'Noto Serif JP', serif;
+      margin-bottom: 12px;
+    }
+    .rest-map-categories {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .rest-cat-btn {
+      background: #161614;
+      border: 1px solid #2a2a24;
+      border-top: 1px solid rgba(232, 229, 223, 0.15);
+      border-radius: 20px;
+      color: #e8e5df;
+      font-size: 13px;
+      padding: 8px 14px;
+      cursor: pointer;
+      font-family: 'Noto Sans JP', sans-serif;
+    }
+    .rest-cat-btn:active {
+      background: #1e1e1a;
+      border-color: #c5a059;
+    }
+    .rest-map-placeholder {
+      background: #161614;
+      border: 1px dashed #2a2a24;
+      border-radius: 12px;
+      padding: 40px 20px;
+      text-align: center;
+      color: #444;
+      font-size: 13px;
+      line-height: 2;
+    }
+    .rest-map-note {
+      font-size: 11px;
+      color: #333;
+      font-family: 'Noto Serif JP', serif;
+    }
+
+    /* ── 画面4: SOS ── */
+    #screen-sos {
+      flex: none;
+      height: calc(100dvh - 60px);
+      overflow: hidden;
+      padding: 0;
+    }
+    #screen-sos .working-monitor {
+      flex: none;
+    }
+    .sos-option {
+      width: 100%;
+      padding: 16px 20px;
+      background: #161614;
+      border: 1px solid #2a2a24;
+      border-top: 1px solid rgba(232, 229, 223, 0.15);
+      border-radius: 12px;
+      color: #e8e5df;
+      font-size: 15px;
+      font-family: 'Noto Sans JP', sans-serif;
+      text-align: left;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: inset 0 -1px 0 rgba(0,0,0,0.4);
+    }
+    .sos-option:active { background: #1e1e1a; }
+    .sos-option.selected {
+      background: #1e1a10;
+      border-color: #c5a059;
+      color: #c5a059;
+    }
+    .sos-option.danger {
+      border-color: #d95b29;
+      color: #d95b29;
+    }
+    .sos-option.danger.selected {
+      background: #2a1205;
+      border-color: #d95b29;
+      color: #f0ede8;
+    }
+    .sos-check {
+      font-size: 16px;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .sos-option.selected .sos-check { opacity: 1; }
+    .sos-memo {
+      width: 100%;
+      padding: 12px 16px;
+      background: #161614;
+      border: 1px solid #2a2a24;
+      border-radius: 12px;
+      color: #e8e5df;
+      font-size: 14px;
+      font-family: 'Noto Sans JP', sans-serif;
+      resize: none;
+      min-height: 80px;
+      box-sizing: border-box;
+    }
+    .sos-memo:focus {
       outline: none;
       border-color: #444;
     }
-    .settings-save-btn {
-      width: 100%;
-      padding: 0.875rem;
-      background: #1a1a1a;
-      border: 1px solid #333;
-      border-radius: 6px;
-      color: #f0ede8;
-      font-size: 0.95rem;
-      cursor: pointer;
-      font-family: inherit;
-      margin-top: 0.5rem;
+    .sos-memo::placeholder { color: #3a3a32; }
+    .sos-memo-label {
+      color: #4a4a42;
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      font-family: 'Noto Serif JP', serif;
+      margin-bottom: 8px;
     }
-    .settings-save-btn:active { background: #222; }
-    .settings-saved-msg {
-      margin-top: 0.5rem;
-      font-size: 12px;
-      color: #6ab87a;
+    .sos-send-btn {
+      width: 100%;
+      padding: 16px;
+      background: #1e1a10;
+      border: 1px solid #c5a059;
+      border-radius: 12px;
+      color: #c5a059;
+      font-size: 16px;
+      font-weight: 500;
+      font-family: 'Noto Sans JP', sans-serif;
+      cursor: pointer;
+      letter-spacing: 0.05em;
+    }
+    .sos-send-btn:active { background: #2a2210; }
+    .sos-send-btn:disabled {
+      border-color: #2a2a24;
+      color: #444;
+      cursor: not-allowed;
+    }
+
+    /* ── SOS送信完了モーダル ── */
+    .sos-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 10, 9, 0.85);
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 24px;
+      animation: sos-fadein 0.4s ease;
+    }
+    .sos-modal[hidden] { display: none; }
+    @keyframes sos-fadein {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+    .sos-modal-inner {
+      width: 100%;
+      max-width: 390px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+    .sos-complete-title {
+      font-family: 'Noto Serif JP', serif;
+      font-size: 24px;
+      font-weight: 400;
+      color: #e8e5df;
+      letter-spacing: 0.08em;
       text-align: center;
+      animation: sos-fadein 0.8s ease;
+    }
+    .sos-complete-sub {
+      font-family: 'Noto Serif JP', serif;
+      font-size: 13px;
+      color: #777;
+      text-align: center;
+      line-height: 1.8;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+    .sos-modal-btn {
+      width: 100%;
+      padding: 16px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 500;
+      font-family: 'Noto Sans JP', sans-serif;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      border: 1px solid;
+      border-top: 1px solid rgba(232, 229, 223, 0.15);
+      box-shadow: inset 0 -1px 0 rgba(0,0,0,0.4);
+    }
+    .sos-call-btn {
+      background: #2a1205;
+      border-color: #d95b29;
+      color: #f0ede8;
+    }
+    .sos-call-btn:active { background: #3a1a08; }
+    .sos-call-note {
+      font-size: 11px;
+      color: #d95b29;
+      font-family: 'Noto Serif JP', serif;
+      letter-spacing: 0.05em;
+      font-weight: 400;
+    }
+    .sos-wait-btn {
+      background: #161614;
+      border-color: #2a2a24;
+      color: #e8e5df;
+    }
+    .sos-wait-btn:active { background: #1e1e1a; }
+    .sos-modal-link {
+      background: none;
+      border: none;
+      color: #a0a0a0;
+      font-size: 15px;
+      font-family: 'Noto Serif JP', serif;
+      cursor: pointer;
+      padding: 8px;
+      letter-spacing: 0.05em;
+      text-decoration: underline;
+      text-decoration-color: #555;
+      text-underline-offset: 4px;
+    }
+    .sos-modal-link:active { color: #888; }
+    #shimai-confirm-modal {
+      position: fixed;
+      inset: 0;
+      background: #0d0d0b;
+      z-index: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 24px;
+    }
+    #shimai-confirm-modal[hidden] { display: none; }
+
+    /* ── 画面5: 山返し ── */
+    #screen-return .working-monitor {
+      flex: none;
+    }
+    #screen-return {
+      flex: none;
+      height: calc(100dvh - 60px);
+      overflow: hidden;
+      padding: 0;
+    }
+    .return-section-label {
+      color: #a0a0a0;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      font-family: 'Noto Serif JP', serif;
+      margin-bottom: 10px;
+    }
+    .mood-btn {
+      flex: 1;
+      padding: 14px;
+      background: #161614;
+      border: 1px solid #2a2a24;
+      border-top: 1px solid rgba(232, 229, 223, 0.15);
+      border-radius: 12px;
+      color: #a0a0a0;
+      font-size: 14px;
+      font-family: 'Noto Sans JP', sans-serif;
+      cursor: pointer;
+      text-align: center;
+      box-shadow: inset 0 -1px 0 rgba(0,0,0,0.4);
+    }
+    .mood-btn.selected {
+      background: #1e1a10;
+      border-color: #c5a059;
+      color: #c5a059;
+    }
+    .mood-btn:active { background: #1e1e1a; }
+    .category-btn {
+      width: 100%;
+      padding: 14px 20px;
+      background: #161614;
+      border: 1px solid #2a2a24;
+      border-top: 1px solid rgba(232, 229, 223, 0.15);
+      border-radius: 12px;
+      color: #e8e5df;
+      font-size: 14px;
+      font-family: 'Noto Sans JP', sans-serif;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: inset 0 -1px 0 rgba(0,0,0,0.4);
+    }
+    .category-btn.selected {
+      background: #1e1a10;
+      border-color: #c5a059;
+      color: #c5a059;
+    }
+    .category-btn:active { background: #1e1e1a; }
+    .category-check {
+      opacity: 0;
+      font-size: 14px;
+      transition: opacity 0.15s;
+    }
+    .category-btn.selected .category-check { opacity: 1; }
+    .return-memo {
+      width: 100%;
+      padding: 12px 16px;
+      background: #161614;
+      border: 1px solid #2a2a24;
+      border-radius: 12px;
+      color: #e8e5df;
+      font-size: 14px;
+      font-family: 'Noto Sans JP', sans-serif;
+      resize: none;
+      min-height: 80px;
+      box-sizing: border-box;
+    }
+    .return-memo:focus { outline: none; border-color: #444; }
+    .return-memo::placeholder { color: #3a3a32; }
+    .return-send-btn {
+      width: 100%;
+      padding: 16px;
+      background: #161614;
+      border: 1px solid #c5a059;
+      border-radius: 12px;
+      color: #c5a059;
+      font-size: 16px;
+      font-weight: 500;
+      font-family: 'Noto Serif JP', serif;
+      cursor: pointer;
+      letter-spacing: 0.1em;
+    }
+    .return-send-btn:active { background: #1e1a10; }
+
+    /* ── 山返し完了モーダル ── */
+    .return-complete-icon {
+      font-size: 48px;
+      margin-bottom: 8px;
+      animation: ember-pulse 2s ease-in-out infinite;
+    }
+    @keyframes ember-pulse {
+      0%, 100% { opacity: 1;   transform: scale(1); }
+      50%       { opacity: 0.7; transform: scale(0.95); }
+    }
+    .return-complete-title {
+      font-family: 'Noto Serif JP', serif;
+      font-size: 22px;
+      font-weight: 400;
+      color: #e8e5df;
+      letter-spacing: 0.06em;
+      text-align: center;
+      line-height: 1.7;
+      animation: sos-fadein 0.8s ease;
+    }
+    .return-complete-sub {
+      font-family: 'Noto Serif JP', serif;
+      font-size: 13px;
+      color: #777;
+      text-align: center;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+
+    /* ── 画面6: 仕舞い ── */
+    #screen-shimai {
+      flex: none;
+      height: calc(100dvh - 60px);
+      overflow: hidden;
+      padding: 0;
+    }
+    .shimai-header {
+      padding: 20px 20px 16px;
+      border-bottom: 1px solid #1e1e1a;
+    }
+    .shimai-header-label {
+      font-family: 'Noto Serif JP', serif;
+      font-size: 11px;
+      color: #c5a059;
+      letter-spacing: 0.4em;
+      opacity: 0.7;
+      margin-bottom: 6px;
+    }
+    .shimai-header-title {
+      font-size: 20px;
+      font-weight: 300;
+      color: #e8e5df;
+      margin-bottom: 4px;
+    }
+    .shimai-header-sub {
+      font-family: 'Noto Serif JP', serif;
+      font-size: 12px;
+      color: #a0a0a0;
+      letter-spacing: 0.1em;
+    }
+    .shimai-section {
+      padding: 20px 20px 0;
+    }
+    .shimai-section-label {
+      color: #a0a0a0;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      font-family: 'Noto Serif JP', serif;
+      margin-bottom: 10px;
+    }
+    .shimai-card {
+      background: #161614;
+      border: 1px solid #2a2a24;
+      border-top: 1px solid rgba(232, 229, 223, 0.15);
+      border-radius: 12px;
+      padding: 16px 20px;
+      box-shadow: inset 0 -1px 0 rgba(0,0,0,0.4);
+    }
+    .today-record-name {
+      color: #e8e5df;
+      font-size: 15px;
+      font-weight: 500;
+      margin-bottom: 8px;
+    }
+    .today-record-empty {
+      color: #444;
+      font-size: 13px;
+      font-family: 'Noto Serif JP', serif;
+      text-align: center;
+      padding: 12px 0;
+    }
+    .shimai-action-btn {
+      width: 100%;
+      padding: 14px 20px;
+      background: #161614;
+      border: 1px solid #2a2a24;
+      border-top: 1px solid rgba(232, 229, 223, 0.15);
+      border-radius: 12px;
+      color: #e8e5df;
+      font-size: 14px;
+      font-family: 'Noto Sans JP', sans-serif;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: inset 0 -1px 0 rgba(0,0,0,0.4);
+    }
+    .shimai-action-btn:active { background: #1e1e1a; }
+    .shimai-action-arrow {
+      color: #c5a059;
+      font-size: 18px;
+    }
+    .invoice-display {
+      padding: 14px 16px;
+      background: #161614;
+      border: 1px solid #2a2a24;
+      border-radius: 10px;
+      font-family: 'Noto Serif JP', serif;
+      font-size: 13px;
+      color: #c8c4bc;
+    }
+    .invoice-display--warn {
+      border-left: 3px solid #c5a059;
+      color: #c5a059;
+      font-size: 14px;
+    }
+    .invoice-card-title {
+      font-family: 'Noto Serif JP', serif;
+      font-size: 11px;
+      color: #666;
+      letter-spacing: 0.1em;
+      margin: 0 0 10px 0;
+    }
+    .invoice-card-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 7px 0;
+      border-bottom: 1px solid #2a2a24;
+      font-size: 14px;
+      color: #e8e5df;
+    }
+    .invoice-card-row:last-child { border-bottom: none; }
+    .invoice-card-label {
+      font-family: 'Noto Serif JP', serif;
+      font-size: 12px;
+      color: #666;
+      letter-spacing: 0.06em;
+    }
+    .invoice-card-row--note .invoice-card-value {
+      color: #c5a059;
+      font-size: 12px;
+    }
+    .invoice-skip-btn {
+      width: 100%;
+      padding: 10px 16px;
+      background: none;
+      border: 1px solid #3a3a30;
+      border-radius: 8px;
+      color: #888;
+      font-family: 'Noto Serif JP', serif;
+      font-size: 13px;
+      cursor: pointer;
+      letter-spacing: 0.06em;
+    }
+    .invoice-skip-btn:active { background: #1c1c18; }
+
+    /* ── 現場追加モーダル ── */
+    .add-site-inner {
+      width: 100%;
+      align-items: stretch;
+    }
+    .add-site-field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .add-site-label {
+      font-family: 'Noto Serif JP', serif;
+      font-size: 12px;
+      color: #888;
+      letter-spacing: 0.06em;
+    }
+    .add-site-input,
+    .add-site-textarea {
+      background: #1c1c18;
+      border: 1px solid #2a2a24;
+      border-radius: 8px;
+      color: #e8e5df;
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 15px;
+      padding: 12px 14px;
+      box-sizing: border-box;
+      outline: none;
+    }
+    .add-site-input:focus,
+    .add-site-textarea:focus {
+      border-color: #c5a059;
+    }
+    .add-site-input::placeholder,
+    .add-site-textarea::placeholder {
+      color: #444;
+    }
+    .add-site-textarea {
+      min-height: 120px;
+      resize: none;
+      line-height: 1.6;
+    }
+
+    /* ── 仮置き現場カード ── */
+    .site-card-pending {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 18px 20px 14px 24px;
+      background: #161614;
+      border: 1px solid #2a2a24;
+      border-left: 4px solid #c5a059;
+      border-radius: 12px;
+      box-sizing: border-box;
+    }
+    .site-card-pending-head {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .site-checkin-time {
+      font-family: 'Noto Serif JP', serif;
+      font-size: 12px;
+      color: #888;
+      letter-spacing: 0.06em;
+    }
+    .site-card-resume-btn {
+      width: 100%;
+      padding: 12px 16px;
+      background: #1c1c18;
+      border: 1px solid #c5a059;
+      border-radius: 8px;
+      color: #c5a059;
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      letter-spacing: 0.05em;
+    }
+    .site-card-resume-btn:active { background: #1e1a10; }
+    .site-card-cancel-btn {
+      background: none;
+      border: none;
+      color: #555;
+      font-family: 'Noto Serif JP', serif;
+      font-size: 12px;
+      cursor: pointer;
+      padding: 4px 0;
+      text-align: left;
+      letter-spacing: 0.04em;
+    }
+    .site-card-cancel-btn:active { color: #888; }
+
+    /* ── レスポンシブ ── */
+    @media (max-width: 480px) {
+      .site-slug    { font-size: 16px; }
+      .site-address { font-size: 13px; }
+    }
+
+    @media (min-width: 481px) and (max-width: 768px) {
+      .site-slug    { font-size: 18px; }
+      .site-address { font-size: 14px; }
     }
   </style>
 </head>
 <body>
-  <h1>Senlings</h1>
+  <div id="app">
 
-  <!-- ══════════════════════════════════════════
-       ⓪ 管理者タブ
-       ══════════════════════════════════════════ -->
-  <div id="tab-admin" class="tab-panel">
-
-    <!-- 現場登録 -->
-    <section>
-      <h2>現場登録</h2>
-      <button id="btn-new-project">＋ 新規現場を登録</button>
-      <button id="btn-push-firestore">☁ Firestoreに同期</button>
-      <div id="push-firestore-result" style="margin-top:8px;font-size:0.85rem;font-weight:bold;min-height:1.2em;"></div>
-
-      <!-- 登録フォーム（3ステップ） -->
-      <form id="registration-form" novalidate>
-
-        <!-- STEP 1: 基本情報 -->
-        <div class="form-step">
-          <h3>STEP 1 — 基本情報</h3>
-
-          <div class="form-row">
-            <label>工期開始日 <span style="color:#c00">*</span></label>
-            <input type="date" id="f-start-date" required />
-            <div class="field-error" id="err-start-date"></div>
-          </div>
-
-          <div class="form-row">
-            <label>現場略称（slug） <span style="color:#c00">*</span> <span class="optional">英数字・ハイフン・20文字以内</span></label>
-            <input type="text" id="f-slug" placeholder="SHIBUYA-KAISO" maxlength="20" />
-            <div id="project-id-preview"></div>
-            <div class="field-error" id="err-slug"></div>
-          </div>
-
-          <div class="form-row">
-            <label>住所 <span style="color:#c00">*</span></label>
-            <input type="text" id="f-address" placeholder="東京都渋谷区…" />
-            <div class="field-error" id="err-address"></div>
-          </div>
-
-          <div class="form-row">
-            <label>工事コード <span class="optional">（任意・後日入力可）</span></label>
-            <input type="text" id="f-project-code" placeholder="不明" />
-          </div>
-        </div>
-
-        <!-- STEP 2: 現場窓口 -->
-        <div class="form-step">
-          <h3>STEP 2 — 現場窓口</h3>
-          <div class="form-row">
-            <label>担当者 <span style="color:#c00">*</span></label>
-            <select id="f-contact">
-              <option value="">— 選択してください —</option>
-            </select>
-            <div class="field-error" id="err-contact"></div>
-          </div>
-        </div>
-
-        <!-- STEP 3: 攻略情報（任意） -->
-        <div class="form-step">
-          <h3>STEP 3 — 攻略情報 <span class="optional">（任意・不明可）</span></h3>
-
-          <div class="form-row">
-            <label>入口</label>
-            <input type="text" id="f-entrance" placeholder="不明" />
-          </div>
-          <div class="form-row">
-            <label>駐車場</label>
-            <input type="text" id="f-parking" placeholder="不明" />
-          </div>
-          <div class="form-row">
-            <label>搬入方法</label>
-            <input type="text" id="f-delivery" placeholder="不明" />
-          </div>
-          <div class="form-row">
-            <label>朝礼</label>
-            <select id="f-morning-assembly">
-              <option value="">不明</option>
-              <option value="true">あり</option>
-              <option value="false">なし</option>
-            </select>
-          </div>
-          <div class="form-row">
-            <label>特殊装備</label>
-            <input type="text" id="f-equipment" placeholder="不明" />
-          </div>
-          <div class="form-row">
-            <label>トイレ</label>
-            <input type="text" id="f-toilet" placeholder="不明" />
-          </div>
-          <div class="form-row">
-            <label>喫煙所</label>
-            <input type="text" id="f-smoking" placeholder="不明" />
-          </div>
-        </div>
-
-        <button type="submit" id="btn-submit-project">登録する</button>
-        <button type="button" id="btn-cancel-project">キャンセル</button>
-        <div id="form-result"></div>
-      </form>
-    </section>
-
-    <!-- ContactMaster 編集 -->
-    <section>
-      <h2>ContactMaster</h2>
-      <button id="btn-toggle-contacts">編集</button>
-      <div id="contact-editor">
-        <!-- ヘッダー行 -->
-        <div class="cm-row">
-          <span>ID</span>
-          <span>氏名</span>
-          <span>電話</span>
-          <span>会社</span>
-          <span>有効</span>
-          <span></span>
-          <span></span>
-        </div>
-        <!-- CM01〜CM10 は app.js が動的に生成 -->
-        <div id="contact-rows"></div>
-      </div>
-    </section>
-
-  </div><!-- /tab-admin -->
-
-
-  <!-- ══════════════════════════════════════════
-       ① 職人タブ（デフォルト表示）
-       ══════════════════════════════════════════ -->
-  <div id="tab-worker" class="tab-panel active">
-
-    <!-- 現場一覧 -->
-    <section>
-      <h2>現場一覧</h2>
-      <ul id="project-list"><li>（登録なし）</li></ul>
-    </section>
-
-    <!-- 勤怠ステータス -->
-    <section>
-      <h2>勤怠</h2>
-      <p id="status-display">状態: Idle</p>
-    </section>
-
-    <!-- 移動モードパネル -->
-    <div id="move-panel">
-      <p class="panel-title">🚗 移動モード</p>
-      <div class="panel-info" id="move-info"></div>
-      <div class="panel-actions">
-        <button id="btn-nav">ナビ開始</button>
-        <button id="btn-arrive">到着</button>
-        <button id="btn-go-home">帰宅</button>
-      </div>
-      <button class="btn-open-camera" id="btn-open-camera-move">📷 カメラを起動</button>
-      <div class="camera-error" id="move-camera-error"></div>
+  <!-- ── 画面1: 現場トップ ── -->
+  <div id="screen-site-top" class="screen active">
+    <div class="site-top-header">
+      <p class="site-top-eyebrow">SENLINGS</p>
+      <h1 class="site-top-heading">今日はどこへ入りますか？</h1>
     </div>
 
-    <!-- 現場モードパネル -->
-    <div id="onsite-panel">
-      <p class="panel-title">🏗 現場モード</p>
-      <div class="panel-info" id="onsite-info"></div>
-      <div class="panel-actions">
-        <button id="btn-checkin">出勤</button>
-        <button id="btn-checkout" disabled>退勤</button>
-        <button id="btn-exit-site">終了</button>
-      </div>
-
-      <!-- カメラボタン + 写真一覧 -->
-      <button class="btn-open-camera" id="btn-open-camera-onsite">📷 カメラを起動</button>
-      <div class="camera-error" id="onsite-camera-error"></div>
-      <div id="photo-list"></div>
-      <div style="margin-top:8px;">
-        <button id="btn-upload-drive">📧 写真をメールで送る</button>
-        <span id="drive-upload-msg" style="margin-left:8px;font-size:0.85rem;"></span>
-      </div>
-
-      <!-- 経費入力 -->
-      <div id="expense-section">
-        <h4>経費を追加</h4>
-        <div id="expense-form">
-          <div class="expense-row">
-            <select id="f-exp-category">
-              <option value="parking">駐車場</option>
-              <option value="toll">高速代</option>
-              <option value="fuel">燃料</option>
-              <option value="material_small">軽微材料</option>
-              <option value="tool_rental">道具レンタル</option>
-              <option value="other">その他</option>
-            </select>
-            <input type="number" id="f-exp-amount" placeholder="金額（円）" min="0" step="1" />
-          </div>
-          <input type="text" id="f-exp-memo" placeholder="メモ（任意）" />
-          <button type="button" id="btn-add-expense">追加</button>
-          <div id="expense-msg"></div>
-        </div>
-        <ul id="expense-list"></ul>
-        <div id="expense-total"></div>
-      </div>
+    <div class="site-list" id="site-list">
+      <!-- app_v2.js が描画 -->
     </div>
 
-    <!-- 日次サマリー -->
-    <section>
-      <h2>日次サマリー</h2>
-      <button id="btn-daily-summary">今日のサマリー表示</button>
-      <div id="daily-summary-display"></div>
-    </section>
-
-  </div><!-- /tab-worker -->
-
-
-  <!-- ══════════════════════════════════════════
-       ② 設定タブ
-       ══════════════════════════════════════════ -->
-  <div id="tab-settings" class="tab-panel">
-
-    <!-- お名前 -->
-    <section>
-      <h2>お名前</h2>
-      <div class="form-row">
-        <label for="input-user-name">お名前（職人タブのラベルに使用されます）</label>
-        <input type="text" id="input-user-name" placeholder="例：田中 太郎" maxlength="20" />
-      </div>
-    </section>
-
-    <!-- 通知メール -->
-    <section>
-      <h2>通知メール</h2>
-      <div class="form-row">
-        <label for="input-notify-email">送信先メールアドレス</label>
-        <input type="email" id="input-notify-email" placeholder="例：you@example.com" maxlength="200" />
-      </div>
-      <div class="form-row">
-        <label for="input-admin-email">管理者メールアドレス（CC）</label>
-        <input type="email" id="input-admin-email" placeholder="例：admin@example.com" maxlength="200" />
-      </div>
-      <button id="btn-save-email">メールアドレスを保存</button>
-      <span id="email-save-msg" style="margin-left:8px;font-size:0.85rem;"></span>
-    </section>
-
-    <!-- 請求下書き -->
-    <section>
-      <h2>請求下書き</h2>
-      <div class="section-selector">
-        <select id="invoice-project-select">
-          <option value="">— 現場を選択 —</option>
-        </select>
-        <input type="number" id="invoice-year"  min="2020" max="2099" />
-        <span>/</span>
-        <input type="number" id="invoice-month" min="1" max="12" />
-        <span>月</span>
-      </div>
-      <button id="btn-invoice">請求下書き生成</button>
-      <button id="btn-excel-export">Excelを書き出す</button>
-      <button id="btn-skip-expense" style="display:none">経費をスキップして確定</button>
-      <div id="invoice-display"></div>
-      <button id="btn-send-email" style="display:none;margin-top:8px;">メールで送信</button>
-      <span id="email-send-msg" style="margin-left:8px;font-size:0.85rem;"></span>
-    </section>
-
-    <!-- 月次サマリー -->
-    <section>
-      <h2>月次サマリー</h2>
-      <div class="section-selector">
-        <select id="summary-project-select">
-          <option value="">— 現場を選択 —</option>
-        </select>
-        <input type="number" id="summary-year"  min="2020" max="2099" />
-        <span>/</span>
-        <input type="number" id="summary-month" min="1" max="12" />
-        <span>月</span>
-      </div>
-      <button id="btn-summary">サマリー表示</button>
-      <div id="summary-display"></div>
-    </section>
-
-    <!-- 将来用 -->
-    <section>
-      <h2>その他</h2>
-      <div class="future-placeholder">将来の機能がここに追加されます</div>
-    </section>
-
-    <!-- ===== データエクスポート（STEP 2） ===== -->
-    <section class="export-section" id="export-section">
-      <p class="export-note">このデータはあなたのものです。いつでも持ち出せます。</p>
-      <button class="export-btn" id="btn-export-json">
-        JSON（全データ）をダウンロード
-      </button>
-      <!-- CSV エクスポート -->
-      <div class="export-csv-group">
-        <div class="export-csv-row">
-          <input class="export-input" id="export-billing-month" type="month"
-                 placeholder="YYYY-MM" title="月次エクスポート対象月">
-          <button class="export-btn export-btn-csv" id="btn-export-csv-monthly">
-            CSV（月次）
-          </button>
-        </div>
-        <div class="export-csv-row">
-          <select class="export-input" id="export-project-select">
-            <option value="">工事を選ぶ</option>
-          </select>
-          <button class="export-btn export-btn-csv" id="btn-export-csv-project">
-            CSV（工事単位）
-          </button>
-        </div>
-      </div>
-      <p class="export-error" id="export-error" style="display:none;"></p>
-    </section>
-    <!-- ===== /データエクスポート ===== -->
-
-    <!-- ===== 請求・ユーザー設定（STEP 14） ===== -->
-    <section class="settings-form-section" id="invoice-settings-section">
-      <h3 class="settings-form-title">請求書・口座設定</h3>
-
-      <div class="settings-group">
-        <label class="settings-label">お名前（請求書用）</label>
-        <input class="settings-input" id="setting-user-name" type="text" placeholder="山田 太郎">
-      </div>
-
-      <div class="settings-group">
-        <label class="settings-label">労務単価（円/人工）</label>
-        <input class="settings-input" id="setting-unit-price" type="number" placeholder="25000">
-      </div>
-
-      <div class="settings-group">
-        <label class="settings-label">消費税率</label>
-        <select class="settings-input" id="setting-tax-rate">
-          <option value="0.10">10%</option>
-          <option value="0.08">8%</option>
-        </select>
-      </div>
-
-      <div class="settings-group">
-        <label class="settings-label">インボイス登録番号（任意）</label>
-        <input class="settings-input" id="setting-registrated-number" type="text" placeholder="T1234567890123">
-      </div>
-
-      <div class="settings-group">
-        <label class="settings-label">銀行名</label>
-        <input class="settings-input" id="setting-bank-name" type="text" placeholder="○○銀行">
-      </div>
-
-      <div class="settings-group">
-        <label class="settings-label">支店名</label>
-        <input class="settings-input" id="setting-bank-branch" type="text" placeholder="○○支店">
-      </div>
-
-      <div class="settings-group">
-        <label class="settings-label">口座種別</label>
-        <select class="settings-input" id="setting-bank-account-type">
-          <option value="普通">普通</option>
-          <option value="当座">当座</option>
-        </select>
-      </div>
-
-      <div class="settings-group">
-        <label class="settings-label">口座番号</label>
-        <input class="settings-input" id="setting-bank-account-number" type="text" placeholder="1234567">
-      </div>
-
-      <div class="settings-group">
-        <label class="settings-label">口座名義</label>
-        <input class="settings-input" id="setting-bank-account-holder" type="text" placeholder="ヤマダ タロウ">
-      </div>
-
-      <button class="settings-save-btn" id="btn-save-settings">設定を保存する</button>
-      <p class="settings-saved-msg" id="settings-saved-msg" style="display:none;">保存しました</p>
-    </section>
-    <!-- ===== /請求・ユーザー設定 ===== -->
-
-  </div><!-- /tab-settings -->
-
-
-  <!-- ── カメラオーバーレイ（全画面・タブ外） ── -->
-  <div id="camera-overlay">
-    <div id="camera-header">
-      <span id="camera-project-label"></span>
-      <span id="camera-count"></span>
-    </div>
-    <div id="camera-viewport">
-      <video id="camera-video" autoplay playsinline muted></video>
-      <img id="camera-thumbnail" src="" alt="" />
-    </div>
-    <div id="camera-footer">
-      <input type="text" id="camera-atmosphere" maxlength="100"
-             placeholder="atmosphere（任意・100文字以内）" autocomplete="off" />
-      <div id="camera-actions">
-        <button id="btn-shutter">● 撮影</button>
-        <button id="btn-camera-close">終了</button>
+    <div class="site-fallback">
+      <p class="site-fallback-label">現場が見つからない場合</p>
+      <div class="site-fallback-links">
+        <button class="site-fallback-link" id="btn-contact-manager">担当者へ確認する</button>
+        <button class="site-fallback-link" id="btn-add-site">現場を追加する</button>
       </div>
     </div>
   </div>
 
-  <!-- ── 画面下部固定タブバー ── -->
-  <nav id="tab-bar" role="tablist">
-    <button class="tab-btn" data-tab="tab-admin" role="tab" aria-selected="false">
-      <span class="tab-icon">⚙️</span>
-      <span>管理者</span>
+  <!-- ── 画面2: 申し送り ── -->
+  <div id="screen-handover" class="screen">
+    <div class="screen-header">
+      <button class="back-btn" id="btn-back-handover">‹</button>
+      <span class="screen-title" id="handover-site-name"></span>
+    </div>
+    <p class="screen-subtitle">入る前に、ここだけ確認</p>
+    <div class="handover-scroll-area">
+      <div id="handover-list"></div>
+    </div>
+    <div class="checkin-area">
+      <button class="checkin-btn" id="btn-checkin">入館・作業開始</button>
+    </div>
+  </div>
+
+  <!-- ── 画面3: 作業中 ── -->
+  <div id="screen-working" class="screen">
+    <div class="working-monitor">
+      <div class="screen-header">
+        <button class="back-btn" id="btn-back-working">‹</button>
+        <span class="screen-title" id="working-site-name"></span>
+      </div>
+      <div class="working-checkin-time" id="working-checkin-time"></div>
+    </div>
+    <div class="working-actions">
+
+      <!-- 主役：迷ったら押す -->
+      <button class="action-btn btn-sos" id="btn-sos">
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="none">
+          <path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <span class="btn-main-text">迷ったら押す</span>
+        <span class="btn-sub">救助信号 / SIGNAL</span>
+      </button>
+
+      <!-- 実務：撮影・メモ（2列） -->
+      <div class="action-row">
+        <button class="action-btn btn-photo" id="btn-photo">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none">
+            <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" stroke="currentColor" stroke-width="1.5"/>
+            <circle cx="12" cy="13" r="4" stroke="currentColor" stroke-width="1.5"/>
+          </svg>
+          <span class="btn-main-text">撮影</span>
+          <span class="btn-sub">PHOTO</span>
+        </button>
+        <button class="action-btn btn-memo" id="btn-memo">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none">
+            <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" stroke-width="1.5"/>
+          </svg>
+          <span class="btn-main-text">メモ</span>
+          <span class="btn-sub">MEMO</span>
+        </button>
+      </div>
+
+      <!-- 休憩 -->
+      <button class="action-btn btn-rest" id="btn-rest">
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="none">
+          <path d="M18 8h1a4 4 0 010 8h-1M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8zM6 1v3M10 1v3M14 1v3"
+            stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <span class="btn-main-text">休憩</span>
+        <span class="btn-sub">REST</span>
+      </button>
+
+      <!-- 儀式：今日を返す -->
+      <button class="action-btn btn-return" id="btn-return">
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="none">
+          <path d="M2 20L8 8l4 6 4-4 6 10H2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+        </svg>
+        <span class="btn-main-text">帰還</span>
+        <span class="btn-sub">山返し / RETURN</span>
+      </button>
+
+    </div>
+  </div>
+
+  <!-- ── 画面3-B: 休憩 ── -->
+  <div id="screen-rest" class="screen">
+
+    <!-- ヘッダー -->
+    <div class="working-monitor">
+      <div class="screen-header">
+        <button class="back-btn" id="btn-back-rest">‹</button>
+        <span class="screen-title" id="rest-site-name"></span>
+      </div>
+      <div class="working-checkin-time" style="padding-left:52px;">休憩中</div>
+    </div>
+
+    <!-- スクロールエリア -->
+    <div class="handover-scroll-area">
+
+      <!-- 迷ったら押す（休憩中も表示） -->
+      <div style="padding: 16px 20px 0;">
+        <button class="action-btn btn-sos" id="btn-sos-rest">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none">
+            <path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <span class="btn-main-text">迷ったら押す</span>
+          <span class="btn-sub">救助信号 / SIGNAL</span>
+        </button>
+      </div>
+
+      <!-- 周辺地図セクション -->
+      <div class="rest-map-section">
+        <p class="rest-map-label">周辺を探す</p>
+        <div class="rest-map-categories">
+          <button class="rest-cat-btn">🍜 ご飯・カフェ</button>
+          <button class="rest-cat-btn">🚬 喫煙場所</button>
+          <button class="rest-cat-btn">🏪 コンビニ</button>
+          <button class="rest-cat-btn">🍱 お弁当屋</button>
+          <button class="rest-cat-btn">🔨 ホームセンター</button>
+          <button class="rest-cat-btn">⛽ ガソリンスタンド</button>
+        </div>
+        <div class="rest-map-placeholder">
+          <p>地図はここに表示されます</p>
+          <p class="rest-map-note">Google Maps連携は後日実装</p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 作業再開ボタン（下部固定） -->
+    <div class="checkin-area">
+      <button class="checkin-btn" id="btn-resume">作業再開</button>
+    </div>
+
+  </div>
+
+  <!-- ── 画面4: SOS ── -->
+  <div id="screen-sos" class="screen">
+
+    <!-- ヘッダー -->
+    <div class="working-monitor">
+      <div class="screen-header">
+        <button class="back-btn" id="btn-back-sos">‹</button>
+        <span class="screen-title" id="sos-site-name"></span>
+      </div>
+      <div class="working-checkin-time" style="padding-left:52px; font-family:'Noto Serif JP',serif; letter-spacing:0.1em;">
+        困ったことを選んでください
+      </div>
+    </div>
+
+    <!-- スクロールエリア -->
+    <div class="handover-scroll-area">
+      <div class="sos-options-list" id="sos-options-list"></div>
+
+      <div style="padding: 20px 20px 0;">
+        <p class="sos-memo-label">ひとこと（任意）</p>
+        <textarea class="sos-memo" id="sos-memo"
+          placeholder="わかる範囲で書いてください"></textarea>
+      </div>
+    </div>
+
+    <!-- 送るボタン（下部固定） -->
+    <div class="checkin-area">
+      <button class="sos-send-btn" id="btn-sos-send" disabled>送る</button>
+    </div>
+
+  </div>
+
+  <!-- ── 画面5: 山返し（帰還） ── -->
+  <div id="screen-return" class="screen">
+
+    <!-- ヘッダー -->
+    <div class="working-monitor">
+      <div class="screen-header">
+        <button class="back-btn" id="btn-back-return">‹</button>
+        <span class="screen-title" id="return-site-name"></span>
+      </div>
+      <div class="working-checkin-time"
+        style="padding-left:52px; font-family:'Noto Serif JP',serif; letter-spacing:0.1em;">
+        今日を、返す。
+      </div>
+    </div>
+
+    <!-- スクロールエリア -->
+    <div class="handover-scroll-area">
+      <div style="display:flex; flex-direction:column; gap:20px; padding:20px;">
+
+        <!-- また入りたいか -->
+        <div>
+          <p class="return-section-label">また入りたいですか？</p>
+          <div style="display:flex; gap:10px;">
+            <button class="mood-btn" data-mood="positive">また入りたい</button>
+            <button class="mood-btn" data-mood="conditional">複雑な気持ち</button>
+          </div>
+        </div>
+
+        <!-- 次に伝えたいこと -->
+        <div>
+          <p class="return-section-label">次に伝えたいこと</p>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <button class="category-btn" data-cat="anzen">
+              <span>危なかったこと</span>
+              <span class="category-check">✓</span>
+            </button>
+            <button class="category-btn" data-cat="hinshitsu">
+              <span>仕上がり・納まり</span>
+              <span class="category-check">✓</span>
+            </button>
+            <button class="category-btn" data-cat="koutei">
+              <span>段取り・待ち時間</span>
+              <span class="category-check">✓</span>
+            </button>
+            <button class="category-btn" data-cat="genka">
+              <span>追加・材料・経費</span>
+              <span class="category-check">✓</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 次の人へ一言 -->
+        <div>
+          <p class="return-section-label">次の人へ一言（任意）</p>
+          <textarea class="return-memo" id="return-memo"
+            placeholder="搬入口は右側が使いやすい、など"></textarea>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 今日を返すボタン（下部固定） -->
+    <div class="checkin-area">
+      <button class="return-send-btn" id="btn-return-send">今日を、返す。</button>
+    </div>
+
+  </div>
+
+  <!-- ── 画面6: 仕舞い ── -->
+  <div id="screen-shimai" class="screen">
+    <div style="display:flex; flex-direction:column; height:calc(100dvh - 60px); overflow-y:auto;">
+
+      <!-- ヘッダー -->
+      <div class="shimai-header">
+        <div class="shimai-header-label">SENLINGS</div>
+        <div class="shimai-header-title">仕舞い</div>
+        <div class="shimai-header-sub">今日を、整える。</div>
+      </div>
+
+      <!-- 今日の記録 -->
+      <div class="shimai-section">
+        <p class="shimai-section-label">今日の記録</p>
+        <div class="shimai-card" id="shimai-today-record">
+          <p class="today-record-empty">今日の記録はまだありません。</p>
+        </div>
+      </div>
+
+      <!-- 請求書下書き -->
+      <div class="shimai-section" style="margin-top:20px;">
+        <p class="shimai-section-label">請求書下書き</p>
+        <button class="shimai-action-btn" id="btn-shimai-invoice">
+          <span>今月の請求書を作る</span>
+          <span class="shimai-action-arrow">›</span>
+        </button>
+        <div id="invoice-result-area" style="display:none; flex-direction:column; gap:8px; margin-top:12px;">
+          <div id="invoice-display" class="invoice-display"></div>
+          <button id="btn-invoice-skip-expense" class="invoice-skip-btn" style="display:none;">未記入のまま作る</button>
+          <button id="btn-invoice-excel" class="shimai-action-btn" style="display:none;">
+            <span>Excelを書き出す</span>
+            <span class="shimai-action-arrow">›</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- データをエクスポートする -->
+      <div class="shimai-section" style="margin-top:20px;">
+        <p class="shimai-section-label">データをエクスポートする</p>
+        <p style="font-size:11px; color:#555; font-family:'Noto Serif JP',serif;
+          margin-bottom:10px; letter-spacing:0.05em;">
+          このデータはあなたのものです。いつでも持ち出せます。
+        </p>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <button class="shimai-action-btn" id="btn-export-json-shimai">
+            <span>JSON（全データ）をダウンロード</span>
+            <span class="shimai-action-arrow">›</span>
+          </button>
+          <div style="display:flex; gap:8px;">
+            <button class="shimai-action-btn" id="btn-export-csv-monthly-shimai"
+              style="flex:1; justify-content:center;">
+              CSV（月次）
+            </button>
+            <button class="shimai-action-btn" id="btn-export-csv-project-shimai"
+              style="flex:1; justify-content:center;">
+              CSV（工事）
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 設定 -->
+      <div class="shimai-section" style="margin-top:20px; padding-bottom:24px;">
+        <p class="shimai-section-label">設定</p>
+        <button class="shimai-action-btn" id="btn-shimai-settings">
+          <span>請求書・口座設定</span>
+          <span class="shimai-action-arrow">›</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── 下部タブバー（全画面共通） ── -->
+  <nav class="tab-bar">
+    <button class="tab active" data-tab="genba">
+      <svg class="tab-icon-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M2 20 L12 4 L22 20 Z" fill="currentColor"/>
+      </svg>
+      <span class="tab-label">現場</span>
     </button>
-    <button class="tab-btn active" data-tab="tab-worker" role="tab" aria-selected="true">
-      <span class="tab-icon">🏗</span>
-      <span id="tab-worker-label">現場</span>
-    </button>
-    <button class="tab-btn" data-tab="tab-settings" role="tab" aria-selected="false">
-      <span class="tab-icon">📋</span>
-      <span>設定</span>
+    <button class="tab" data-tab="shimai">
+      <svg class="tab-icon-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 3 L21 12 L12 21 L3 12 Z" fill="currentColor"/>
+      </svg>
+      <span class="tab-label">仕舞い</span>
     </button>
   </nav>
 
-  <script>
-    // タブ切り替え
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const target = btn.dataset.tab;
-        document.querySelectorAll('.tab-btn').forEach(b => {
-          b.classList.remove('active');
-          b.setAttribute('aria-selected', 'false');
-        });
-        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-        btn.classList.add('active');
-        btn.setAttribute('aria-selected', 'true');
-        document.getElementById(target).classList.add('active');
+  </div><!-- /#app -->
 
-        // 管理者タブを開いた時は登録ボタンを必ず有効化
-        if (target === 'tab-admin') {
-          const b = document.getElementById('btn-new-project');
-          if (b) b.disabled = false;
-        }
-      });
-    });
+  <!-- SOS送信完了モーダル -->
+  <div id="sos-complete-modal" class="sos-modal" hidden>
+    <div class="sos-modal-inner">
 
-    // お名前 → 職人タブラベル
-    const LS_NAME_KEY = 'senlings_user_name';
-    const nameInput   = document.getElementById('input-user-name');
-    const workerLabel = document.getElementById('tab-worker-label');
+      <p class="sos-complete-title">伝わっています。</p>
+      <p class="sos-complete-sub">止まるかどうかは、<br>あなたが決める。<br>伝わったことだけ、お知らせしました。</p>
 
-    function applyUserName(name) {
-      workerLabel.textContent = name.trim() || '現場';
-    }
+      <!-- 電話する（危ないのときのみ表示） -->
+      <button class="sos-modal-btn sos-call-btn" id="btn-sos-call" hidden>
+        電話する
+        <span class="sos-call-note">危ないときは、待たずに</span>
+      </button>
 
-    // 初期値をlocalStorageから復元
-    const savedName = localStorage.getItem(LS_NAME_KEY) || '';
-    nameInput.value = savedName;
-    applyUserName(savedName);
+      <!-- このまま待つ -->
+      <button class="sos-modal-btn sos-wait-btn" id="btn-sos-wait">
+        このまま待つ
+      </button>
 
-    // 入力のたびに保存・反映
-    nameInput.addEventListener('input', () => {
-      const v = nameInput.value;
-      localStorage.setItem(LS_NAME_KEY, v);
-      applyUserName(v);
-    });
-  </script>
+      <!-- 別の救助信号も送る -->
+      <button class="sos-modal-link" id="btn-sos-again">
+        別の救助信号も送る
+      </button>
 
-  <script type="module" src="app.js"></script>
+    </div>
+  </div>
 
-  <script>
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker.register("service-worker.js")
-          .then(reg => console.log("SW: Registered", reg.scope))
-          .catch(err => console.error("SW: Registration failed", err));
-      });
-    }
-  </script>
+  <!-- 山返し完了モーダル -->
+  <div id="return-complete-modal" class="sos-modal" hidden>
+    <div class="sos-modal-inner">
+
+      <div class="return-complete-icon">🔥</div>
+
+      <p class="return-complete-title">次のHunterへ、<br>届きます。</p>
+      <p class="return-complete-sub">今日の現場は、終わりました。</p>
+
+      <button class="sos-modal-btn sos-wait-btn" id="btn-return-complete">
+        現場トップへ戻る
+      </button>
+
+      <button class="sos-modal-btn sos-wait-btn" id="btn-return-to-shimai"
+        style="background:#161614; border-color:#c5a059; color:#c5a059;">
+        仕舞いへ
+      </button>
+
+    </div>
+  </div>
+
+  <!-- 仕舞い確認モーダル -->
+  <div id="shimai-confirm-modal" class="sos-modal" hidden>
+    <div class="sos-modal-inner">
+      <p class="sos-complete-title" style="font-size:18px;">
+        まだ「山返し」が<br>終わっていません。
+      </p>
+      <p class="sos-complete-sub">
+        このまま仕舞いへ向かうと、<br>
+        今日の痕跡は残りません。
+      </p>
+      <button class="sos-modal-btn btn-sos" id="btn-shimai-confirm-return"
+        style="flex-direction:row; min-height:auto;">
+        今日を、返す。
+      </button>
+      <button class="sos-modal-btn sos-wait-btn" id="btn-shimai-confirm-skip">
+        痕跡を残さず仕舞う
+      </button>
+      <button class="sos-modal-link" id="btn-shimai-confirm-cancel">
+        現場に戻る
+      </button>
+    </div>
+  </div>
+
+  <!-- 現場追加モーダル -->
+  <div id="add-site-modal" class="sos-modal" hidden>
+    <div class="sos-modal-inner add-site-inner">
+      <p class="sos-complete-title" style="font-size:18px;">現場を追加する</p>
+      <div class="add-site-field">
+        <label class="add-site-label" for="add-site-name">現場名</label>
+        <input type="text" id="add-site-name" class="add-site-input"
+          placeholder="例：〇〇マンション" autocomplete="off">
+      </div>
+      <div class="add-site-field">
+        <label class="add-site-label" for="add-site-raw">届いた連絡（任意）</label>
+        <textarea id="add-site-raw" class="add-site-textarea"
+          placeholder="LINEの文章などをそのまま貼ってください"></textarea>
+      </div>
+      <button class="sos-modal-btn sos-wait-btn" id="btn-add-site-save">
+        登録する
+      </button>
+      <button class="sos-modal-link" id="btn-add-site-cancel">
+        キャンセル
+      </button>
+    </div>
+  </div>
+
+  <script type="module" src="app_v2.js"></script>
 </body>
 </html>

@@ -1,6 +1,14 @@
 // app_v2.js
 // Senlings 新UI メインJS
 
+import { saveSession } from './src/pwa/work.js';
+import { load, update } from './src/pwa/storage.js';
+import { exportAllDataAsJSON } from './src/pwa/export.js';
+import { exportMonthlyCSV } from './src/pwa/csvExport.js';
+import { generateSnapshot, UnconfirmedExpenseError } from './src/pwa/invoice.js';
+import { setClaimStatus } from './src/pwa/expense.js';
+import { exportInvoiceToExcel } from './src/pwa/invoiceExport.js';
+
 // ── データ読み込み ────────────────────────────────────────
 function getAllData() {
   const raw = localStorage.getItem('senlings_v0');
@@ -11,6 +19,7 @@ function getAllData() {
 function renderSiteTop() {
   const projects = (getAllData().projects ?? [])
     .filter(p => !p.archive);
+  const cs = load().current_session ?? null;
 
   const list = document.getElementById('site-list');
   if (!list) return;
@@ -20,17 +29,52 @@ function renderSiteTop() {
     return;
   }
 
-  list.innerHTML = projects.map(p => `
-    <button class="site-card" data-project-id="${esc(p.project_id)}">
-      <span class="site-slug">${esc(p.project_slug)}</span>
-      <span class="site-address">${esc(p.address ?? '')}</span>
-    </button>
-  `).join('');
+  list.innerHTML = projects.map(p => {
+    if (cs && cs.project_id === p.project_id) {
+      const label = formatCheckinLabel(cs.check_in_at);
+      return `
+        <div class="site-card-pending">
+          <div class="site-card-pending-head">
+            <span class="site-slug">${esc(p.project_slug)}</span>
+            <span class="site-checkin-time">${esc(label)}</span>
+          </div>
+          <button class="site-card-resume-btn" data-project-id="${esc(p.project_id)}">続きから入る</button>
+          <button class="site-card-cancel-btn" data-project-id="${esc(p.project_id)}">この入場を取り消す</button>
+        </div>
+      `;
+    }
+    return `
+      <button class="site-card" data-project-id="${esc(p.project_id)}">
+        <span class="site-slug">${esc(p.project_slug)}</span>
+        <span class="site-address">${esc(p.address ?? '')}</span>
+      </button>
+    `;
+  }).join('');
 
   list.querySelectorAll('.site-card').forEach(card => {
     card.addEventListener('click', () => {
       const project = projects.find(p => p.project_id === card.dataset.projectId);
       if (project) goToHandover(project);
+    });
+  });
+
+  list.querySelectorAll('.site-card-resume-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const project = projects.find(p => p.project_id === btn.dataset.projectId);
+      if (!project || !cs) return;
+      goToWorking(project, new Date(cs.check_in_at));
+    });
+  });
+
+  list.querySelectorAll('.site-card-cancel-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.dataset.confirming) {
+        update(data => { data.current_session = null; return data; });
+        renderSiteTop();
+      } else {
+        btn.dataset.confirming = '1';
+        btn.textContent = '本当に取り消す';
+      }
     });
   });
 }
@@ -44,6 +88,22 @@ function esc(val) {
     .replace(/>/g, '&gt;');
 }
 
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+
+function formatCheckinLabel(tsMs) {
+  const d = new Date(tsMs);
+  const now = new Date();
+  const timeStr = d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+  const sameDay = d.getFullYear() === now.getFullYear()
+    && d.getMonth() === now.getMonth()
+    && d.getDate() === now.getDate();
+  return sameDay
+    ? `入場 ${timeStr}`
+    : `${d.getMonth() + 1}/${d.getDate()} 入場 ${timeStr}`;
+}
+
 // ── 画面2: 申し送り ──────────────────────────────────────
 
 const HANDOVER_CATEGORIES = [
@@ -54,6 +114,7 @@ const HANDOVER_CATEGORIES = [
   { key: 'morning_assembly', label: '朝礼' },
   { key: 'delivery',         label: '搬入' },
   { key: 'contact',          label: '連絡先' },
+  { key: 'raw',              label: '届いた連絡' },
 ];
 
 function showScreen(id) {
@@ -85,7 +146,7 @@ function renderHandover(project) {
         <span class="handover-chevron"${isAlert ? ` style="color:${alertColor}"` : ''}>›</span>
       </button>
       <div class="handover-body" hidden>
-        <p class="handover-text">${esc(siteInfo[cat.key])}</p>
+        <p class="handover-text"${cat.key === 'raw' ? ' style="white-space:pre-wrap"' : ''}>${esc(siteInfo[cat.key])}</p>
       </div>
     `;
     div.querySelector('.handover-header').addEventListener('click', () => {
@@ -102,12 +163,26 @@ function goToHandover(project) {
   document.getElementById('handover-site-name').textContent = project.project_slug;
   renderHandover(project);
   document.getElementById('btn-checkin').onclick = () => {
-    goToWorking(project, new Date());
+    const cs = load().current_session ?? null;
+    if (cs && cs.project_id !== project.project_id) {
+      renderSiteTop();
+      showScreen('screen-site-top');
+      return;
+    }
+    const checkInAt = cs ? cs.check_in_at : Date.now();
+    if (!cs) {
+      update(data => {
+        data.current_session = { project_id: project.project_id, check_in_at: checkInAt };
+        return data;
+      });
+    }
+    goToWorking(project, new Date(checkInAt));
   };
   showScreen('screen-handover');
 }
 
 document.getElementById('btn-back-handover')?.addEventListener('click', () => {
+  renderSiteTop();
   showScreen('screen-site-top');
 });
 
@@ -305,6 +380,19 @@ function goToReturn(project) {
       categories: [...selectedCategories],
       message: memo,
     });
+
+    const cs = load().current_session ?? null;
+    if (cs) {
+      saveSession({
+        id:            uid(),
+        project_id:    cs.project_id,
+        check_in_at:   cs.check_in_at,
+        check_out_at:  Date.now(),
+        break_minutes: 0,
+      });
+      update(data => { data.current_session = null; return data; });
+    }
+
     showReturnComplete();
   };
 
@@ -316,6 +404,7 @@ function showReturnComplete() {
 
   document.getElementById('btn-return-complete').onclick = () => {
     modal.hidden = true;
+    renderSiteTop();
     showScreen('screen-site-top');
   };
 
@@ -328,6 +417,37 @@ function showReturnComplete() {
   };
 
   modal.hidden = false;
+}
+
+// ── 請求書スナップショットカード ────────────────────────
+
+function renderSnapshotCard(snapshot, projectSlug) {
+  const hours = Math.floor(snapshot.total_work_minutes / 60);
+  const mins  = snapshot.total_work_minutes % 60;
+  const timeStr = mins > 0 ? `${hours}時間${mins}分` : `${hours}時間`;
+  const isSkipped = snapshot.expense_claim_status === 'skipped';
+  const expStr = isSkipped
+    ? '経費:未記入のまま(0円で計上)'
+    : `${(snapshot.total_expense_amount ?? 0).toLocaleString()}円`;
+  return `
+    <p class="invoice-card-title">請求書の下書き</p>
+    <div class="invoice-card-row">
+      <span class="invoice-card-label">現場</span>
+      <span>${esc(projectSlug)}</span>
+    </div>
+    <div class="invoice-card-row">
+      <span class="invoice-card-label">稼働日数</span>
+      <span>${snapshot.total_work_days}日</span>
+    </div>
+    <div class="invoice-card-row">
+      <span class="invoice-card-label">稼働時間</span>
+      <span>${timeStr}</span>
+    </div>
+    <div class="invoice-card-row${isSkipped ? ' invoice-card-row--note' : ''}">
+      <span class="invoice-card-label">経費</span>
+      <span class="invoice-card-value">${expStr}</span>
+    </div>
+  `;
 }
 
 // ── 画面6: 仕舞い ────────────────────────────────────────
@@ -366,11 +486,85 @@ function renderShimai() {
   document.getElementById('btn-export-csv-project-shimai').onclick = () => {
     console.log('CSV export by project: 後日実装');
   };
-  document.getElementById('btn-shimai-invoice').onclick = () => {
-    console.log('invoice: 後日実装');
-  };
   document.getElementById('btn-shimai-settings').onclick = () => {
     console.log('settings: 後日実装');
+  };
+
+  // ── 請求書下書き ──────────────────────────────────────
+  const resultArea  = document.getElementById('invoice-result-area');
+  const displayEl   = document.getElementById('invoice-display');
+  const skipBtn     = document.getElementById('btn-invoice-skip-expense');
+  const excelBtn    = document.getElementById('btn-invoice-excel');
+
+  // 画面を開くたびリセット
+  resultArea.style.display  = 'none';
+  skipBtn.style.display     = 'none';
+  excelBtn.style.display    = 'none';
+  displayEl.innerHTML       = '';
+  displayEl.className       = 'invoice-display';
+
+  let invoiceCtx = null; // { project_id, project_code, year, month }
+
+  function tryGenerate() {
+    const { project_id, project_code, year, month } = invoiceCtx;
+    displayEl.innerHTML  = '';
+    displayEl.className  = 'invoice-display';
+    skipBtn.style.display = 'none';
+    excelBtn.style.display = 'none';
+    try {
+      const snapshot = generateSnapshot({ snapshot_id: uid(), project_id, project_code, year, month });
+      const proj = (getAllData().projects ?? []).find(p => p.project_id === project_id);
+      displayEl.innerHTML = renderSnapshotCard(snapshot, proj?.project_slug ?? project_id);
+      excelBtn.style.display = 'flex';
+    } catch (err) {
+      if (err instanceof UnconfirmedExpenseError) {
+        displayEl.className = 'invoice-display invoice-display--warn';
+        displayEl.textContent = '経費:未記入';
+        skipBtn.style.display = 'block';
+      } else {
+        displayEl.textContent = `エラー: ${err.message}`;
+      }
+    }
+  }
+
+  document.getElementById('btn-shimai-invoice').onclick = () => {
+    const data = getAllData();
+    const now  = new Date();
+    const year  = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const ym = `${year}-${String(month).padStart(2, '0')}`;
+    const sessions = (data.work_sessions ?? [])
+      .filter(s => s.check_in_at && new Date(s.check_in_at).toISOString().slice(0, 7) === ym)
+      .sort((a, b) => b.check_in_at - a.check_in_at);
+    if (sessions.length === 0) {
+      resultArea.style.display = 'flex';
+      displayEl.className      = 'invoice-display';
+      displayEl.textContent    = '今月の稼働記録がありません。';
+      return;
+    }
+    const project_id   = sessions[0].project_id;
+    const proj         = (data.projects ?? []).find(p => p.project_id === project_id);
+    invoiceCtx = { project_id, project_code: proj?.project_code ?? null, year, month };
+    resultArea.style.display = 'flex';
+    tryGenerate();
+  };
+
+  skipBtn.onclick = () => {
+    if (!invoiceCtx) return;
+    setClaimStatus(invoiceCtx.project_id, invoiceCtx.year, invoiceCtx.month, 'skipped');
+    tryGenerate();
+  };
+
+  excelBtn.onclick = async () => {
+    if (!invoiceCtx) return;
+    excelBtn.disabled = true;
+    try {
+      await exportInvoiceToExcel({ project_id: invoiceCtx.project_id, year: invoiceCtx.year, month: invoiceCtx.month });
+    } catch (err) {
+      alert(`書き出しに失敗しました。\n${err.message}`);
+    } finally {
+      excelBtn.disabled = false;
+    }
   };
 }
 
@@ -392,6 +586,7 @@ document.querySelectorAll('.tab').forEach(tab => {
     tab.classList.add('active');
     const tabName = tab.dataset.tab;
     if (tabName === 'genba') {
+      renderSiteTop();
       showScreen('screen-site-top');
     } else if (tabName === 'shimai') {
       if (isOnSite()) {
@@ -430,6 +625,56 @@ document.querySelectorAll('.tab').forEach(tab => {
       }
     }
   });
+});
+
+// ── 現場追加 ──────────────────────────────────────────────
+
+document.getElementById('btn-add-site')?.addEventListener('click', () => {
+  document.getElementById('add-site-name').value = '';
+  document.getElementById('add-site-raw').value = '';
+  document.getElementById('add-site-modal').hidden = false;
+  document.getElementById('add-site-name').focus();
+});
+
+document.getElementById('btn-add-site-cancel')?.addEventListener('click', () => {
+  document.getElementById('add-site-modal').hidden = true;
+});
+
+document.getElementById('btn-add-site-save')?.addEventListener('click', () => {
+  const name = document.getElementById('add-site-name').value.trim();
+  if (!name) {
+    document.getElementById('add-site-name').focus();
+    return;
+  }
+
+  const rawText = document.getElementById('add-site-raw').value || null;
+  const now = Date.now();
+  const d = new Date();
+  const YYYYMMDD =
+    d.getFullYear().toString() +
+    String(d.getMonth() + 1).padStart(2, '0') +
+    String(d.getDate()).padStart(2, '0');
+
+  const project = {
+    project_id:      `${YYYYMMDD}_${now}`,
+    project_slug:    name,
+    address:         null,
+    start_date:      null,
+    project_code:    null,
+    site_contact_id: null,
+    master_id:       null,
+    site_info:       { raw: rawText },
+    created_at:      now,
+    archive:         false,
+  };
+
+  const data = getAllData();
+  data.projects = data.projects ?? [];
+  data.projects.push(project);
+  localStorage.setItem('senlings_v0', JSON.stringify(data));
+
+  document.getElementById('add-site-modal').hidden = true;
+  renderSiteTop();
 });
 
 // ── 初期化 ───────────────────────────────────────────────
