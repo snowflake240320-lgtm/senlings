@@ -1,5 +1,10 @@
 {
   "name": "senlings-web",
   "version": "0.1.0",
-  "private": true
+  "private": true,
+  "scripts": {
+    "test": "node --test ../tests/storage.test.mjs",
+    "test:browser": "node ../tests/browser.cjs",
+    "check": "node ../tests/check.mjs"
+  }
 }

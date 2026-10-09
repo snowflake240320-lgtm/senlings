@@ -1,3 +1,4 @@
+import { load } from './storage.js';
 // photoSync.js
 // localStorageのphotosメタデータをFirestoreのphotosへ同期する
 // 注意：base64画像データはFirestoreに保存しない。メタデータのみ同期する。
@@ -5,10 +6,7 @@
 import { savePhoto } from './firebase.js';
 
 function getLocalPhotos() {
-  const raw = localStorage.getItem('senlings_v0');
-  if (!raw) return [];
-  const data = JSON.parse(raw);
-  return data.photos ?? [];
+  return load().photos;
 }
 
 /**

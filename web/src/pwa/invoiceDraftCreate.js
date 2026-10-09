@@ -1,3 +1,4 @@
+import { load } from './storage.js';
 // invoiceDraftCreate.js
 // Hunterが「今月の請求書を作る」を押したときに invoiceDrafts を生成する
 
@@ -16,8 +17,7 @@ function getTaxRate() {
 }
 
 function getAllData() {
-  const raw = localStorage.getItem('senlings_v0');
-  return raw ? JSON.parse(raw) : {};
+  return load();
 }
 
 // ── 人工数の計算 ─────────────────────────────────────────

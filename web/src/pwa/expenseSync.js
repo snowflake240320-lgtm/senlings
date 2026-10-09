@@ -1,13 +1,11 @@
+import { load } from './storage.js';
 // expenseSync.js
 // localStorageのexpensesをFirestoreのworkSessions/{sessionId}/expensesへ同期する
 
 import { saveExpense } from './firebase.js';
 
 function getLocalExpenses() {
-  const raw = localStorage.getItem('senlings_v0');
-  if (!raw) return [];
-  const data = JSON.parse(raw);
-  return data.expenses ?? [];
+  return load().expenses;
 }
 
 /**

@@ -46,7 +46,7 @@ export function ensureContactSeed() {
  */
 export function getAllContacts() {
   const { contacts } = load();
-  return contacts;
+  return contacts.length ? contacts : structuredClone(SEED_CONTACTS);
 }
 
 /**
@@ -54,8 +54,7 @@ export function getAllContacts() {
  * @returns {object[]}
  */
 export function getActiveContacts() {
-  const { contacts } = load();
-  return contacts.filter((c) => c.active);
+  return getAllContacts().filter((c) => c.active);
 }
 
 /**
@@ -66,6 +65,7 @@ export function getActiveContacts() {
 export function updateContact(contactId, patch) {
   const now = Date.now();
   update((data) => {
+    if (data.contacts.length === 0) data.contacts = structuredClone(SEED_CONTACTS);
     const idx = data.contacts.findIndex((c) => c.contact_id === contactId);
     if (idx === -1) throw new Error(`Contact not found: ${contactId}`);
 

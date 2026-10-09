@@ -1,8 +1,9 @@
-export function exportAllDataAsJSON() {
-  const raw = localStorage.getItem('senlings_v0');
-  if (!raw) throw new Error('データが見つかりません（senlings_v0）');
+import { readOrThrow } from './storage.js';
 
-  const data = JSON.parse(raw);
+export function exportAllDataAsJSON() {
+  const result = readOrThrow();
+  if (result.status === 'absent') throw new Error('データが見つかりません（senlings_v0）');
+  const data = JSON.parse(result.raw);
 
   const now = new Date();
   const pad = n => String(n).padStart(2, '0');

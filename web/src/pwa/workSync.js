@@ -1,3 +1,4 @@
+import { load } from './storage.js';
 // workSync.js
 // localStorageのwork_sessionsをFirestoreのworkSessionsへ同期する
 
@@ -7,10 +8,7 @@ import { saveWorkSession } from './firebase.js';
  * localStorage の work_sessions を読み出す
  */
 function getLocalWorkSessions() {
-  const raw = localStorage.getItem('senlings_v0');
-  if (!raw) return [];
-  const data = JSON.parse(raw);
-  return data.work_sessions ?? [];
+  return load().work_sessions;
 }
 
 /**

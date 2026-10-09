@@ -1,3 +1,4 @@
+import { load } from './storage.js';
 // siteAlias.js
 // 職人が入力した現場名を siteAliases コレクションに蓄積する
 
@@ -23,10 +24,7 @@ export function generateAliasKey(siteLabel) {
  *   ※ name フィールドは存在しない
  */
 function getLocalProjects() {
-  const raw = localStorage.getItem('senlings_v0');
-  if (!raw) return [];
-  const data = JSON.parse(raw);
-  return data.projects ?? [];
+  return load().projects;
 }
 
 /**

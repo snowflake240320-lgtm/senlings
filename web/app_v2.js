@@ -2,7 +2,7 @@
 // Senlings 新UI メインJS
 
 import { saveSession } from './src/pwa/work.js';
-import { load, update } from './src/pwa/storage.js';
+import { load, update, StorageReadError, StorageWriteError } from './src/pwa/storage.js';
 import { exportAllDataAsJSON } from './src/pwa/export.js';
 import { exportMonthlyCSV } from './src/pwa/csvExport.js';
 import { generateSnapshot, UnconfirmedExpenseError } from './src/pwa/invoice.js';
@@ -11,8 +11,7 @@ import { exportInvoiceToExcel } from './src/pwa/invoiceExport.js';
 
 // ── データ読み込み ────────────────────────────────────────
 function getAllData() {
-  const raw = localStorage.getItem('senlings_v0');
-  return raw ? JSON.parse(raw) : {};
+  return load();
 }
 
 // ── 画面1: 現場トップ ────────────────────────────────────
@@ -372,28 +371,39 @@ function goToReturn(project) {
     showScreen('screen-working');
   };
 
+  let sessionSaved = false; // Retry only the remaining write after a partial Return.
   document.getElementById('btn-return-send').onclick = () => {
-    const memo = document.getElementById('return-memo').value;
-    console.log('yamagaeshi:', {
-      projectId: project.project_id,
-      mood: selectedMood,
-      categories: [...selectedCategories],
-      message: memo,
-    });
-
-    const cs = load().current_session ?? null;
-    if (cs) {
-      saveSession({
-        id:            uid(),
-        project_id:    cs.project_id,
-        check_in_at:   cs.check_in_at,
-        check_out_at:  Date.now(),
-        break_minutes: 0,
+    try {
+      const memo = document.getElementById('return-memo').value;
+      console.log('yamagaeshi:', {
+        projectId: project.project_id,
+        mood: selectedMood,
+        categories: [...selectedCategories],
+        message: memo,
       });
-      update(data => { data.current_session = null; return data; });
-    }
 
-    showReturnComplete();
+      const cs = load().current_session ?? null;
+      if (cs) {
+        if (!sessionSaved) {
+          saveSession({
+            id:            uid(),
+            project_id:    cs.project_id,
+            check_in_at:   cs.check_in_at,
+            check_out_at:  Date.now(),
+            break_minutes: 0,
+          });
+          sessionSaved = true;
+        }
+        update(data => { data.current_session = null; return data; });
+      }
+
+      showReturnComplete();
+    } catch (error) {
+      if (sessionSaved && (error instanceof StorageReadError || error instanceof StorageWriteError)) {
+        error.message += ' 勤怠は保存済みですが、入場の解除は未完了です。再読取後、この画面で再度送信してください。';
+      }
+      throw error;
+    }
   };
 
   showScreen('screen-return');
@@ -668,13 +678,15 @@ document.getElementById('btn-add-site-save')?.addEventListener('click', () => {
     archive:         false,
   };
 
-  const data = getAllData();
-  data.projects = data.projects ?? [];
-  data.projects.push(project);
-  localStorage.setItem('senlings_v0', JSON.stringify(data));
+  update(data => { data.projects.push(project); return data; });
 
   document.getElementById('add-site-modal').hidden = true;
   renderSiteTop();
+});
+
+window.addEventListener('senlings-storage-ready', () => {
+  if (document.getElementById('screen-site-top').classList.contains('active')) renderSiteTop();
+  if (document.getElementById('screen-shimai').classList.contains('active')) renderShimai();
 });
 
 // ── 初期化 ───────────────────────────────────────────────

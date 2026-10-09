@@ -1,3 +1,4 @@
+import { load } from './storage.js';
 // csvExport.js
 // localStorageのデータをCSV形式でエクスポートする
 
@@ -31,8 +32,7 @@ function normalizeCategory(cat) {
 }
 
 function getAllData() {
-  const raw = localStorage.getItem('senlings_v0');
-  return raw ? JSON.parse(raw) : {};
+  return load();
 }
 
 function getTaxRate() {
