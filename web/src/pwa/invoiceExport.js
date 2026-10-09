@@ -29,6 +29,7 @@ function getUnitPrice() {
  * @param {number}  opts.month  - 1-indexed
  */
 export async function exportInvoiceToExcel({ project_id, year, month }) {
+  load(); // Fail before loading an exporter when the source cannot be read.
   const XLSX = await import(XLSX_CDN);
   const { contacts, projects } = load();
 
@@ -114,6 +115,7 @@ export async function exportInvoiceToExcel({ project_id, year, month }) {
   const ym       = `${year}${String(month).padStart(2, "0")}`;
   const filename = `${ym}_請求書.xlsx`;
 
+  load(); // The template fetch may have outlived readable storage.
   const outBuf = XLSX.write(wb, { bookType: "xlsx", type: "array", cellStyles: true });
   const blob   = new Blob([outBuf], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

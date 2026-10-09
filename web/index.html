@@ -1534,6 +1534,9 @@
     </div>
   </div>
 
-  <script type="module" src="app_v2.js"></script>
+  <script type="module">
+    import { startApp } from './src/pwa/storageUI.js';
+    startApp(new URL('./app_v2.js', import.meta.url).href);
+  </script>
 </body>
 </html>

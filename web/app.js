@@ -8,16 +8,16 @@ import { transition, getMode, getProjectId, Mode } from "./src/pwa/state.js";
 import { generateSnapshot, UnconfirmedExpenseError } from "./src/pwa/invoice.js";
 import { saveExpense, setClaimStatus, ClaimStatus } from "./src/pwa/expense.js";
 import { monthlyExpenseSummary } from "./src/pwa/expenseQuery.js";
-import { ensureContactSeed, getActiveContacts, getAllContacts, updateContact } from "./src/pwa/contact.js";
+import { getActiveContacts, getAllContacts, updateContact } from "./src/pwa/contact.js";
 import { saveProject, listProjects, getProject, buildProjectId, validateSlug } from "./src/pwa/project.js";
-import { update as storageUpdate } from "./src/pwa/storage.js";
+import { load, update as storageUpdate } from "./src/pwa/storage.js";
 import { saveProjectToFirestore, syncProjectsFromFirestore, pushAllProjectsToFirestore } from "./src/pwa/firebase.js";
 import { buildPhotoFilename, savePhotoMeta, listPhotos, deletePhoto } from "./src/pwa/photo.js";
 import { exportInvoiceToExcel } from "./src/pwa/invoiceExport.js";
 import { exportAllDataAsJSON } from './src/pwa/export.js';
 
 // --- 初期化 ---
-ensureContactSeed();
+// Contact defaults are read in memory; persist only on an explicit edit.
 
 const now   = new Date();
 const YEAR  = now.getFullYear();
@@ -259,9 +259,6 @@ btnArrive.addEventListener("click", () => {
   const project   = getProject(projectId);
 
   // MOVING → ON_SITE
-  transition(Mode.ON_SITE);
-  updateStatus();
-
   // event_log に ARRIVED_ON_SITE を記録
   storageUpdate((data) => {
     data.event_log.push({
@@ -269,8 +266,12 @@ btnArrive.addEventListener("click", () => {
       project_id: projectId,
       at:         Date.now(),
     });
+
     return data;
   });
+
+  transition(Mode.ON_SITE);
+  updateStatus();
 
   movePanel.classList.remove("active");
 
@@ -350,9 +351,6 @@ btnExitSite.addEventListener("click", () => {
   const projectId = getProjectId();
 
   // ON_SITE → MOVING
-  transition(Mode.MOVING);
-  updateStatus();
-
   // event_log に EXIT_SITE を記録
   storageUpdate((data) => {
     data.event_log.push({
@@ -360,8 +358,12 @@ btnExitSite.addEventListener("click", () => {
       project_id: projectId,
       at:         Date.now(),
     });
+
     return data;
   });
+
+  transition(Mode.MOVING);
+  updateStatus();
 
   onsitePanel.classList.remove("active");
 
@@ -675,16 +677,6 @@ btnShutter.addEventListener("click", () => {
   tctx.drawImage(cameraVideo, 0, 0, vw * scale, vh * scale);
   const thumbnail = thumbCanvas.toDataURL("image/jpeg", 0.6);
 
-  // JPEG としてダウンロード保存
-  captureCanvas.toBlob((blob) => {
-    const url = URL.createObjectURL(blob);
-    const a   = document.createElement("a");
-    a.href     = url;
-    a.download = filename;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
-  }, "image/jpeg", 0.92);
-
   // メタデータ保存
   savePhotoMeta({
     id:         uid(),
@@ -694,6 +686,16 @@ btnShutter.addEventListener("click", () => {
     thumbnail,
     taken_at:   takenAt,
   });
+
+  // JPEG としてダウンロード保存
+  captureCanvas.toBlob((blob) => {
+    const url = URL.createObjectURL(blob);
+    const a   = document.createElement("a");
+    a.href     = url;
+    a.download = filename;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  }, "image/jpeg", 0.92);
 
   // サムネイルフラッシュ（1秒）
   cameraThumbnail.src = thumbnail;
@@ -1209,6 +1211,11 @@ btnUploadDrive.addEventListener("click", async () => {
   }
 });
 
+window.addEventListener('senlings-storage-ready', () => {
+  renderProjectList();
+  updateStatus();
+});
+
 // --- 初期描画 ---
 renderProjectList();
 updateStatus();
@@ -1297,8 +1304,7 @@ import { exportMonthlyCSV, exportProjectCSV } from './src/pwa/csvExport.js';
 function initProjectSelect() {
   const sel = document.getElementById('export-project-select');
   if (!sel) return;
-  const raw = localStorage.getItem('senlings_v0');
-  const projects = raw ? (JSON.parse(raw).projects ?? []) : [];
+  const projects = load().projects;
   projects.forEach(p => {
     const opt = document.createElement('option');
     opt.value       = p.project_id;
