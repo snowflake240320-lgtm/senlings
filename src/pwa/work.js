@@ -9,7 +9,7 @@
  * - 月次集計: YYYY/MM/01 00:00 〜 末日 23:59
  */
 
-import { load, update } from "./storage.js";
+import { load, save, update, StorageWriteError } from "./storage.js";
 
 /**
  * WorkSession を保存する。
@@ -27,6 +27,41 @@ export function saveSession(session) {
     data.work_sessions.push(session);
     return data;
   });
+}
+
+export class SessionCompletionError extends StorageWriteError {
+  constructor(message) {
+    super();
+    this.name = "SessionCompletionError";
+    this.message = message;
+  }
+}
+
+/**
+ * 新UIの退勤。勤怠の追加と入場解除を同じ保存に含める。
+ * 旧版の途中保存は現場ID・入場時刻で照合し、保存済み勤怠を変更しない。
+ * 複数の候補や画面と保存状態の食い違いは、自動修復せず書込みを止める。
+ */
+export function completeSession(session) {
+  const data = load();
+  const sameEntry = entry => entry.project_id === session.project_id &&
+    entry.check_in_at === session.check_in_at;
+  const matches = data.work_sessions.filter(sameEntry);
+  if (matches.length > 1) {
+    throw new SessionCompletionError('同じ入場の勤怠が複数あります。データを変更せず停止しました。JSONを出力し、記録を照合してください。');
+  }
+  const current = data.current_session;
+  if (current == null) {
+    if (matches.length === 1) return matches[0]; // 完了済みの同じ操作は書き込まない。
+    throw new SessionCompletionError('対象の入場記録がありません。現場画面に戻って確認してください。');
+  }
+  if (!sameEntry(current)) {
+    throw new SessionCompletionError('入場記録が画面の内容と変わっています。現場画面に戻って確認してください。');
+  }
+  if (matches.length === 0) data.work_sessions.push(session);
+  data.current_session = null;
+  save(data); // 失敗時は勤怠も入場も更新されない。一時的な画面内フラグに依存しない。
+  return matches[0] ?? session;
 }
 
 /**

@@ -16,5 +16,5 @@ async function check(dir) {
   }
 }
 for (const dir of ['web', 'src', 'api', 'tests']) await check(dir);
-run(['--test', 'tests/storage.test.mjs']);
+run(['--test', 'tests/storage.test.mjs', 'tests/attendance.test.mjs']);
 console.log('PASS syntax checks and storage regression tests');

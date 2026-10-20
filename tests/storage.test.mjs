@@ -32,6 +32,7 @@ for (const base of ['../web/src/pwa/', '../src/pwa/']) {
     start: () => s.update(d => ({ ...d, current_session: { project_id: 'p', check_in_at: 2000 } })),
     cancel: () => s.update(d => ({ ...d, current_session: null })),
     returnSession: () => work.saveSession({ ...fixture().work_sessions[0], id: 'w2' }),
+    completeReturn: () => work.completeSession({ id: 'w2', project_id: 'p', check_in_at: 1000, check_out_at: 2000, break_minutes: 0 }),
     addSite: () => s.update(d => { d.projects.push({ project_id: 'new', project_slug: 'NEW' }); return d; }),
     saveProject: () => project.saveProject({ project_id: 'new', project_slug: 'NEW' }),
     archiveProject: () => project.archiveProject('p'),

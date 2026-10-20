@@ -150,13 +150,15 @@ async function inject(page, mode) {
     assert.equal(await page.locator('#storage-error[open]').count(),0); assert.equal((await stats(page)).writes,0);
     await context.close();
   });
-  for (const faultType of ['write', 'read']) await run(`Return second ${faultType} fails: partial notice, no completion, same-screen retry no duplicate`, async () => {
+  for (const faultType of ['write', 'read']) await run(`Return atomic ${faultType} failure: unchanged data, no completion, same-screen retry no duplicate`, async () => {
     const {page,context}=await setup(); await ready(page);await working(page);await click(page,'#btn-return');
-    await page.evaluate(type=>{fault.writes=0;if(type==='write')fault.failWrite=2;else fault.failRead=fault.reads+5;},faultType);await click(page,'#btn-return-send');
+    const original=(await stats(page)).raw;
+    // Reads: shared click guard, completion load, final storage save recheck.
+    await page.evaluate(type=>{fault.writes=0;if(type==='write')fault.failWrite=1;else fault.failRead=fault.reads+3;},faultType);await click(page,'#btn-return-send');
     await page.locator('#storage-error[open]').waitFor();
-    assert.match(await page.locator('#storage-error').innerText(),/勤怠は保存済み/);
     assert.equal(await page.locator('#return-complete-modal:not([hidden])').count(),0);
-    const before=JSON.parse((await stats(page)).raw);assert.equal(before.work_sessions.length,2);assert.ok(before.current_session);
+    assert.equal((await stats(page)).raw,original);
+    assert.equal((await stats(page)).writes,faultType==='write'?1:0);
     await page.evaluate(()=>{fault.failWrite=0;fault.failRead=0;});await click(page,'#storage-error button');await click(page,'#btn-return-send');
     await page.locator('#return-complete-modal:not([hidden])').waitFor();
     const after=JSON.parse((await stats(page)).raw);assert.equal(after.work_sessions.length,2);assert.equal(after.current_session,null);
