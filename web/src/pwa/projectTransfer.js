@@ -43,38 +43,41 @@ export function makeTransfer(project, selectedFields, revision = 1) {
     source_project_id: project.project_id, revision, project: fields }));
 }
 
+// 表札(project_slug)は職人のもの。送り手の現場名は handoff_source.name に別に持ち、
+// 新しい版を反映しても表札は書き換えない。最初の受取時だけ、職人が表札を決められる(空なら送り手の現場名)。
 export function inspectTransfer(raw) {
   const packet = parseTransfer(raw), data = load();
   const receipts = (data.handoff_receipts ?? []).filter(r => r.packet.source_project_id === packet.source_project_id);
   const same = receipts.find(r => r.packet.revision === packet.revision);
   if (same) {
     if (JSON.stringify(same.packet) !== JSON.stringify(packet)) throw new Error('同じ物件ID・版で内容が異なります。元の記録は変更しません。渡し手に版を確認してください。');
-    return { packet, action: 'received', project_id: same.project_id };
+    return { packet, action: 'received', project_id: same.project_id, current_slug: data.projects.find(p => p.project_id === same.project_id)?.project_slug };
   }
   if (receipts.some(r => r.packet.revision > packet.revision)) throw new Error('より新しい版を受け取っています。古い版では上書きしません。');
   const previous = receipts.sort((a, b) => b.packet.revision - a.packet.revision)[0];
-  if (previous && !data.projects.some(p => p.project_id === previous.project_id)) throw new Error('受取済みの現場が見つかりません。記録を確認してください。');
-  return { packet, action: previous ? 'update' : 'add', project_id: previous?.project_id };
+  const current = previous && data.projects.find(p => p.project_id === previous.project_id);
+  if (previous && !current) throw new Error('受取済みの現場が見つかりません。記録を確認してください。');
+  return { packet, action: previous ? 'update' : 'add', project_id: previous?.project_id, current_slug: current?.project_slug };
 }
 
-export function acceptTransfer(raw, newId = crypto.randomUUID(), now = Date.now()) {
+export function acceptTransfer(raw, newId = crypto.randomUUID(), now = Date.now(), { slug } = {}) {
   const plan = inspectTransfer(raw);
   if (plan.action === 'received') return plan;
+  if (slug != null && (typeof slug !== 'string' || slug.length > 200)) throw new Error('現場名を確認してください。');
   const data = load();
   let project = data.projects.find(p => p.project_id === plan.project_id);
   if (!project) {
     if (data.projects.some(p => p.project_id === newId)) throw new Error('現場IDが重複しています。');
-    project = { project_id: newId, project_slug: '', created_at: now, archive: false, site_info: {} };
+    project = { project_id: newId, project_slug: slug?.trim() || plan.packet.project.name, created_at: now, archive: false, site_info: {} };
     data.projects.push(project);
   }
-  project.project_slug = plan.packet.project.name;
   project.site_info ??= {};
   for (const [key] of TRANSFER_FIELDS) {
     if (!Object.hasOwn(plan.packet.project, key)) continue;
     if (key === 'address') project.address = plan.packet.project[key];
     else project.site_info[key] = plan.packet.project[key];
   }
-  project.handoff_source = { source_project_id: plan.packet.source_project_id, revision: plan.packet.revision };
+  project.handoff_source = { source_project_id: plan.packet.source_project_id, revision: plan.packet.revision, name: plan.packet.project.name };
   data.handoff_receipts ??= [];
   data.handoff_receipts.push({ project_id: project.project_id, received_at: now, packet: plan.packet, raw });
   save(data); // 現場と受取原本を一緒に保存。既存の記録と過去の版は保持。

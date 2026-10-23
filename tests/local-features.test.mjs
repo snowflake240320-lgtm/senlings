@@ -30,15 +30,29 @@ test('preview is read-only; accept and repeated receive retain other records exa
   const raw = m.raw; assert.equal(acceptTransfer(packet(), 'another', 200).action, 'received');
   assert.equal(m.raw, raw); assert.equal(m.writes, 1);
 });
-test('new revision updates selected property fields, preserving originals and private records', () => {
+test('new revision updates selected property fields, preserving the local name, originals and private records', () => {
   storage(); acceptTransfer(packet(), 'local', 100);
   const current = load(); current.projects[1].site_info.toilet = '自分で確認'; current.projects[1].my_field = 'keep'; localStorage.raw = JSON.stringify(current);
   const revised = makeTransfer({ ...project, project_slug: '訂正後' }, ['raw'], 2);
-  assert.equal(inspectTransfer(JSON.stringify(revised)).action, 'update');
-  acceptTransfer(JSON.stringify(revised), 'unused', 200);
-  assert.equal(load().projects.length, 2); assert.equal(load().projects[1].project_slug, '訂正後');
+  const plan = inspectTransfer(JSON.stringify(revised));
+  assert.equal(plan.action, 'update'); assert.equal(plan.current_slug, project.project_slug);
+  acceptTransfer(JSON.stringify(revised), 'unused', 200, { slug: '更新時は無視される' });
+  assert.equal(load().projects.length, 2);
+  // 表札は職人のもの:送り手の新しい現場名では書き換えない。送り手の名前は別に残る。
+  assert.equal(load().projects[1].project_slug, project.project_slug);
+  assert.deepEqual(load().projects[1].handoff_source, { source_project_id: project.project_id, revision: 2, name: '訂正後' });
   assert.equal(load().projects[1].site_info.toilet, '自分で確認'); assert.equal(load().projects[1].my_field, 'keep');
   assert.equal(load().handoff_receipts.length, 2); assert.equal(load().handoff_receipts[0].raw, packet());
+});
+test('first receive lets the craftsman choose the local name; blank keeps the sender name; sender name is kept separately', () => {
+  storage(); acceptTransfer(packet(), 'named', 100, { slug: '  自分の呼び名  ' });
+  assert.equal(load().projects[1].project_slug, '自分の呼び名'); assert.equal(load().projects[1].handoff_source.name, project.project_slug);
+  const other = JSON.stringify(makeTransfer({ ...project, project_id: 'source-2' }, [], 1));
+  acceptTransfer(other, 'blank', 200, { slug: '   ' });
+  assert.equal(load().projects[2].project_slug, project.project_slug);
+  const m = localStorage, before = m.raw;
+  assert.throws(() => acceptTransfer(JSON.stringify(makeTransfer({ ...project, project_id: 'source-3' }, [], 1)), 'bad', 300, { slug: 'x'.repeat(201) }));
+  assert.equal(m.raw, before);
 });
 test('conflicting identity/version, older version and malformed packets cannot overwrite saved data', () => {
   const m = storage(); acceptTransfer(packet(2), 'local', 100); const before = m.raw;

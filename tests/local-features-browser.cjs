@@ -18,6 +18,7 @@ const fixture = { projects: [{ project_id: 'old', project_slug: '隔離試験・
   expenses: [], event_log: [{ type: 'KEEP' }], future: { preserved: true } };
 const packet = { format: 'senlings.project-handoff', schema_version: 1, source_project_id: 'external-test', revision: 1,
   project: { name: '隔離試験・受取現場', address: '架空住所2', contact: '架空の担当者', contact_phone: '000-0000-0000', raw: '届いた連絡\n<script>window.injected=true</script>' } };
+const localName = '自分の呼び名・受取現場'; // 表札は職人のもの:最初の受取で決め、送り手の新版でも変わらない
 let context, origin, profile, page;
 const click = selector => page.locator(selector).click();
 const raw = () => page.evaluate(() => localStorage.getItem('senlings_v0'));
@@ -58,14 +59,28 @@ async function preparePhoto() {
   });
   await run('receive preview is inert; quota failure keeps original bytes; retry saves project and original once', async () => {
     await receive(JSON.stringify(packet)); assert.equal((await saved()).projects.length, 1); assert.equal(await page.evaluate(() => !!window.injected), false);
+    assert.equal(await page.locator('#handoff-slug').inputValue(), packet.project.name); await page.locator('#handoff-slug').fill(localName);
     const before = await raw(); await inject(); await click('#handoff-accept'); await page.locator('#storage-error[open]').waitFor(); assert.equal(await raw(), before);
     await retry(); await click('#handoff-accept'); assert.equal((await saved()).projects.length, 2); assert.equal((await saved()).handoff_receipts.length, 1);
+    const received = (await saved()).projects[1]; assert.equal(received.project_slug, localName); assert.equal(received.handoff_source.name, packet.project.name);
     await screenshot('property-receive'); await closeDialog();
   });
   await run('same received file after full restart adds no duplicate; changed same-version content is refused', async () => {
     await restart(); const before = await raw(); await receive(JSON.stringify(packet)); await click('#handoff-accept'); assert.equal(await raw(), before); await closeDialog();
     await receive(JSON.stringify({ ...packet, project: { ...packet.project, name: '内容が違う' } })); assert.equal(await page.locator('#handoff-accept').isDisabled(), true);
     assert.match(await page.locator('#local-dialog [role=status]').innerText(), /同じ物件ID・版/); assert.equal(await raw(), before); await closeDialog();
+  });
+  await run('new revision keeps the local name, updates only sent fields, keeps the earlier original text', async () => {
+    const revised = { ...packet, revision: 2, project: { name: '送り手の新しい現場名', address: '架空住所3' } };
+    await receive(JSON.stringify(revised)); assert.equal(await page.locator('#handoff-slug').count(), 0);
+    const text = await page.locator('#handoff-preview').innerText(); assert.match(text, /現場名はそのまま：自分の呼び名・受取現場/); assert.match(text, /送り手の現場名：送り手の新しい現場名/);
+    assert.equal(await page.locator('#handoff-accept').innerText(), '確認してこの版を反映する'); await click('#handoff-accept');
+    const data = await saved(); const received = data.projects[1];
+    assert.equal(data.projects.length, 2); assert.equal(received.project_slug, localName); assert.equal(received.address, '架空住所3');
+    assert.equal(received.site_info.raw, packet.project.raw); assert.equal(received.site_info.contact, packet.project.contact);
+    assert.deepEqual(received.handoff_source, { source_project_id: packet.source_project_id, revision: 2, name: '送り手の新しい現場名' });
+    assert.equal(data.handoff_receipts.length, 2); assert.equal(data.handoff_receipts[0].packet.project.name, packet.project.name);
+    await screenshot('property-revision'); await closeDialog();
   });
   await run('received project checks in and a private memo survives failed save and retry', async () => {
     await page.locator('.site-card').filter({ hasText: '受取現場' }).click(); await click('#btn-checkin'); await click('#btn-memo');
@@ -100,7 +115,7 @@ async function preparePhoto() {
     await page.locator('#export-project').selectOption(localId); assert.match(await downloads('#btn-project-csv'), /労務費/); await click('#project-export-dialog form button');
     await click('#btn-review-records'); const download = page.waitForEvent('download'); await page.locator('.local-record').filter({ hasText: 'また使いたい工夫' }).locator('button').click();
     assert.match(await fs.readFile(await (await download).path(), 'utf8'), /また使いたい工夫/); await closeDialog();
-    const data = JSON.parse(await downloads('#btn-export-json-shimai')); assert.equal(data.local_records.length, 2); assert.equal(data.photos.length, 1); assert.equal(data.handoff_receipts.length, 1);
+    const data = JSON.parse(await downloads('#btn-export-json-shimai')); assert.equal(data.local_records.length, 2); assert.equal(data.photos.length, 1); assert.equal(data.handoff_receipts.length, 2);
     for (const key of ['contacts', 'invoice_snapshots', 'expenses', 'future']) assert.deepEqual(data[key], fixture[key]);
     assert.deepEqual(data.projects[0], fixture.projects[0]); assert.equal(await page.evaluate(() => localStorage.getItem('unrelated')), 'KEEP');
   });

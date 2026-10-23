@@ -30,8 +30,8 @@ function download(name, content, type = 'application/json') {
   const a = $('a', '', { href: url, download: name }); document.body.append(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-function values(parent, packet) {
-  paragraph(parent, `現場：${packet.project.name}`);
+function values(parent, packet, { showName = true } = {}) {
+  if (showName) paragraph(parent, `現場：${packet.project.name}`);
   paragraph(parent, `元の物件ID：${packet.source_project_id} ／ 版：${packet.revision}`);
   for (const [key, label] of TRANSFER_FIELDS) if (Object.hasOwn(packet.project, key)) {
     const block = $('section'); block.append($('h3', label), $('p', packet.project[key] || '（空欄）')); parent.append(block);
@@ -45,32 +45,40 @@ export function receiveProject(onSaved) {
   const input = field(box, '物件情報を貼り付ける', 'textarea', { rows: 5, id: 'handoff-input', maxLength: 128000 });
   const message = status(box), preview = $('div', '', { id: 'handoff-preview' });
   box.append(preview);
-  let confirmed = null, fileGeneration = 0;
+  let confirmed = null, fileGeneration = 0, slugInput = null;
   const accept = action(box, '確認して受け取る', () => {
     if (!confirmed || confirmed !== input.value) return;
     try {
-      const result = acceptTransfer(confirmed);
+      const result = acceptTransfer(confirmed, undefined, undefined, { slug: slugInput?.value });
       message.textContent = result.action === 'received' ? 'この版は受取済みです。現場は増やしていません。' : 'この端末の現場に保存しました。';
       accept.disabled = true; onSaved();
     } catch (error) { message.textContent = error.message; }
   }, 'handoff-accept');
   accept.disabled = true;
   const inspect = action(box, '内容を確認する', () => {
-    confirmed = null; accept.disabled = true; preview.replaceChildren();
+    confirmed = null; accept.disabled = true; preview.replaceChildren(); slugInput = null;
     try {
-      const plan = inspectTransfer(input.value); values(preview, plan.packet);
+      const plan = inspectTransfer(input.value);
+      if (plan.action === 'add') {
+        // 表札は職人のもの。最初の受取時に決められる。そのままなら送り手の現場名。
+        slugInput = field(preview, 'この端末での現場名（そのままでも、自分の呼び名でも）', 'input', { value: plan.packet.project.name, maxLength: 200, id: 'handoff-slug' });
+        values(preview, plan.packet, { showName: false });
+      } else if (plan.action === 'update') {
+        paragraph(preview, `現場名はそのまま：${plan.current_slug}` + (plan.current_slug !== plan.packet.project.name ? `（送り手の現場名：${plan.packet.project.name}）` : ''));
+        values(preview, plan.packet, { showName: false });
+      } else values(preview, plan.packet);
       message.textContent = plan.action === 'received' ? '同じ版を受取済みです。'
-        : plan.action === 'update' ? '新しい版です。表示した項目を現場へ反映します。以前の原本と自分の記録は残ります。'
+        : plan.action === 'update' ? '新しい版です。表示した項目を現場へ反映します。現場名・以前の原本・自分の記録はそのまま残ります。'
         : '新しい現場として加えます。渡し手の本人確認や作業の受任は、この操作には含みません。';
       accept.textContent = plan.action === 'update' ? '確認してこの版を反映する' : '確認して受け取る';
       confirmed = input.value; accept.disabled = false;
     } catch (error) { message.textContent = error.message; }
   }, 'handoff-inspect');
   box.insertBefore(inspect, preview);
-  input.oninput = () => { fileGeneration++; confirmed = null; accept.disabled = true; preview.replaceChildren(); message.textContent = ''; };
+  input.oninput = () => { fileGeneration++; confirmed = null; slugInput = null; accept.disabled = true; preview.replaceChildren(); message.textContent = ''; };
   file.onchange = async () => {
     const ticket = ++fileGeneration;
-    confirmed = null; accept.disabled = true; preview.replaceChildren();
+    confirmed = null; slugInput = null; accept.disabled = true; preview.replaceChildren();
     try {
       if (!file.files[0]) return;
       if (file.files[0].size > 128000) throw new Error('128KB以内のファイルを選んでください。');
