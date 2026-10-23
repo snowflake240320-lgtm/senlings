@@ -4,6 +4,8 @@
 基線 320baa3d(読取ガード・PR #5)→ Codex 版 4 コミット(zip v0.2.0・tree d7209ead)→ 藍の手直し。
 別アプリは作らない。既存UI(ui-v2)の延長。main・PR・本番・遠隔には触れていない(push なし)。
 
+**完了の範囲**:今回の「物件の受け渡し・簡易記録・勤怠再起動修正」の範囲の完了。請求全体・全データJSONからの復元・記録の訂正/削除など、従来からの残件が解消した意味ではない。この文書は藍の隔離検証の報告であり、第三者の検品完了・push/merge/本番反映の許可ではない。
+
 ## 物差し(変わらず)
 
 - 第十条:押すか、押せか。入口は名前ひとつ。確認も催促もしない。
@@ -39,12 +41,12 @@
 - b102393 受取プレビューに住所・担当者・原文が出ることの試験(RUNBOOK 操作2)。
 - 228d769 受け取った現場の骨格を手入力と揃える(IDの形式は受取用に別のまま)。
 
-## ID形式の混在(読むだけの調査・結果:実害なし)
+## ID形式の混在(読むだけの調査・結果:調査範囲では形式依存を発見せず)
 
 - 三つの形式がある:旧UIの注記 `{YYYYMMDD}_{slug}`(project.js)、新UI手入力 `{YYYYMMDD}_{Date.now()}`、受取 UUID。
 - IDを解析・分割・並べ替え・比較に使う箇所は無い(app_v2 / app / src / master を検索)。IDは一致判定にだけ使われる。
 - 唯一の見た目の違い:写真ファイル名 `{project_id}_{YYYYMMDD}_{HHMMSS}.jpg` にIDが入るため、受取現場の写真名が長くなる(ハイフン入り)。
-- 既存の値はすべて保持。変更なし。
+- 既存の値はすべて保持。変更なし。「実害なし」は、調査したコード範囲(web/app_v2.js・web/app.js・web/src/pwa・src/pwa・web/master)で形式依存を見つけなかった、という範囲に限る。
 
 ## 試験と RUNBOOK 8 操作の対応
 
@@ -61,6 +63,16 @@
 | 7 | 記録を1件だけ書き出す。物件書き出しに私的記録が混じらない | local-features 群1・群9 |
 | 8 | 全データJSONに別現場・請求・未知フィールドが保たれる | local-features 群9、browser.cjs(読取ガード) |
 
+証拠の索引(原物で追うとき):
+
+- `evidence/local-features-browser.log`:群ごとの PASS 行(群名は `evidence/local-features-result.json` の `results[]` と同じ順)。
+- `evidence/local-features-result.json`:`source_commit`(85b7786)・`working_tree`(空=未コミット差分なし)・`chromium`・群の合否。
+- `evidence/local-features-readback.json`:全11群のあとの `senlings_v0` 読戻し(受取現場の `project_slug`=自分の呼び名・`handoff_source.name`=送り手の名、`handoff_receipts` 2件、`local_records`、`photos` 1件、`work_sessions` 1件、既存現場 `old` の `future: KEEP`、`settings`)。
+- 再起動前後の同一データ:`restart()` は閉じる前の生バイトと開き直した後の生バイトが等しいことを assert する(群3・8・10)。ログに PASS があれば、その群の再起動前後で `senlings_v0` が1バイトも変わっていない。
+- `evidence/attendance-restart-result.json` + `evidence/attendance-restart.log`:7群の合否と件数(`attendance_before/after`・`checkout_write_count`・`all_other_data_preserved`)。読戻し原物は `normal-before.json` → `normal-readback.json`、`normal-fail-write-after.json`/`normal-fail-read-after.json`(失敗時に不変)、`legacy-exact-after.json`、`rich-legacy-before.json` → `rich-legacy-after.json`、`ambiguous-unchanged.json`(重複勤怠は自動整理せず不変)。
+- `evidence/browser-regression.log`:既存画面61件(読取ガード・旧UI含む)。`evidence/node.log`:Node 74件。
+- `evidence/screens/01〜28`:画面の歩き(`tools/walkthrough.cjs`)。`evidence/property-receive.png`・`property-revision.png`・`property-export.png`・`sos-unsent.png`・`personal-records.png`・`site-top.png`:試験中の画面。
+
 保護4条件:勤怠の重複防止(attendance-restart 7群・Node attendance)/他データ保持(browser.cjs 61・local-features 群9・Node storage)/保存失敗時の保護(local-features 群2・5・6・7・10、Node local-features)/再起動後の読戻し(local-features 群3・8・10、attendance-restart)。
 
 再実行:
@@ -72,7 +84,7 @@ PLAYWRIGHT_MODULE=... CHROMIUM_PATH=... SENLINGS_EVIDENCE=/path/to/evidence node
 PLAYWRIGHT_MODULE=... CHROMIUM_PATH=... SENLINGS_EVIDENCE=/path/to/evidence node tests/local-features-browser.cjs
 ```
 
-環境の事象:フルChrome(`chrome`)の headless では、ダウンロード完了直後にブラウザ本体が SIGSEGV で落ちることがある(3回再現)。アプリの不備ではない。`chrome-headless-shell` では再現しない。ブラウザ試験は headless-shell で統一する。
+環境の事象(観測):フルChrome(`chrome` バイナリ)の headless では、`tests/local-features-browser.cjs` の第7群のあと最初のダウンロード完了直後に、ブラウザ本体プロセスが SIGSEGV で終了した(3回とも再現。`evidence/baseline/env-note-full-chrome-download-sigsegv.log`)。`chrome-headless-shell` では再現せず、11群すべて合格。**原因は未確定。環境差あり。** アプリ側の操作(ダウンロードの直後の処理など)が引き金である可能性は排除できていない。ブラウザ試験は headless-shell で統一し、この事象は残件として持ち越す。
 
 ## 残件(本人実機・棚)
 
@@ -82,4 +94,5 @@ PLAYWRIGHT_MODULE=... CHROMIUM_PATH=... SENLINGS_EVIDENCE=/path/to/evidence node
 - 全データJSONからの一括復元画面/個人記録の訂正・削除UI/配布済みファイルの回収:未実装。
 - 請求:月の選択の口、工事コード・担当者名の口、テンプレート L18 の目視(船長)、口座の転記(テンプレート側の設計が先)。
 - 地図/周辺検索は凍結中。
-- 遠隔:fix ブランチは GitHub に無い。置く手は船長(または藍に push 権限)。PR #4(ui-v2→main)・PR #5(読取ガード)は Open のまま。
+- 遠隔:fix ブランチは GitHub に無い。置く手は船長(または藍に push 権限)。PR #4(ui-v2→main)・PR #5(読取ガード→ui-v2)は Open のまま。
+- 統合先(案・船長判断):fix は 320baa3d(PR #5 の先頭)の直系の子孫で、ui-v2 先頭 ee9f4df9 からも一本線(ee9f4df9 → 320baa3d → Codex 4 → 藍 6)。筋は「PR #5 を ui-v2 へ → fix を ui-v2 へ(fast-forward 可)→ 最後に PR #4 で main へ」。ui-v2 先頭からの最終差分は 40 files / +2259 / −152(うち読取ガード 22 files、Codex 25 files、藍 8 files・重なりあり)。この報告は push・merge・本番反映の許可ではない。
