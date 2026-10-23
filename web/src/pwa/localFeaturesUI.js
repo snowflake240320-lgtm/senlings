@@ -230,15 +230,19 @@ export function showContact(project) {
 
 export function editSettings() {
   const box = panel('請求書・口座設定'), settings = getAllSettings(), fields = {};
-  paragraph(box, 'この端末の設定として保存します。保存済みの請求草案は変更しません。');
-  for (const [name, label] of [['USER_NAME', 'お名前'], ['WORK_UNIT_PRICE', '1人工の単価（円）'],
-    ['TAX_RATE', '税率（例：0.10）'], ['REGISTRATED_NUMBER', '登録番号'],
-    ['BANK_NAME', '銀行名'], ['BANK_BRANCH', '支店名'], ['BANK_ACCOUNT_TYPE', '口座種別'],
-    ['BANK_ACCOUNT_NUMBER', '口座番号'], ['BANK_ACCOUNT_HOLDER', '口座名義']]) {
+  paragraph(box, 'この端末の設定として保存します。保存済みの請求書下書きは変更しません。');
+  const add = (parent, name, label) => {
     const key = SETTINGS_KEYS[name];
-    fields[key] = field(box, label, 'input', { value: settings[key] ?? '', maxLength: 500, id: `setting-${name.toLowerCase()}` });
-  }
-  paragraph(box, '口座情報は保管用です。現行のExcelテンプレートへの自動転記は未対応です。');
+    fields[key] = field(parent, label, 'input', { value: settings[key] ?? '', maxLength: 500, id: `setting-${name.toLowerCase()}` });
+  };
+  // 今回使う口は三つ(Excel・CSVに出る)。口座・登録番号は保管のみなので畳んでおく。旧UIで入れた値は読める。
+  for (const [name, label] of [['USER_NAME', 'お名前（請求書に出ます）'], ['WORK_UNIT_PRICE', '1人工の単価（円）'], ['TAX_RATE', '税率（例：0.10）']]) add(box, name, label);
+  const more = $('details', '', { className: 'add-site-more', id: 'settings-more' });
+  more.append($('summary', '口座・登録番号も入れる（保管のみ）'));
+  for (const [name, label] of [['REGISTRATED_NUMBER', '登録番号'], ['BANK_NAME', '銀行名'], ['BANK_BRANCH', '支店名'],
+    ['BANK_ACCOUNT_TYPE', '口座種別'], ['BANK_ACCOUNT_NUMBER', '口座番号'], ['BANK_ACCOUNT_HOLDER', '口座名義']]) add(more, name, label);
+  paragraph(more, '口座情報はこの端末での保管用です。いまのExcelテンプレートには自動では載りません。');
+  box.append(more);
   const message = status(box);
   action(box, '設定を保存する', () => {
     try { saveSettingsFromForm(Object.fromEntries(Object.entries(fields).map(([key, input]) => [key, input.value]))); message.textContent = '保存しました。'; }
