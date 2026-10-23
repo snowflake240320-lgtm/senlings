@@ -86,6 +86,14 @@ PLAYWRIGHT_MODULE=... CHROMIUM_PATH=... SENLINGS_EVIDENCE=/path/to/evidence node
 
 環境の事象(観測):フルChrome(`chrome` バイナリ)の headless では、`tests/local-features-browser.cjs` の第7群のあと最初のダウンロード完了直後に、ブラウザ本体プロセスが SIGSEGV で終了した(3回とも再現。`evidence/baseline/env-note-full-chrome-download-sigsegv.log`)。`chrome-headless-shell` では再現せず、11群すべて合格。**原因は未確定。環境差あり。** アプリ側の操作(ダウンロードの直後の処理など)が引き金である可能性は排除できていない。ブラウザ試験は headless-shell で統一し、この事象は残件として持ち越す。
 
+## 船長の決定(2026-10-23 夜)
+
+1. 山返し/SOS 完了の文言:**探索中**(船長)。それまで事実を言う今回の文言のまま。言い回しが決まったら文言だけの小さな手直し。
+2. 「物件情報を受け取る」の置き場所:**このまま**(「現場が見つからない場合」の導線)。
+3. 口座・登録番号の畳み:**このまま**(保管のみ)。
+4. 順番:**船長の iPhone 実機で 8 操作 → PR #5(読取ガード→ui-v2)→ fix ブランチ → PR #4(ui-v2→main)は最後。本番の舵は船長。**
+5. 「一旦、完成」:この範囲(物件受渡し・簡易記録・勤怠再起動修正)はここで区切る。
+
 ## 残件(本人実機・棚)
 
 - **本人 iPhone 実機**:写真の選択/対応形式、コピー、ダウンロード(ファイルの保存先)、電話画面、PWA オフライン起動、Service Worker 更新。未実施。
