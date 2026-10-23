@@ -60,6 +60,8 @@ async function preparePhoto() {
   await run('receive preview is inert; quota failure keeps original bytes; retry saves project and original once', async () => {
     await receive(JSON.stringify(packet)); assert.equal((await saved()).projects.length, 1); assert.equal(await page.evaluate(() => !!window.injected), false);
     assert.equal(await page.locator('#handoff-slug').inputValue(), packet.project.name); await page.locator('#handoff-slug').fill(localName);
+    const preview = await page.locator('#handoff-preview').innerText(); // RUNBOOK操作2:現場名・住所・担当者・原文を目で確認できる
+    for (const expected of ['住所', packet.project.address, '連絡先・担当者', packet.project.contact, '届いた連絡の原文', '届いた連絡']) assert.ok(preview.includes(expected), expected);
     const before = await raw(); await inject(); await click('#handoff-accept'); await page.locator('#storage-error[open]').waitFor(); assert.equal(await raw(), before);
     await retry(); await click('#handoff-accept'); assert.equal((await saved()).projects.length, 2); assert.equal((await saved()).handoff_receipts.length, 1);
     const received = (await saved()).projects[1]; assert.equal(received.project_slug, localName); assert.equal(received.handoff_source.name, packet.project.name);
