@@ -68,7 +68,9 @@ export function acceptTransfer(raw, newId = crypto.randomUUID(), now = Date.now(
   let project = data.projects.find(p => p.project_id === plan.project_id);
   if (!project) {
     if (data.projects.some(p => p.project_id === newId)) throw new Error('現場IDが重複しています。');
-    project = { project_id: newId, project_slug: slug?.trim() || plan.packet.project.name, created_at: now, archive: false, site_info: {} };
+    // 手入力の現場と同じ骨格(master_id は将来の台帳との結び口・今日は空)。IDの形式だけは受取用に別。
+    project = { project_id: newId, project_slug: slug?.trim() || plan.packet.project.name, address: null, start_date: null,
+      project_code: null, site_contact_id: null, master_id: null, site_info: {}, created_at: now, archive: false };
     data.projects.push(project);
   }
   project.site_info ??= {};
