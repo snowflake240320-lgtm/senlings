@@ -28,7 +28,7 @@ async function open() {
   report.chromium = context.browser().version();
   await context.route('**/*', route => route.request().url().startsWith(origin + '/') ? route.continue() : route.abort());
   page = context.pages()[0] || await context.newPage(); page.setDefaultTimeout(8000); page.errors = []; page.on('pageerror', e => page.errors.push(e.message));
-  await page.goto(origin); await page.locator('#btn-receive-property').waitFor();
+  await page.goto(origin); await page.waitForFunction(() => typeof document.getElementById('btn-receive-property')?.onclick === 'function');
 }
 async function restart() { const before = await raw(); assert.deepEqual(page.errors, []); await context.close(); await open(); assert.equal(await raw(), before); }
 async function closeDialog() { await click('#local-dialog .local-close'); }
