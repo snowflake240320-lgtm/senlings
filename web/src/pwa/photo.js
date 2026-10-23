@@ -16,7 +16,7 @@ import { load, update } from "./storage.js";
  */
 export function buildPhotoFilename(projectId) {
   const now  = new Date();
-  const date = now.toISOString().slice(0, 10).replace(/-/g, "");
+  const date = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, "0"), String(now.getDate()).padStart(2, "0")].join("");
   const hh   = String(now.getHours()).padStart(2, "0");
   const mm   = String(now.getMinutes()).padStart(2, "0");
   const ss   = String(now.getSeconds()).padStart(2, "0");

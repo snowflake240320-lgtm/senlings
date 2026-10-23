@@ -59,6 +59,15 @@ export function completeSession(session) {
     throw new SessionCompletionError('入場記録が画面の内容と変わっています。現場画面に戻って確認してください。');
   }
   if (matches.length === 0) data.work_sessions.push(session);
+  if (matches.length === 1 && session.personal_note && !matches[0].personal_note) {
+    data.local_records ??= [];
+    const id = `return:${session.project_id}:${session.check_in_at}`;
+    if (!data.local_records.some(r => r.id === id)) data.local_records.push({
+      id, project_id: session.project_id, kind: 'memo', text: session.personal_note.text,
+      personal_note: session.personal_note, created_at: session.check_out_at,
+      visibility: 'private', delivery_status: 'not_sent', recovered_entry_at: session.check_in_at,
+    });
+  }
   data.current_session = null;
   save(data); // 失敗時は勤怠も入場も更新されない。一時的な画面内フラグに依存しない。
   return matches[0] ?? session;

@@ -4,10 +4,13 @@
 import { completeSession } from './src/pwa/work.js';
 import { load, update } from './src/pwa/storage.js';
 import { exportAllDataAsJSON } from './src/pwa/export.js';
-import { exportMonthlyCSV } from './src/pwa/csvExport.js';
+import { exportMonthlyCSV, exportProjectCSV } from './src/pwa/csvExport.js';
 import { generateSnapshot, UnconfirmedExpenseError } from './src/pwa/invoice.js';
 import { setClaimStatus } from './src/pwa/expense.js';
 import { exportInvoiceToExcel } from './src/pwa/invoiceExport.js';
+
+import { receiveProject, giveProject, writeMemo, takePhoto, reviewRecords, editSettings, showContact, sosText, copyText, exportText } from './src/pwa/localFeaturesUI.js';
+import { saveLocalRecord, contactPhone } from './src/pwa/localRecords.js';
 
 // ── データ読み込み ────────────────────────────────────────
 function getAllData() {
@@ -161,6 +164,8 @@ function renderHandover(project) {
 function goToHandover(project) {
   document.getElementById('handover-site-name').textContent = project.project_slug;
   renderHandover(project);
+  document.getElementById('btn-give-property').onclick = () => giveProject(project);
+  document.getElementById('btn-project-contact').onclick = () => showContact(project);
   document.getElementById('btn-checkin').onclick = () => {
     const cs = load().current_session ?? null;
     if (cs && cs.project_id !== project.project_id) {
@@ -203,8 +208,9 @@ function goToWorking(project, checkinTime) {
     goToSos(project);
   };
   document.getElementById('btn-photo').onclick = () => {
-    console.log('photo:', project.project_id);
+    takePhoto(project);
   };
+  document.getElementById('btn-memo').onclick = () => writeMemo(project);
   document.getElementById('btn-rest').onclick = () => {
     goToRest(project);
   };
@@ -247,30 +253,26 @@ function renderSosOptions() {
   });
 }
 
-function showSosComplete(project, isDanger) {
+function showSosComplete(project, record) {
   const modal = document.getElementById('sos-complete-modal');
   const callBtn = document.getElementById('btn-sos-call');
-
-  callBtn.hidden = !isDanger;
-
-  callBtn.onclick = () => {
-    window.location.href = 'tel:';
-  };
-
-  document.getElementById('btn-sos-wait').onclick = () => {
-    modal.hidden = true;
-    showScreen('screen-working');
-  };
-
-  document.getElementById('btn-sos-again').onclick = () => {
-    modal.hidden = true;
-    showScreen('screen-sos');
-  };
-
+  const phone = contactPhone(project);
+  callBtn.hidden = !phone;
+  callBtn.textContent = phone ? `担当者へ電話する：${phone}` : '';
+  callBtn.onclick = () => { if (phone) window.location.href = `tel:${phone}`; };
+  const text = sosText(project, record, SOS_OPTIONS.find(o => o.fieldKey === record.field_key)?.label ?? record.field_key);
+  document.getElementById('sos-copy-text').textContent = text;
+  const status = document.getElementById('sos-delivery-status');
+  status.textContent = phone ? '連絡先と内容を確認して、電話や普段の連絡アプリで伝えてください。' : '電話番号は未登録です。受け取った連絡の担当者を確認してください。';
+  document.getElementById('btn-sos-copy').onclick = () => copyText(text, status);
+  document.getElementById('btn-sos-export').onclick = () => exportText(text);
+  document.getElementById('btn-sos-wait').onclick = () => { modal.hidden = true; showScreen('screen-working'); };
+  document.getElementById('btn-sos-again').onclick = () => { modal.hidden = true; goToSos(project); };
   modal.hidden = false;
 }
 
 function goToSos(project) {
+  const signalId = uid();
   selectedSosKey = null;
   document.getElementById('sos-site-name').textContent = project.project_slug;
   document.getElementById('sos-memo').value = '';
@@ -284,13 +286,9 @@ function goToSos(project) {
   document.getElementById('btn-sos-send').onclick = () => {
     if (!selectedSosKey) return;
     const memo = document.getElementById('sos-memo').value;
-    const isDanger = selectedSosKey === 'danger';
-    console.log('SOS sent:', {
-      projectId: project.project_id,
-      fieldKey: selectedSosKey,
-      description: memo,
-    });
-    showSosComplete(project, isDanger);
+    const record = saveLocalRecord({ id: signalId, project_id: project.project_id,
+      kind: 'sos', field_key: selectedSosKey, text: memo, created_at: Date.now() });
+    showSosComplete(project, record);
   };
 
   showScreen('screen-sos');
@@ -373,18 +371,13 @@ function goToReturn(project, checkInAt) {
 
   document.getElementById('btn-return-send').onclick = () => {
     const memo = document.getElementById('return-memo').value;
-    console.log('yamagaeshi:', {
-      projectId: project.project_id,
-      mood: selectedMood,
-      categories: [...selectedCategories],
-      message: memo,
-    });
     completeSession({
       id:            uid(),
       project_id:    project.project_id,
       check_in_at:   checkInAt,
       check_out_at:  Date.now(),
       break_minutes: 0,
+      ...((memo.trim() || selectedMood || selectedCategories.size) ? { personal_note: { text: memo, mood: selectedMood, categories: [...selectedCategories], visibility: 'private' } } : {}),
     });
     showReturnComplete();
   };
@@ -477,10 +470,10 @@ function renderShimai() {
     exportMonthlyCSV(month);
   };
   document.getElementById('btn-export-csv-project-shimai').onclick = () => {
-    console.log('CSV export by project: 後日実装');
+    openProjectExport();
   };
   document.getElementById('btn-shimai-settings').onclick = () => {
-    console.log('settings: 後日実装');
+    editSettings();
   };
 
   // ── 請求書下書き ──────────────────────────────────────
@@ -593,7 +586,7 @@ document.querySelectorAll('.tab').forEach(tab => {
           document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
           document.querySelector('[data-tab="genba"]').classList.add('active');
           if (currentProject) {
-            goToReturn(currentProject);
+            goToReturn(currentProject, load().current_session?.check_in_at);
           } else {
             showScreen('screen-working');
           }
@@ -625,6 +618,7 @@ document.querySelectorAll('.tab').forEach(tab => {
 document.getElementById('btn-add-site')?.addEventListener('click', () => {
   document.getElementById('add-site-name').value = '';
   document.getElementById('add-site-raw').value = '';
+  for (const id of ['add-site-address', 'add-site-contact', 'add-site-phone']) document.getElementById(id).value = '';
   document.getElementById('add-site-modal').hidden = false;
   document.getElementById('add-site-name').focus();
 });
@@ -651,12 +645,12 @@ document.getElementById('btn-add-site-save')?.addEventListener('click', () => {
   const project = {
     project_id:      `${YYYYMMDD}_${now}`,
     project_slug:    name,
-    address:         null,
+    address:         document.getElementById('add-site-address').value.trim() || null,
     start_date:      null,
     project_code:    null,
     site_contact_id: null,
     master_id:       null,
-    site_info:       { raw: rawText },
+    site_info:       { raw: rawText, contact: document.getElementById('add-site-contact').value.trim() || null, contact_phone: document.getElementById('add-site-phone').value.trim() || null },
     created_at:      now,
     archive:         false,
   };
@@ -671,6 +665,23 @@ window.addEventListener('senlings-storage-ready', () => {
   if (document.getElementById('screen-site-top').classList.contains('active')) renderSiteTop();
   if (document.getElementById('screen-shimai').classList.contains('active')) renderShimai();
 });
+
+document.getElementById('btn-receive-property').onclick = () => receiveProject(renderSiteTop);
+document.getElementById('btn-review-records').onclick = reviewRecords;
+document.getElementById('btn-contact-manager').onclick = () => showContact(null);
+
+function openProjectExport() {
+  const projects = load().projects;
+  const dialog = document.getElementById('project-export-dialog');
+  const select = document.getElementById('export-project');
+  select.replaceChildren();
+  for (const p of projects) {
+    const option = document.createElement('option'); option.value = p.project_id; option.textContent = p.project_slug; select.append(option);
+  }
+  document.getElementById('btn-project-csv').disabled = !projects.length;
+  document.getElementById('btn-project-csv').onclick = () => { if (select.value) exportProjectCSV(select.value); };
+  dialog.showModal();
+}
 
 // ── 初期化 ───────────────────────────────────────────────
 renderSiteTop();

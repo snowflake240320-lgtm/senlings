@@ -1,5 +1,6 @@
 // settings.js
 // 請求書・ユーザー設定の localStorage 読み書き
+import { load, update } from './storage.js';
 
 export const SETTINGS_KEYS = {
   USER_NAME:             'senlings_user_name',
@@ -26,15 +27,13 @@ export const SETTINGS_DEFAULTS = {
 };
 
 export function getSetting(key) {
-  return localStorage.getItem(key) ?? SETTINGS_DEFAULTS[key] ?? null;
+  const settings = load().settings;
+  const value = settings && Object.hasOwn(settings, key) ? settings[key] : localStorage.getItem(key);
+  return value ?? SETTINGS_DEFAULTS[key] ?? null;
 }
 
 export function setSetting(key, value) {
-  if (value === null || value === '') {
-    localStorage.removeItem(key);
-  } else {
-    localStorage.setItem(key, value);
-  }
+  saveSettingsFromForm({ [key]: value });
 }
 
 export function getAllSettings() {
@@ -44,7 +43,19 @@ export function getAllSettings() {
 }
 
 export function saveSettingsFromForm(formData) {
-  for (const [key, value] of Object.entries(formData)) {
-    setSetting(key, value);
+  const allowed = Object.values(SETTINGS_KEYS);
+  if (Object.entries(formData).some(([key, value]) => !allowed.includes(key) ||
+      (value !== null && (typeof value !== 'string' || value.length > 500)))) throw new Error('設定の内容を確認してください。');
+  for (const key of [SETTINGS_KEYS.WORK_UNIT_PRICE, SETTINGS_KEYS.TAX_RATE]) {
+    const value = formData[key];
+    if (value != null && value !== '' && (!Number.isFinite(Number(value)) || Number(value) < 0 ||
+        (key === SETTINGS_KEYS.TAX_RATE && Number(value) > 1))) throw new Error('単価・税率を確認してください。税率は0〜1で指定します。');
   }
+  // 旧キーは保持。現行画面の設定を一回で保存し、全データJSONにも含める。
+  const existing = getAllSettings();
+  update(data => {
+    data.settings = { ...existing, ...data.settings };
+    for (const [key, value] of Object.entries(formData)) data.settings[key] = value === '' ? null : value;
+    return data;
+  });
 }

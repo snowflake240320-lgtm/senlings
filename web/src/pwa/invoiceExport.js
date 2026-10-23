@@ -9,6 +9,7 @@
 import { load } from "./storage.js";
 import { monthlySummary } from "./work.js";
 import { monthlyExpenseSummary } from "./expenseQuery.js";
+import { getSetting, SETTINGS_KEYS } from './settings.js';
 import { ClaimStatus } from "./expense.js";
 
 const XLSX_CDN      = "https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs";
@@ -17,7 +18,7 @@ const DATA_SHEET    = "請求データ入力";
 const DATA_ROW      = 18; // 1-indexed（テンプレート仕様）
 
 function getUnitPrice() {
-  const v = localStorage.getItem('senlings_work_unit_price');
+  const v = getSetting(SETTINGS_KEYS.WORK_UNIT_PRICE);
   return v ? Number(v) : 25000;
 }
 
@@ -52,7 +53,7 @@ export async function exportInvoiceToExcel({ project_id, year, month }) {
   const contactName = contact?.name ?? "";
 
   // 御社ご担当者名（設定タブのお名前）
-  const userName = localStorage.getItem("senlings_user_name") ?? "";
+  const userName = getSetting(SETTINGS_KEYS.USER_NAME) ?? "";
 
   // 金額計算（労務費 + 経費合計）
   const unitPrice      = getUnitPrice();

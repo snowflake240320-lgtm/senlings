@@ -1,0 +1,13 @@
+{
+  "format": "senlings.project-handoff",
+  "schema_version": 1,
+  "source_project_id": "fictional-property-example-001",
+  "revision": 1,
+  "project": {
+    "name": "受渡し試験用・架空現場",
+    "address": "架空の住所（実在の現場ではありません）",
+    "entrance": "南側入口を確認する想定",
+    "contact": "架空の担当者。実際の連絡先は登録していません。",
+    "raw": "これは隔離検証用の連絡文です。\n元の文章は、共有するときに自分で選びます。"
+  }
+}

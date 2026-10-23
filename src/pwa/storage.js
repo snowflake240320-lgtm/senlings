@@ -35,9 +35,17 @@ const timestamp = value => typeof value === "number" && Number.isFinite(value) &
 // Missing collections are supported for older saves. Never repair present invalid values.
 function safeShape(data) {
   if (!record(data)) return false;
-  for (const key of Object.keys(DEFAULT_STATE)) {
+  for (const key of [...Object.keys(DEFAULT_STATE), 'local_records', 'handoff_receipts']) {
     if (Object.hasOwn(data, key) && (!Array.isArray(data[key]) || !data[key].every(record))) return false;
   }
+  for (const r of data.local_records ?? []) {
+    if (typeof r.id !== 'string' || typeof r.project_id !== 'string' || !['memo', 'sos'].includes(r.kind) || typeof r.text !== 'string' || !timestamp(r.created_at)) return false;
+  }
+  for (const r of data.handoff_receipts ?? []) {
+    if (typeof r.project_id !== 'string' || !timestamp(r.received_at) || typeof r.raw !== 'string' || !record(r.packet) ||
+        typeof r.packet.source_project_id !== 'string' || !Number.isSafeInteger(r.packet.revision) || !record(r.packet.project)) return false;
+  }
+  if (data.settings != null && (!record(data.settings) || Object.values(data.settings).some(v => v !== null && typeof v !== 'string'))) return false;
   const stringFields = {
     projects: ['project_id', 'project_slug', 'address', 'project_code', 'site_contact_id', 'start_date'],
     contacts: ['contact_id', 'name', 'role', 'phone', 'company'],

@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Senlings</title>
+  <link rel="stylesheet" href="local-features.css">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="favicon.ico">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1108,6 +1109,7 @@
       <h1 class="site-top-heading">今日はどこへ入りますか？</h1>
     </div>
 
+    <button class="local-action local-inline" id="btn-receive-property">物件情報を受け取る</button>
     <div class="site-list" id="site-list">
       <!-- app_v2.js が描画 -->
     </div>
@@ -1131,6 +1133,8 @@
     <div class="handover-scroll-area">
       <div id="handover-list"></div>
     </div>
+    <button class="local-action local-inline" id="btn-project-contact">担当者へ確認する</button>
+    <button class="local-action local-inline" id="btn-give-property">この物件の情報を渡す</button>
     <div class="checkin-area">
       <button class="checkin-btn" id="btn-checkin">入館・作業開始</button>
     </div>
@@ -1277,7 +1281,7 @@
 
     <!-- 送るボタン（下部固定） -->
     <div class="checkin-area">
-      <button class="sos-send-btn" id="btn-sos-send" disabled>送る</button>
+      <button class="sos-send-btn" id="btn-sos-send" disabled>保存して連絡文を用意する</button>
     </div>
 
   </div>
@@ -1310,9 +1314,9 @@
           </div>
         </div>
 
-        <!-- 次に伝えたいこと -->
+        <!-- 残しておきたいこと -->
         <div>
-          <p class="return-section-label">次に伝えたいこと</p>
+          <p class="return-section-label">残しておきたいこと</p>
           <div style="display:flex; flex-direction:column; gap:8px;">
             <button class="category-btn" data-cat="anzen">
               <span>危なかったこと</span>
@@ -1335,7 +1339,7 @@
 
         <!-- 次の人へ一言 -->
         <div>
-          <p class="return-section-label">次の人へ一言（任意）</p>
+          <p class="return-section-label">自分のメモ（任意）</p>
           <textarea class="return-memo" id="return-memo"
             placeholder="搬入口は右側が使いやすい、など"></textarea>
         </div>
@@ -1367,6 +1371,10 @@
         <div class="shimai-card" id="shimai-today-record">
           <p class="today-record-empty">今日の記録はまだありません。</p>
         </div>
+      </div>
+
+      <div class="shimai-section" style="margin-top:20px;">
+        <button class="shimai-action-btn" id="btn-review-records">自分の記録を見返す<span class="shimai-action-arrow">›</span></button>
       </div>
 
       <!-- 請求書下書き -->
@@ -1445,8 +1453,12 @@
   <div id="sos-complete-modal" class="sos-modal" hidden>
     <div class="sos-modal-inner">
 
-      <p class="sos-complete-title">伝わっています。</p>
-      <p class="sos-complete-sub">止まるかどうかは、<br>あなたが決める。<br>伝わったことだけ、お知らせしました。</p>
+      <p class="sos-complete-title">この端末に保存しました。</p>
+      <p class="sos-complete-sub">まだ送信していません。危険があるときは安全な場所へ移り、現場の緊急連絡手順に従ってください。</p>
+      <pre id="sos-copy-text"></pre>
+      <p id="sos-delivery-status" class="sos-complete-sub" role="status"></p>
+      <button class="sos-modal-btn sos-wait-btn" id="btn-sos-copy">連絡文をコピーする</button>
+      <button class="sos-modal-btn sos-wait-btn" id="btn-sos-export">連絡文をテキストにする</button>
 
       <!-- 電話する（危ないのときのみ表示） -->
       <button class="sos-modal-btn sos-call-btn" id="btn-sos-call" hidden>
@@ -1456,12 +1468,12 @@
 
       <!-- このまま待つ -->
       <button class="sos-modal-btn sos-wait-btn" id="btn-sos-wait">
-        このまま待つ
+        作業画面に戻る
       </button>
 
       <!-- 別の救助信号も送る -->
       <button class="sos-modal-link" id="btn-sos-again">
-        別の救助信号も送る
+        別の困りごとを残す
       </button>
 
     </div>
@@ -1473,8 +1485,8 @@
 
       <div class="return-complete-icon">🔥</div>
 
-      <p class="return-complete-title">次のHunterへ、<br>届きます。</p>
-      <p class="return-complete-sub">今日の現場は、終わりました。</p>
+      <p class="return-complete-title">今日の記録を、<br>保存しました。</p>
+      <p class="return-complete-sub">自分の記録として残ります。共有は自分で選べます。</p>
 
       <button class="sos-modal-btn sos-wait-btn" id="btn-return-complete">
         現場トップへ戻る
@@ -1496,14 +1508,14 @@
       </p>
       <p class="sos-complete-sub">
         このまま仕舞いへ向かうと、<br>
-        今日の痕跡は残りません。
+        入場は継続します。保存済みの記録は残ります。
       </p>
       <button class="sos-modal-btn btn-sos" id="btn-shimai-confirm-return"
         style="flex-direction:row; min-height:auto;">
         今日を、返す。
       </button>
       <button class="sos-modal-btn sos-wait-btn" id="btn-shimai-confirm-skip">
-        痕跡を残さず仕舞う
+        入場したまま仕舞いを見る
       </button>
       <button class="sos-modal-link" id="btn-shimai-confirm-cancel">
         現場に戻る
@@ -1520,6 +1532,9 @@
         <input type="text" id="add-site-name" class="add-site-input"
           placeholder="例：〇〇マンション" autocomplete="off">
       </div>
+      <div class="add-site-field"><label class="add-site-label" for="add-site-address">住所（任意）</label><input id="add-site-address" class="add-site-input" type="text" maxlength="500"></div>
+      <div class="add-site-field"><label class="add-site-label" for="add-site-contact">担当者・連絡先（任意）</label><input id="add-site-contact" class="add-site-input" type="text" maxlength="500"></div>
+      <div class="add-site-field"><label class="add-site-label" for="add-site-phone">電話番号（任意）</label><input id="add-site-phone" class="add-site-input" type="tel" maxlength="40"></div>
       <div class="add-site-field">
         <label class="add-site-label" for="add-site-raw">届いた連絡（任意）</label>
         <textarea id="add-site-raw" class="add-site-textarea"
@@ -1534,6 +1549,12 @@
     </div>
   </div>
 
+  <dialog id="project-export-dialog" class="local-dialog" aria-label="工事を選ぶ">
+    <h2>書き出す工事を選ぶ</h2>
+    <label>現場<select id="export-project"></select></label>
+    <button class="local-action" id="btn-project-csv">CSVを書き出す</button>
+    <form method="dialog"><button class="local-action">閉じる</button></form>
+  </dialog>
   <script type="module">
     import { startApp } from './src/pwa/storageUI.js';
     startApp(new URL('./app_v2.js', import.meta.url).href);

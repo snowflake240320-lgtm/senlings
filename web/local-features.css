@@ -1,0 +1,22 @@
+.local-dialog { margin: auto; width: calc(100% - 24px); max-width: 430px; max-height: calc(100dvh - 32px); padding: 20px; border: 1px solid #655436; border-radius: 14px; background: #161614; color: #e8e5df; font: inherit; line-height: 1.7; }
+.local-dialog::backdrop { background: #000b; }
+.local-dialog header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; position: sticky; top: -20px; z-index: 1; background: #161614; padding: 8px 0; }
+.local-dialog h2 { font-size: 19px; font-weight: 500; }
+.local-dialog h3 { font-size: 14px; color: #c5a059; font-weight: 500; }
+.local-dialog p { white-space: pre-wrap; overflow-wrap: anywhere; margin: 10px 0; color: #c4c1b9; font-size: 13px; }
+.local-dialog label { display: block; margin: 14px 0; color: #c4c1b9; font-size: 13px; }
+.local-dialog input:not([type=checkbox]), .local-dialog textarea { display: block; width: 100%; padding: 10px; margin-top: 6px; border: 1px solid #55554c; border-radius: 8px; background: #0d0d0b; color: #e8e5df; font: inherit; font-size: 16px; }
+.local-dialog .local-choice { display: flex; gap: 10px; align-items: center; min-height: 32px; }
+.local-choice input { width: 20px; height: 20px; accent-color: #c5a059; }
+.local-close { flex-shrink: 0; background: none; border: 0; color: #c5a059; font: inherit; min-height: 44px; padding: 8px; }
+.local-action { display: block; width: 100%; min-height: 44px; border: 1px solid #71603f; border-radius: 8px; padding: 12px; margin: 12px 0 0; color: #ddbd7e; background: #1c1c18; font: inherit; text-align: center; cursor: pointer; text-decoration: none; }
+.local-action:disabled { color: #85857a; border-color: #44443c; cursor: default; }
+.local-photo { width: 100%; max-height: 320px; object-fit: contain; border-radius: 8px; }
+.local-photo[hidden] { display: none; }
+.local-record { border-top: 1px solid #44443c; padding: 20px 0; }
+.local-dialog section { margin-top: 16px; }
+.local-dialog [role=status] { color: #ddbd7e; }
+.local-inline { margin: 8px 20px 16px; width: calc(100% - 40px); }
+#sos-copy-text { white-space: pre-wrap; font: inherit; font-size: 13px; line-height: 1.6; text-align: left; color: #c4c1b9; margin: 12px 0; }
+.sos-modal { overflow-y: auto; }
+.sos-modal-inner { margin: auto; }
