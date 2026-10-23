@@ -30,9 +30,9 @@ function download(name, content, type = 'application/json') {
   const a = $('a', '', { href: url, download: name }); document.body.append(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-function values(parent, packet, { showName = true } = {}) {
+function values(parent, packet, { showName = true, idLabel = '送り手の物件ID' } = {}) {
   if (showName) paragraph(parent, `現場：${packet.project.name}`);
-  paragraph(parent, `元の物件ID：${packet.source_project_id} ／ 版：${packet.revision}`);
+  paragraph(parent, `${idLabel}：${packet.source_project_id} ／ 版：${packet.revision}`);
   for (const [key, label] of TRANSFER_FIELDS) if (Object.hasOwn(packet.project, key)) {
     const block = $('section'); block.append($('h3', label), $('p', packet.project[key] || '（空欄）')); parent.append(block);
   }
@@ -69,7 +69,7 @@ export function receiveProject(onSaved) {
       } else values(preview, plan.packet);
       message.textContent = plan.action === 'received' ? '同じ版を受取済みです。'
         : plan.action === 'update' ? '新しい版です。表示した項目を現場へ反映します。現場名・以前の原本・自分の記録はそのまま残ります。'
-        : '新しい現場として加えます。渡し手の本人確認や作業の受任は、この操作には含みません。';
+        : '新しい現場として加えます。この端末に置くだけで、相手には何も送られません。';
       accept.textContent = plan.action === 'update' ? '確認してこの版を反映する' : '確認して受け取る';
       confirmed = input.value; accept.disabled = false;
     } catch (error) { message.textContent = error.message; }
@@ -112,7 +112,7 @@ export function giveProject(project) {
     preview.replaceChildren(); save.disabled = true; packet = null;
     try {
       packet = makeTransfer(project, selected.filter(el => el.checked).map(el => el.value), Number(revision.value));
-      values(preview, packet); save.disabled = false; message.textContent = 'この内容を確認して書き出せます。';
+      values(preview, packet, { idLabel: '照合用ID（相手が版を見分けるため）' }); save.disabled = false; message.textContent = 'この内容を確認して書き出せます。';
     } catch (error) { message.textContent = error.message; }
   }, 'handoff-review'); box.insertBefore(review, preview);
   for (const input of [revision, ...selected]) input.oninput = () => { packet = null; preview.replaceChildren(); save.disabled = true; };
@@ -179,7 +179,8 @@ export function takePhoto(project) {
 }
 
 export function sosText(project, record, label) {
-  return `${project.project_slug}\n${label}\n${record.text}\n記録日時：${new Date(record.created_at).toLocaleString('ja-JP')}\n連絡後の到達確認は別途お願いします。`;
+  // 相手に貼って送る文。本人向けの注意書き(到達未確認)は画面側に出し、ここには混ぜない。
+  return `${project.project_slug}\n${label}\n${record.text}\n記録日時：${new Date(record.created_at).toLocaleString('ja-JP')}`;
 }
 export async function copyText(text, target) {
   try { await navigator.clipboard.writeText(text); target.textContent = 'コピーしました。連絡先のアプリに貼り付け、内容を確認して送ってください。到達は未確認です。'; }

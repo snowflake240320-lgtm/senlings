@@ -641,6 +641,7 @@
       animation: sos-fadein 0.4s ease;
     }
     .sos-modal[hidden] { display: none; }
+    .sos-modal-btn[hidden] { display: none; }
     @keyframes sos-fadein {
       from { opacity: 0; }
       to   { opacity: 1; }
@@ -1109,7 +1110,6 @@
       <h1 class="site-top-heading">今日はどこへ入りますか？</h1>
     </div>
 
-    <button class="local-action local-inline" id="btn-receive-property">物件情報を受け取る</button>
     <div class="site-list" id="site-list">
       <!-- app_v2.js が描画 -->
     </div>
@@ -1119,6 +1119,7 @@
       <div class="site-fallback-links">
         <button class="site-fallback-link" id="btn-contact-manager">担当者へ確認する</button>
         <button class="site-fallback-link" id="btn-add-site">現場を追加する</button>
+        <button class="site-fallback-link" id="btn-receive-property">物件情報を受け取る</button>
       </div>
     </div>
   </div>
@@ -1133,8 +1134,12 @@
     <div class="handover-scroll-area">
       <div id="handover-list"></div>
     </div>
-    <button class="local-action local-inline" id="btn-project-contact">担当者へ確認する</button>
-    <button class="local-action local-inline" id="btn-give-property">この物件の情報を渡す</button>
+    <div class="site-fallback handover-fallback">
+      <div class="site-fallback-links">
+        <button class="site-fallback-link" id="btn-project-contact">担当者へ確認する</button>
+        <button class="site-fallback-link" id="btn-give-property">この物件の情報を渡す</button>
+      </div>
+    </div>
     <div class="checkin-area">
       <button class="checkin-btn" id="btn-checkin">入館・作業開始</button>
     </div>
@@ -1281,7 +1286,7 @@
 
     <!-- 送るボタン（下部固定） -->
     <div class="checkin-area">
-      <button class="sos-send-btn" id="btn-sos-send" disabled>保存して連絡文を用意する</button>
+      <button class="sos-send-btn" id="btn-sos-send" disabled>連絡文を用意する</button>
     </div>
 
   </div>
@@ -1453,8 +1458,8 @@
   <div id="sos-complete-modal" class="sos-modal" hidden>
     <div class="sos-modal-inner">
 
-      <p class="sos-complete-title">この端末に保存しました。</p>
-      <p class="sos-complete-sub">まだ送信していません。危険があるときは安全な場所へ移り、現場の緊急連絡手順に従ってください。</p>
+      <p class="sos-complete-title">この端末に残しました。</p>
+      <p class="sos-complete-sub">まだ誰にも送っていません。<br>止まるかどうかは、<br>あなたが決める。<br>危ないときは、まず安全な場所へ。</p>
       <pre id="sos-copy-text"></pre>
       <p id="sos-delivery-status" class="sos-complete-sub" role="status"></p>
       <button class="sos-modal-btn sos-wait-btn" id="btn-sos-copy">連絡文をコピーする</button>
@@ -1462,7 +1467,7 @@
 
       <!-- 電話する（危ないのときのみ表示） -->
       <button class="sos-modal-btn sos-call-btn" id="btn-sos-call" hidden>
-        電話する
+        <span id="sos-call-label">電話する</span>
         <span class="sos-call-note">危ないときは、待たずに</span>
       </button>
 
@@ -1508,7 +1513,7 @@
       </p>
       <p class="sos-complete-sub">
         このまま仕舞いへ向かうと、<br>
-        入場は継続します。保存済みの記録は残ります。
+        入ったままになります。保存した記録は残ります。
       </p>
       <button class="sos-modal-btn btn-sos" id="btn-shimai-confirm-return"
         style="flex-direction:row; min-height:auto;">
@@ -1532,14 +1537,18 @@
         <input type="text" id="add-site-name" class="add-site-input"
           placeholder="例：〇〇マンション" autocomplete="off">
       </div>
-      <div class="add-site-field"><label class="add-site-label" for="add-site-address">住所（任意）</label><input id="add-site-address" class="add-site-input" type="text" maxlength="500"></div>
-      <div class="add-site-field"><label class="add-site-label" for="add-site-contact">担当者・連絡先（任意）</label><input id="add-site-contact" class="add-site-input" type="text" maxlength="500"></div>
-      <div class="add-site-field"><label class="add-site-label" for="add-site-phone">電話番号（任意）</label><input id="add-site-phone" class="add-site-input" type="tel" maxlength="40"></div>
       <div class="add-site-field">
         <label class="add-site-label" for="add-site-raw">届いた連絡（任意）</label>
         <textarea id="add-site-raw" class="add-site-textarea"
           placeholder="LINEの文章などをそのまま貼ってください"></textarea>
       </div>
+      <!-- 入口は名前ひとつ+貼り付け。住所・担当者・電話は畳んでおく(任意・後から追いつく) -->
+      <details class="add-site-more" id="add-site-more">
+        <summary>住所・担当者・電話も入れる（任意）</summary>
+        <div class="add-site-field"><label class="add-site-label" for="add-site-address">住所</label><input id="add-site-address" class="add-site-input" type="text" maxlength="500"></div>
+        <div class="add-site-field"><label class="add-site-label" for="add-site-contact">担当者・連絡先</label><input id="add-site-contact" class="add-site-input" type="text" maxlength="500"></div>
+        <div class="add-site-field"><label class="add-site-label" for="add-site-phone">電話番号</label><input id="add-site-phone" class="add-site-input" type="tel" maxlength="40"></div>
+      </details>
       <button class="sos-modal-btn sos-wait-btn" id="btn-add-site-save">
         登録する
       </button>

@@ -97,7 +97,7 @@ async function preparePhoto() {
     await click('#btn-sos'); await click('.sos-option[data-key=danger]'); await page.locator('#sos-memo').fill('架空の足場の確認');
     const before = await raw(); await inject(); await click('#btn-sos-send'); await page.locator('#storage-error[open]').waitFor(); assert.equal(await raw(), before); assert.equal(await page.locator('#sos-complete-modal').isHidden(), true);
     await retry(); await click('#btn-sos-send'); await page.locator('#sos-complete-modal:not([hidden])').waitFor();
-    assert.match(await page.locator('#sos-complete-modal').innerText(), /まだ送信していません/); assert.doesNotMatch(await page.locator('#sos-complete-modal').innerText(), /伝わっています/);
+    assert.match(await page.locator('#sos-complete-modal').innerText(), /まだ誰にも送っていません/); assert.match(await page.locator('#btn-sos-call').innerText(), /担当者へ電話する：00000000000[\s\S]*危ないときは、待たずに/); // 番号がある現場だけ電話ボタン。発信はしない assert.doesNotMatch(await page.locator('#sos-complete-modal').innerText(), /伝わっています/);
     await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { value: { writeText: async text => { window.copied = text; } }, configurable: true }));
     await click('#btn-sos-copy'); assert.match(await page.locator('#sos-delivery-status').innerText(), /到達は未確認/);
     assert.equal((await saved()).local_records.find(r => r.kind === 'sos').delivery_status, 'not_sent');

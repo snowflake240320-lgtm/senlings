@@ -16,8 +16,16 @@
 .local-record { border-top: 1px solid #44443c; padding: 20px 0; }
 .local-dialog section { margin-top: 16px; }
 .local-dialog [role=status] { color: #ddbd7e; }
-.local-inline { margin: 8px 20px 16px; width: calc(100% - 40px); }
 #sos-copy-text { white-space: pre-wrap; font: inherit; font-size: 13px; line-height: 1.6; text-align: left; color: #c4c1b9; margin: 12px 0; }
 #sos-complete-modal { background: #0d0d0b; }
 .sos-modal { overflow-y: auto; }
 .sos-modal-inner { margin: auto; }
+
+/* 入口の畳み:住所・担当者・電話(任意) */
+.add-site-more { margin: 4px 0 16px; }
+.add-site-more summary { cursor: pointer; list-style: none; padding: 10px 0; font-size: 13px; color: #c5a059; display: flex; align-items: center; gap: 8px; }
+.add-site-more summary::-webkit-details-marker { display: none; }
+.add-site-more summary::before { content: '›'; display: inline-block; transition: transform .15s; color: #888880; }
+.add-site-more[open] summary::before { transform: rotate(90deg); }
+/* 申し送り画面の控えめな導線(入館ボタンと競わない) */
+.handover-fallback { margin: 8px 20px 12px; }

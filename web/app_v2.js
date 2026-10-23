@@ -257,13 +257,13 @@ function showSosComplete(project, record) {
   const modal = document.getElementById('sos-complete-modal');
   const callBtn = document.getElementById('btn-sos-call');
   const phone = contactPhone(project);
-  callBtn.hidden = !phone;
-  callBtn.textContent = phone ? `担当者へ電話する：${phone}` : '';
+  callBtn.hidden = !phone; // 電話番号がある現場だけ。空のボタンは出さない
+  document.getElementById('sos-call-label').textContent = phone ? `担当者へ電話する：${phone}` : '電話する';
   callBtn.onclick = () => { if (phone) window.location.href = `tel:${phone}`; };
   const text = sosText(project, record, SOS_OPTIONS.find(o => o.fieldKey === record.field_key)?.label ?? record.field_key);
   document.getElementById('sos-copy-text').textContent = text;
   const status = document.getElementById('sos-delivery-status');
-  status.textContent = phone ? '連絡先と内容を確認して、電話や普段の連絡アプリで伝えてください。' : '電話番号は未登録です。受け取った連絡の担当者を確認してください。';
+  status.textContent = phone ? '連絡先と内容を確かめて、電話や普段の連絡アプリで伝えてください。' : '電話番号は未登録です。届いた連絡の担当者に伝えてください。';
   document.getElementById('btn-sos-copy').onclick = () => copyText(text, status);
   document.getElementById('btn-sos-export').onclick = () => exportText(text);
   document.getElementById('btn-sos-wait').onclick = () => { modal.hidden = true; showScreen('screen-working'); };
