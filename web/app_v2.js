@@ -396,10 +396,11 @@ function showReturnComplete() {
 
   document.getElementById('btn-return-to-shimai').onclick = () => {
     modal.hidden = true;
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.querySelector('[data-tab="shimai"]').classList.add('active');
-    renderShimai();
-    showScreen('screen-shimai');
+    // 現場は帰ったので、次に■現場を開いたときは現場トップから
+    genbaScreen = 'screen-site-top';
+    renderSiteTop();
+    showScreen('screen-site-top');
+    openTab('shimai');
   };
 
   modal.hidden = false;
@@ -436,7 +437,7 @@ function renderSnapshotCard(snapshot, projectSlug) {
   `;
 }
 
-// ── 画面6: 仕舞い ────────────────────────────────────────
+// ── ◆ 仕舞 ───────────────────────────────────────────────
 
 function renderShimai() {
   const data = getAllData();
@@ -461,6 +462,18 @@ function renderShimai() {
   } else {
     recordEl.innerHTML = '<p class="today-record-empty">今日の記録はまだありません。</p>';
   }
+}
+
+// ── ▲ ホーム ─────────────────────────────────────────────
+// 請求書のたたき台・持ち出し・設定は、仕舞からここへ載せ替えた(中身は同じ)
+
+function renderHome() {
+  const facilityToggle = document.getElementById('setting-show-shisetsu');
+  facilityToggle.checked = readShowShisetsu();
+  facilityToggle.onchange = () => {
+    writeShowShisetsu(facilityToggle.checked);
+    applyShisetsuTab();
+  };
 
   document.getElementById('btn-export-json-shimai').onclick = () => {
     exportAllDataAsJSON();
@@ -554,64 +567,63 @@ function renderShimai() {
   };
 }
 
-// ── タブバー ──────────────────────────────────────────────
+// ── タブバー(●施設 → ■現場 → ◆仕舞 → ▲ホーム → 見積) ──────
+// 仕舞は一日の終わりではなく、一つ納める所作。現場を出なくても行き来できる。
+// ■現場へ戻ると、最後に居た現場の画面(作業中など)にそのまま戻る。
 
-function isOnSite() {
-  const activeScreen = document.querySelector('.screen.active');
-  if (!activeScreen) return false;
-  const id = activeScreen.id;
-  return id === 'screen-working' ||
-         id === 'screen-rest' ||
-         id === 'screen-sos' ||
-         id === 'screen-return';
+const GENBA_SCREENS = new Set(['screen-site-top', 'screen-handover', 'screen-working', 'screen-rest', 'screen-sos', 'screen-return']);
+const TAB_SCREENS = { shisetsu: 'screen-shisetsu', shimai: 'screen-shimai', home: 'screen-home', mitsumori: 'screen-mitsumori' };
+let genbaScreen = 'screen-site-top';
+
+function activeScreenId() {
+  return document.querySelector('.screen.active')?.id ?? null;
+}
+
+function setActiveTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+}
+
+function openTab(name) {
+  const current = activeScreenId();
+  if (GENBA_SCREENS.has(current)) {
+    // ■現場に居るときにもう一度押したら、現場トップへ(よくあるタブの作法)
+    genbaScreen = name === 'genba' ? 'screen-site-top' : current;
+  }
+  setActiveTab(name);
+  if (name === 'genba') {
+    if (genbaScreen === 'screen-site-top') renderSiteTop();
+    showScreen(genbaScreen);
+    return;
+  }
+  if (name === 'shimai') renderShimai();
+  if (name === 'home') renderHome();
+  showScreen(TAB_SCREENS[name]);
 }
 
 document.querySelectorAll('.tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    tab.classList.add('active');
-    const tabName = tab.dataset.tab;
-    if (tabName === 'genba') {
-      renderSiteTop();
-      showScreen('screen-site-top');
-    } else if (tabName === 'shimai') {
-      if (isOnSite()) {
-        const modal = document.getElementById('shimai-confirm-modal');
-        modal.hidden = false;
-        document.body.style.overflow = 'hidden';
-
-        document.getElementById('btn-shimai-confirm-return').onclick = () => {
-          modal.hidden = true;
-          document.body.style.overflow = '';
-          document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-          document.querySelector('[data-tab="genba"]').classList.add('active');
-          if (currentProject) {
-            goToReturn(currentProject, load().current_session?.check_in_at);
-          } else {
-            showScreen('screen-working');
-          }
-        };
-
-        document.getElementById('btn-shimai-confirm-skip').onclick = () => {
-          modal.hidden = true;
-          document.body.style.overflow = '';
-          renderShimai();
-          showScreen('screen-shimai');
-        };
-
-        document.getElementById('btn-shimai-confirm-cancel').onclick = () => {
-          modal.hidden = true;
-          document.body.style.overflow = '';
-          document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-          document.querySelector('[data-tab="genba"]').classList.add('active');
-        };
-      } else {
-        renderShimai();
-        showScreen('screen-shimai');
-      }
-    }
-  });
+  tab.addEventListener('click', () => openTab(tab.dataset.tab));
 });
+
+// ── ● 施設のタブの出し入れ(殻のあいだは、この端末の中の試しの設定) ──
+const SHOW_SHISETSU_KEY = 'senlings_shell_show_shisetsu';
+
+function readShowShisetsu() {
+  try { return localStorage.getItem(SHOW_SHISETSU_KEY) === '1'; } catch { return false; }
+}
+
+function writeShowShisetsu(on) {
+  try {
+    if (on) localStorage.setItem(SHOW_SHISETSU_KEY, '1');
+    else localStorage.removeItem(SHOW_SHISETSU_KEY);
+  } catch { /* 保存できなくても、この画面の間は出し入れできる */ }
+}
+
+function applyShisetsuTab() {
+  const tab = document.querySelector('[data-tab="shisetsu"]');
+  const on = document.getElementById('setting-show-shisetsu')?.checked ?? readShowShisetsu();
+  tab.hidden = !on;
+  if (!on && activeScreenId() === 'screen-shisetsu') openTab('genba');
+}
 
 // ── 現場追加 ──────────────────────────────────────────────
 
@@ -664,6 +676,7 @@ document.getElementById('btn-add-site-save')?.addEventListener('click', () => {
 window.addEventListener('senlings-storage-ready', () => {
   if (document.getElementById('screen-site-top').classList.contains('active')) renderSiteTop();
   if (document.getElementById('screen-shimai').classList.contains('active')) renderShimai();
+  if (document.getElementById('screen-home').classList.contains('active')) renderHome();
 });
 
 document.getElementById('btn-receive-property').onclick = () => receiveProject(renderSiteTop);
@@ -684,4 +697,5 @@ function openProjectExport() {
 }
 
 // ── 初期化 ───────────────────────────────────────────────
+document.querySelector('[data-tab="shisetsu"]').hidden = !readShowShisetsu();
 renderSiteTop();

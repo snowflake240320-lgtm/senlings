@@ -62,7 +62,8 @@ async function setup(raw = JSON.stringify(fixture()), { old = false, readError =
 }
 async function click(page, selector) { await page.locator(selector).click(); }
 async function ready(page) { await page.locator('.site-card').waitFor(); }
-async function shimai(page) { await click(page, '[data-tab="shimai"]'); }
+// 請求書のたたき台・持ち出しは▲ホームへ載せ替えた(維新)
+async function shimai(page) { await click(page, '[data-tab="home"]'); }
 async function working(page) { await click(page, '.site-card'); await click(page, '#btn-checkin'); }
 async function stats(page) { return page.evaluate(() => ({ raw: rawStored(), writes: fault.writes })); }
 async function inject(page, mode) {
@@ -130,7 +131,7 @@ async function inject(page, mode) {
     await page.evaluate(() => { const d=JSON.parse(rawStored()); d.future={keep:true};d.projects[0].future='keep';replaceStored(JSON.stringify(d)); });
     await working(page); await click(page,'#btn-return'); await click(page,'#btn-return-send');
     await page.locator('#return-complete-modal:not([hidden])').waitFor(); await click(page,'#btn-return-to-shimai');
-    await click(page,'#btn-shimai-invoice'); await click(page,'#btn-invoice-skip-expense');
+    await click(page,'[data-tab="home"]'); await click(page,'#btn-shimai-invoice'); await click(page,'#btn-invoice-skip-expense');
     await page.locator('.invoice-card-title').waitFor();
     for (const selector of ['#btn-export-json-shimai','#btn-export-csv-monthly-shimai']) {
       const download=page.waitForEvent('download'); await click(page,selector); const d=await download;
@@ -177,6 +178,47 @@ async function inject(page, mode) {
     const saved=JSON.parse((await stats(page)).raw);assert.equal(saved.event_log.at(-1).status,'skipped');assert.equal(saved.invoice_snapshots.length,0);
     assert.equal(await page.locator('.invoice-card-title').count(),0);await context.close();
   });
+  // ── 維新の殻:●施設 → ■現場 → ◆仕舞 → ▲ホーム → 見積 ──
+  await run('shell tabs: order, facility hidden until chosen, no write on tab moves', async () => {
+    const {page,context}=await setup();await ready(page);
+    const visible=async()=>page.locator('.tab:visible .tab-label').allInnerTexts();
+    assert.deepEqual(await visible(),['現場','仕舞','ホーム','見積']);
+    const before=await stats(page);
+    for (const [tab,screen] of [['shimai','#screen-shimai'],['home','#screen-home'],['mitsumori','#screen-mitsumori'],['genba','#screen-site-top']]) {
+      await click(page,`[data-tab="${tab}"]`);await page.locator(`${screen}.active`).waitFor();
+      assert.equal(await page.locator(`[data-tab="${tab}"].active`).count(),1);
+    }
+    assert.deepEqual(await stats(page),before);
+    await click(page,'[data-tab="home"]');await page.locator('#setting-show-shisetsu').check();
+    assert.deepEqual(await visible(),['施設','現場','仕舞','ホーム','見積']);
+    await click(page,'[data-tab="shisetsu"]');await page.locator('#screen-shisetsu.active').waitFor();
+    assert.equal(JSON.parse((await stats(page)).raw).settings,JSON.parse(before.raw).settings);
+    await page.reload();await ready(page);
+    assert.deepEqual(await visible(),['施設','現場','仕舞','ホーム','見積']);
+    await click(page,'[data-tab="home"]');assert.equal(await page.locator('#setting-show-shisetsu').isChecked(),true);
+    await page.locator('#setting-show-shisetsu').uncheck();assert.deepEqual(await visible(),['現場','仕舞','ホーム','見積']);
+    assert.equal((await stats(page)).raw,before.raw);assert.deepEqual(page.errors,[]);await context.close();
+  });
+  await run('shell: Shimai while working, back to the same working screen; no confirm modal', async () => {
+    const {page,context}=await setup();await ready(page);await working(page);
+    await click(page,'[data-tab="shimai"]');await page.locator('#screen-shimai.active').waitFor();
+    assert.equal(await page.locator('#shimai-confirm-modal').count(),0);
+    await click(page,'[data-tab="home"]');await click(page,'[data-tab="genba"]');
+    await page.locator('#screen-working.active').waitFor();
+    assert.ok(JSON.parse((await stats(page)).raw).current_session);assert.deepEqual(page.errors,[]);await context.close();
+  });
+  for (const width of [320,390]) {
+    await run(`shell: five tabs fit at ${width}px without horizontal overflow`, async () => {
+      const {page,context}=await setup();await page.setViewportSize({width,height:844});await ready(page);
+      await click(page,'[data-tab="home"]');await page.locator('#setting-show-shisetsu').check();
+      for (const tab of ['shisetsu','genba','shimai','home','mitsumori']) {
+        await click(page,`[data-tab="${tab}"]`);
+        assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),tab);
+        if (process.env.EVIDENCE_DIR) await page.screenshot({path:path.join(process.env.EVIDENCE_DIR,`shell-${width}-${tab}.png`)});
+      }
+      assert.deepEqual(page.errors,[]);await context.close();
+    });
+  }
   // The old UI's Firebase module is stubbed for behavior tests, never connected to a database.
   await run('old UI first use does not initialize storage; contact choices remain available', async () => {
     const {page,context}=await setup(null,{old:true}); await click(page,'[data-tab="tab-admin"]');

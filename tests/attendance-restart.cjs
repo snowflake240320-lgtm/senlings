@@ -66,7 +66,7 @@ async function send(p) {
   assert.deepEqual(p.errors, []);
 }
 async function exported(p) {
-  await p.locator('[data-tab="shimai"]').click();
+  await p.locator('[data-tab="home"]').click();
   const promise = p.waitForEvent('download'); await p.locator('#btn-export-json-shimai').click();
   const download = await promise; return JSON.parse(await fs.readFile(await download.path(), 'utf8'));
 }
@@ -147,7 +147,7 @@ async function run(name, fn) {
     await p.locator('#btn-return-send').dispatchEvent('click');
     assert.equal(await p.evaluate(() => testWrites), 1); assert.deepEqual(await data(p), completed);
     // Reset only test instrumentation before unrelated invoice writes.
-    p = await restart('normal', p); await p.locator('[data-tab="shimai"]').click();
+    p = await restart('normal', p); await p.locator('[data-tab="home"]').click();
     await p.locator('#btn-shimai-invoice').click(); await p.locator('#btn-invoice-skip-expense').click();
     await p.locator('.invoice-card-title').waitFor(); const saved = await data(p);
     assert.equal(saved.invoice_snapshots.length, before.invoice_snapshots.length + 1);

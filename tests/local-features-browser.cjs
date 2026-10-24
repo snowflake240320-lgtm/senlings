@@ -105,18 +105,19 @@ async function preparePhoto() {
     assert.equal((await saved()).local_records.find(r => r.kind === 'sos').delivery_status, 'not_sent');
     await screenshot('sos-unsent'); await click('#btn-sos-wait');
   });
-  await run('full restart retains photos/memo/SOS; return via Shimai uses original entry and saves personal note once', async () => {
-    const entry = (await saved()).current_session; await restart(); await click('.site-card-resume-btn'); await click('[data-tab=shimai]'); await click('#btn-shimai-confirm-return');
+  await run('full restart retains photos/memo/SOS; Shimai and back keeps the working screen; return uses original entry and saves personal note once', async () => {
+    const entry = (await saved()).current_session; await restart(); await click('.site-card-resume-btn'); await click('[data-tab=shimai]'); await page.locator('#screen-shimai.active').waitFor();
+    await click('[data-tab=genba]'); await page.locator('#screen-working.active').waitFor(); await click('#btn-return');
     await page.locator('#return-memo').fill('また使いたい工夫'); await click('#btn-return-send'); await page.locator('#return-complete-modal:not([hidden])').waitFor();
     const data = await saved(); assert.equal(data.work_sessions.length, 1); assert.equal(data.work_sessions[0].check_in_at, entry.check_in_at); assert.equal(data.work_sessions[0].personal_note.text, 'また使いたい工夫'); assert.equal(data.current_session, null);
     await restart(); assert.equal((await saved()).work_sessions.length, 1); await click('[data-tab=shimai]'); await click('#btn-review-records');
     assert.equal(await page.locator('.local-record').count(), 4); assert.equal(await page.locator('.local-record img').count(), 1); await screenshot('personal-records'); await closeDialog();
   });
   await run('project CSV and selected record export work; full JSON includes originals, private notes and reduced photos', async () => {
-    await click('#btn-export-csv-project-shimai'); const localId = (await saved()).handoff_receipts[0].project_id;
+    await click('[data-tab=home]'); await click('#btn-export-csv-project-shimai'); const localId = (await saved()).handoff_receipts[0].project_id;
     await page.locator('#export-project').selectOption(localId); assert.match(await downloads('#btn-project-csv'), /労務費/); await click('#project-export-dialog form button');
-    await click('#btn-review-records'); const download = page.waitForEvent('download'); await page.locator('.local-record').filter({ hasText: 'また使いたい工夫' }).locator('button').click();
-    assert.match(await fs.readFile(await (await download).path(), 'utf8'), /また使いたい工夫/); await closeDialog();
+    await click('[data-tab=shimai]'); await click('#btn-review-records'); const download = page.waitForEvent('download'); await page.locator('.local-record').filter({ hasText: 'また使いたい工夫' }).locator('button').click();
+    assert.match(await fs.readFile(await (await download).path(), 'utf8'), /また使いたい工夫/); await closeDialog(); await click('[data-tab=home]');
     const data = JSON.parse(await downloads('#btn-export-json-shimai')); assert.equal(data.local_records.length, 2); assert.equal(data.photos.length, 1); assert.equal(data.handoff_receipts.length, 2);
     for (const key of ['contacts', 'invoice_snapshots', 'expenses', 'future']) assert.deepEqual(data[key], fixture[key]);
     assert.deepEqual(data.projects[0], fixture.projects[0]); assert.equal(await page.evaluate(() => localStorage.getItem('unrelated')), 'KEEP');
@@ -124,7 +125,7 @@ async function preparePhoto() {
   await run('settings failed save keeps exact bytes, successful save survives restart and JSON export', async () => {
     await click('#btn-shimai-settings'); await page.locator('#setting-user_name').fill('架空の職人'); const before = await raw();
     await inject(); await click('#settings-save'); await page.locator('#storage-error[open]').waitFor(); assert.equal(await raw(), before);
-    await retry(); await click('#settings-save'); await closeDialog(); await restart(); await click('[data-tab=shimai]'); await click('#btn-shimai-settings');
+    await retry(); await click('#settings-save'); await closeDialog(); await restart(); await click('[data-tab=home]'); await click('#btn-shimai-settings');
     assert.equal(await page.locator('#setting-user_name').inputValue(), '架空の職人'); await closeDialog();
     assert.equal(JSON.parse(await downloads('#btn-export-json-shimai')).settings.senlings_user_name, '架空の職人');
   });

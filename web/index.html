@@ -109,6 +109,54 @@
     .tab-icon-svg {
       display: block;
     }
+    /* .tab の display:flex が hidden 属性に勝たないように */
+    .tab[hidden] { display: none; }
+    /* 見積は印なし。高さだけ揃える */
+    .tab-icon-blank { display: block; width: 22px; height: 22px; }
+
+    /* ── これから入るもの(殻の棚) ── */
+    .later-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      background: #1e1e1a;
+      border: 1px solid #1e1e1a;
+    }
+    .later-list li {
+      background: #0d0d0b;
+      padding: 12px 14px;
+      font-family: 'Noto Serif JP', serif;
+      font-size: 13px;
+      color: #8a8780;
+      letter-spacing: 0.05em;
+    }
+    .later-list li span {
+      display: block;
+      margin-top: 3px;
+      font-size: 11px;
+      color: #555;
+    }
+    .later-note {
+      font-size: 11px;
+      color: #555;
+      font-family: 'Noto Serif JP', serif;
+      letter-spacing: 0.05em;
+      margin-top: 8px;
+      line-height: 1.7;
+    }
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      border: 1px solid #1e1e1a;
+      font-family: 'Noto Serif JP', serif;
+      font-size: 13px;
+      color: #e8e5df;
+    }
+    .setting-row input { width: 20px; height: 20px; accent-color: #c5a059; }
 
     /* ── 画面1: 現場トップ ── */
     .site-top-header {
@@ -1359,15 +1407,48 @@
 
   </div>
 
-  <!-- ── 画面6: 仕舞い ── -->
+  <!-- ── ● 施設(施設に入っている間だけ) ── -->
+  <div id="screen-shisetsu" class="screen">
+    <div style="display:flex; flex-direction:column; height:calc(100dvh - 60px); overflow-y:auto;">
+      <div class="shimai-header">
+        <div class="shimai-header-label">SENLINGS</div>
+        <div class="shimai-header-title">施設</div>
+        <div class="shimai-header-sub">施設に入っている間だけ。終われば消える。</div>
+      </div>
+
+      <div class="shimai-section">
+        <p class="shimai-section-label">これから</p>
+        <ul class="later-list">
+          <li>決まりごと<span>入場・駐車場・朝礼・終了報告・搬出入。原文のまま、頁付き</span></li>
+          <li>定例の内容<span>統括からの申し送り。いちばん上が新しいもの</span></li>
+          <li>聞く<span>施設の資料を、この端末の中で探す</span></li>
+          <li>よく聞かれること</li>
+          <li>施設の人<span>同じ施設に入っている人。職種で見える</span></li>
+        </ul>
+      </div>
+
+      <div class="shimai-section" style="margin-top:20px; padding-bottom:24px;">
+        <p class="shimai-section-label">仲間</p>
+        <ul class="later-list">
+          <li>ポン<span>駐車代・時間外の立替の内訳</span></li>
+          <li>コン<span>期限と戻り</span></li>
+          <li>ケロ<span>安全の書類</span></li>
+          <li>ホー<span>検査・是正・完了の書類。職種で変わる</span></li>
+        </ul>
+        <p class="later-note">施設の資料は、施設の許しが出てから入ります。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ◆ 仕舞(手を止めて、一つ納める) ── -->
   <div id="screen-shimai" class="screen">
     <div style="display:flex; flex-direction:column; height:calc(100dvh - 60px); overflow-y:auto;">
 
       <!-- ヘッダー -->
       <div class="shimai-header">
         <div class="shimai-header-label">SENLINGS</div>
-        <div class="shimai-header-title">仕舞い</div>
-        <div class="shimai-header-sub">今日を、整える。</div>
+        <div class="shimai-header-title">仕舞</div>
+        <div class="shimai-header-sub">手を止めて、一つ納める。</div>
       </div>
 
       <!-- 今日の記録 -->
@@ -1382,9 +1463,41 @@
         <button class="shimai-action-btn" id="btn-review-records">自分の記録を見返す<span class="shimai-action-arrow">›</span></button>
       </div>
 
-      <!-- 請求書下書き -->
+      <div class="shimai-section" style="margin-top:20px; padding-bottom:24px;">
+        <p class="shimai-section-label">これから</p>
+        <ul class="later-list">
+          <li>記録<span>写真＋一言</span></li>
+          <li>質疑<span>写真＋一言で、担当者へ</span></li>
+          <li>経費<span>レシートの写真＋一言</span></li>
+          <li>見る<span>図面・見積・工程表</span></li>
+          <li>日報</li>
+          <li>明日のこと<span>15時の一服で決めたことを一行</span></li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── ▲ ホーム(拠点) ── -->
+  <div id="screen-home" class="screen">
+    <div style="display:flex; flex-direction:column; height:calc(100dvh - 60px); overflow-y:auto;">
+
+      <div class="shimai-header">
+        <div class="shimai-header-label">SENLINGS</div>
+        <div class="shimai-header-title">ホーム</div>
+        <div class="shimai-header-sub">前の晩と、月の終わりに。</div>
+      </div>
+
+      <div class="shimai-section">
+        <p class="shimai-section-label">準備</p>
+        <ul class="later-list">
+          <li>明日の現場を選ぶ<span>前の晩に選べば、朝はもう現場の上（これから）</span></li>
+        </ul>
+      </div>
+
+      <!-- 請求書のたたき台 -->
       <div class="shimai-section" style="margin-top:20px;">
-        <p class="shimai-section-label">請求書下書き</p>
+        <p class="shimai-section-label">請求書のたたき台</p>
         <button class="shimai-action-btn" id="btn-shimai-invoice">
           <span>今月の請求書を作る</span>
           <span class="shimai-action-arrow">›</span>
@@ -1425,22 +1538,67 @@
       </div>
 
       <!-- 設定 -->
-      <div class="shimai-section" style="margin-top:20px; padding-bottom:24px;">
+      <div class="shimai-section" style="margin-top:20px;">
         <p class="shimai-section-label">設定</p>
-        <button class="shimai-action-btn" id="btn-shimai-settings">
-          <span>請求書・口座設定</span>
-          <span class="shimai-action-arrow">›</span>
-        </button>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <button class="shimai-action-btn" id="btn-shimai-settings">
+            <span>名前・単価・税率</span>
+            <span class="shimai-action-arrow">›</span>
+          </button>
+          <label class="setting-row" for="setting-show-shisetsu">
+            <span>施設のタブを出す（試し）</span>
+            <input type="checkbox" id="setting-show-shisetsu">
+          </label>
+        </div>
+      </div>
+
+      <div class="shimai-section" style="margin-top:20px; padding-bottom:24px;">
+        <p class="shimai-section-label">これから</p>
+        <ul class="later-list">
+          <li>家の住所<span>この端末から出さない</span></li>
+          <li>応援を呼ぶ</li>
+          <li>頼れる人</li>
+          <li>青色申告<span>月に一回、取り込みファイルで</span></li>
+          <li>そなえ<span>AED・消火器・服に火がついたとき</span></li>
+          <li>一年のアルバム</li>
+        </ul>
       </div>
 
     </div>
   </div>
 
-  <!-- ── 下部タブバー（全画面共通） ── -->
+  <!-- ── 見積(受注の前) ── -->
+  <div id="screen-mitsumori" class="screen">
+    <div style="display:flex; flex-direction:column; height:calc(100dvh - 60px); overflow-y:auto;">
+      <div class="shimai-header">
+        <div class="shimai-header-label">SENLINGS</div>
+        <div class="shimai-header-title">見積</div>
+        <div class="shimai-header-sub">受注の前。自分の単価表が育つ。</div>
+      </div>
+      <div class="shimai-section" style="padding-bottom:24px;">
+        <p class="shimai-section-label">これから</p>
+        <ul class="later-list">
+          <li>声が掛かる</li>
+          <li>現場打合せ</li>
+          <li>積算</li>
+          <li>見積</li>
+          <li>受注<span>受注した現場が、そのまま現場に上がる</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 下部タブバー(●施設 → ■現場 → ◆仕舞 → ▲ホーム → 見積) ── -->
   <nav class="tab-bar">
+    <button class="tab" data-tab="shisetsu" hidden>
+      <svg class="tab-icon-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="12" cy="12" r="8" fill="currentColor"/>
+      </svg>
+      <span class="tab-label">施設</span>
+    </button>
     <button class="tab active" data-tab="genba">
       <svg class="tab-icon-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path d="M2 20 L12 4 L22 20 Z" fill="currentColor"/>
+        <rect x="5" y="5" width="14" height="14" fill="currentColor"/>
       </svg>
       <span class="tab-label">現場</span>
     </button>
@@ -1448,7 +1606,17 @@
       <svg class="tab-icon-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <path d="M12 3 L21 12 L12 21 L3 12 Z" fill="currentColor"/>
       </svg>
-      <span class="tab-label">仕舞い</span>
+      <span class="tab-label">仕舞</span>
+    </button>
+    <button class="tab" data-tab="home">
+      <svg class="tab-icon-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M2 20 L12 4 L22 20 Z" fill="currentColor"/>
+      </svg>
+      <span class="tab-label">ホーム</span>
+    </button>
+    <button class="tab" data-tab="mitsumori">
+      <span class="tab-icon-blank" aria-hidden="true"></span>
+      <span class="tab-label">見積</span>
     </button>
   </nav>
 
@@ -1499,32 +1667,9 @@
 
       <button class="sos-modal-btn sos-wait-btn" id="btn-return-to-shimai"
         style="background:#161614; border-color:#c5a059; color:#c5a059;">
-        仕舞いへ
+        仕舞へ
       </button>
 
-    </div>
-  </div>
-
-  <!-- 仕舞い確認モーダル -->
-  <div id="shimai-confirm-modal" class="sos-modal" hidden>
-    <div class="sos-modal-inner">
-      <p class="sos-complete-title" style="font-size:18px;">
-        まだ「山返し」が<br>終わっていません。
-      </p>
-      <p class="sos-complete-sub">
-        このまま仕舞いへ向かうと、<br>
-        入ったままになります。保存した記録は残ります。
-      </p>
-      <button class="sos-modal-btn btn-sos" id="btn-shimai-confirm-return"
-        style="flex-direction:row; min-height:auto;">
-        今日を、返す。
-      </button>
-      <button class="sos-modal-btn sos-wait-btn" id="btn-shimai-confirm-skip">
-        入場したまま仕舞いを見る
-      </button>
-      <button class="sos-modal-link" id="btn-shimai-confirm-cancel">
-        現場に戻る
-      </button>
     </div>
   </div>
 
