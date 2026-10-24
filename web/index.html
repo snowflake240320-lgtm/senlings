@@ -158,6 +158,25 @@
     }
     .setting-row input { width: 20px; height: 20px; accent-color: #c5a059; }
 
+    /* ── 仲間 ── */
+    .nakama-list { display: flex; flex-direction: column; gap: 1px; background: #1e1e1a; border: 1px solid #1e1e1a; }
+    .nakama-btn {
+      background: #0d0d0b; border: none; text-align: left; cursor: pointer;
+      padding: 14px; font-family: 'Noto Serif JP', serif; font-size: 14px; color: #e8e5df; letter-spacing: 0.05em;
+    }
+    .nakama-btn span { display: block; margin-top: 3px; font-size: 11px; color: #777; }
+    .nakama-row { position: relative; padding-right: 96px !important; }
+    .nakama-row--skipped { color: #555 !important; text-decoration: line-through; }
+    .nakama-row .nakama-mini { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); }
+    .nakama-mini {
+      background: none; border: 1px solid #2a2a24; color: #c5a059; font-size: 11px;
+      padding: 4px 8px; font-family: inherit; cursor: pointer;
+    }
+    .nakama-total { margin-top: 10px; font-family: 'Noto Serif JP', serif; color: #e8e5df; }
+    .nakama-sent { border-top: 1px solid #1e1e1a; padding: 10px 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .nakama-sent > p { width: 100%; }
+    .nakama-trades { border: 1px solid #1e1e1a; padding: 10px; display: flex; flex-wrap: wrap; gap: 12px; }
+
     /* ── 画面1: 現場トップ ── */
     .site-top-header {
       padding: 28px 20px 16px;
@@ -1429,13 +1448,13 @@
 
       <div class="shimai-section" style="margin-top:20px; padding-bottom:24px;">
         <p class="shimai-section-label">仲間</p>
-        <ul class="later-list">
-          <li>ポン<span>駐車代・時間外の立替の内訳</span></li>
-          <li>コン<span>期限と戻り</span></li>
-          <li>ケロ<span>安全の書類</span></li>
-          <li>ホー<span>検査・是正・完了の書類。職種で変わる</span></li>
-        </ul>
-        <p class="later-note">施設の資料は、施設の許しが出てから入ります。</p>
+        <div class="nakama-list">
+          <button class="nakama-btn" id="btn-nakama-pon" type="button">ポン<span>駐車代・時間外の立替の内訳</span></button>
+          <button class="nakama-btn" id="btn-nakama-kon" type="button">コン<span>期限と戻り</span></button>
+          <button class="nakama-btn" id="btn-nakama-kero" type="button">ケロ<span>安全の書類</span></button>
+          <button class="nakama-btn" id="btn-nakama-hoo" type="button">ホー<span>検査・是正・完了の書類。職種で変わる</span></button>
+        </div>
+        <p class="later-note">仲間は下書きまで。出すかどうかは自分で決めます。報告はしません。施設の資料は、施設の許しが出てから入ります。</p>
       </div>
     </div>
   </div>

@@ -11,6 +11,7 @@ import { exportInvoiceToExcel } from './src/pwa/invoiceExport.js';
 
 import { receiveProject, giveProject, writeMemo, takePhoto, reviewRecords, editSettings, showContact, sosText, copyText, exportText } from './src/pwa/localFeaturesUI.js';
 import { saveLocalRecord, contactPhone } from './src/pwa/localRecords.js';
+import { openPon, openKon, openKero, openHoo, ponDeductionFor } from './src/pwa/nakamaUI.js';
 
 // ── データ読み込み ────────────────────────────────────────
 function getAllData() {
@@ -514,6 +515,17 @@ function renderHome() {
       const snapshot = generateSnapshot({ snapshot_id: uid(), project_id, project_code, year, month });
       const proj = (getAllData().projects ?? []).find(p => p.project_id === project_id);
       displayEl.innerHTML = renderSnapshotCard(snapshot, proj?.project_slug ?? project_id);
+      // ポンの立替(差し引き)は、たたき台の画面にだけ出す。紙(Excel)への載せ方は船長が決める
+      let deduction = 0;
+      try { deduction = ponDeductionFor(project_id, year, month); } catch { deduction = 0; }
+      if (deduction > 0) {
+        displayEl.insertAdjacentHTML('beforeend', `
+          <div class="invoice-card-row invoice-card-row--note" id="invoice-pon-row">
+            <span class="invoice-card-label">差し引き(立替)</span>
+            <span class="invoice-card-value">−${deduction.toLocaleString()}円</span>
+          </div>
+          <p class="later-note">ポンの内訳から。紙の請求書にはまだ載りません。</p>`);
+      }
       excelBtn.style.display = 'flex';
     } catch (err) {
       if (err instanceof UnconfirmedExpenseError) {
@@ -680,6 +692,10 @@ window.addEventListener('senlings-storage-ready', () => {
 });
 
 document.getElementById('btn-receive-property').onclick = () => receiveProject(renderSiteTop);
+document.getElementById('btn-nakama-pon').onclick = () => openPon();
+document.getElementById('btn-nakama-kon').onclick = () => openKon();
+document.getElementById('btn-nakama-kero').onclick = () => openKero();
+document.getElementById('btn-nakama-hoo').onclick = () => openHoo();
 document.getElementById('btn-review-records').onclick = reviewRecords;
 document.getElementById('btn-contact-manager').onclick = () => showContact(null);
 

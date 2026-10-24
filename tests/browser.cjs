@@ -219,6 +219,57 @@ async function inject(page, mode) {
       assert.deepEqual(page.errors,[]);await context.close();
     });
   }
+  // ── 仲間:下書きまで。出すのは職人。報告しない ──
+  async function openFacility(page){await click(page,'[data-tab="home"]');await page.locator('#setting-show-shisetsu').check();await click(page,'[data-tab="shisetsu"]');}
+  await run('nakama Pon: parking rate drafts one row from the day record; skip/restore; deduction shows on the invoice draft only', async () => {
+    const {page,context}=await setup();await ready(page);await openFacility(page);
+    await click(page,'#btn-nakama-pon');await page.locator('#local-dialog[data-nakama="pon"]').waitFor();
+    assert.match(await page.locator('#local-dialog').innerText(),/まだありません/);
+    await page.locator('#pon-rate').fill('1000');await page.locator('#pon-payer').fill('架空建装');await click(page,'#pon-save-rate');
+    await page.locator('.nakama-row').first().waitFor();
+    assert.equal(await page.locator('.nakama-row').count(),1);
+    assert.match(await page.locator('.nakama-total').innerText(),/1,000円/);
+    assert.match(await page.locator('#pon-draft').inputValue(),/駐車代　1,000円[\s\S]*合計　1,000円/);
+    await page.locator('#pon-extra-amount').fill('8000');await click(page,'#pon-add-extra');
+    assert.match(await page.locator('.nakama-total').innerText(),/9,000円/);
+    await page.locator('.nakama-row[data-key^="parking:"] button').click();
+    assert.match(await page.locator('.nakama-total').innerText(),/8,000円/);
+    await page.locator('.nakama-row--skipped button').click();
+    assert.match(await page.locator('.nakama-total').innerText(),/9,000円/);
+    const saved=JSON.parse((await stats(page)).raw);
+    assert.deepEqual(saved.expenses,fixture().expenses);assert.deepEqual(saved.future,{keep:true});assert.equal(saved.nakama.pon.extra.length,1);
+    await page.locator('#local-dialog .local-close').click();
+    await click(page,'[data-tab="home"]');await click(page,'#btn-shimai-invoice');await click(page,'#btn-invoice-skip-expense');
+    await page.locator('#invoice-pon-row').waitFor();assert.match(await page.locator('#invoice-pon-row').innerText(),/−9,000円/);
+    assert.deepEqual(page.errors,[]);await context.close();
+  });
+  await run('nakama Pon: a failed save keeps the stored bytes and says so', async () => {
+    const {page,context}=await setup();await ready(page);await openFacility(page);
+    await click(page,'#btn-nakama-pon');await page.locator('#pon-rate').fill('1000');
+    const before=await inject(page,'writeError');await click(page,'#pon-save-rate');await page.locator('#storage-error[open]').waitFor();
+    assert.equal((await stats(page)).raw,before.raw);assert.equal(await page.locator('.nakama-row').count(),0);await context.close();
+  });
+  await run('nakama Hoo, Kero, Kon: drafts follow trades; handed-over record and a gentle reminder; nothing is sent', async () => {
+    const {page,context}=await setup();await ready(page);await openFacility(page);
+    await click(page,'#btn-nakama-hoo');await page.locator('[data-trade="denki"]').check();
+    assert.match(await page.locator('#hoo-draft').inputValue(),/■ 電気[\s\S]*回路表示/);
+    assert.doesNotMatch(await page.locator('#hoo-draft').inputValue(),/■ 内装/);
+    await page.locator('#local-dialog').getByRole('button',{name:'渡したことを控える(コン)'}).click();
+    await page.locator('#local-dialog .local-close').click();
+    await click(page,'#btn-nakama-kero');assert.match(await page.locator('#kero-draft').inputValue(),/危険予知[\s\S]*職種：電気[\s\S]*危ないところ：/);
+    await page.locator('#local-dialog .local-close').click();
+    await click(page,'#btn-nakama-kon');await page.locator('.nakama-sent').first().waitFor();
+    assert.match(await page.locator('.nakama-sent').first().innerText(),/完了の確かめ/);
+    await page.locator('#kon-what').fill('搬出入届');await page.locator('#kon-to').fill('架空統括');await click(page,'#kon-add');
+    const item=page.locator('.nakama-sent').filter({hasText:'搬出入届'});
+    await item.getByRole('button',{name:'戻りのお願いを用意する'}).click();
+    const text=await item.locator('textarea').inputValue();
+    assert.match(text,/架空統括さん[\s\S]*お渡しした「搬出入届」/);assert.doesNotMatch(text,/至急|期限切れ/);
+    await item.getByRole('button',{name:'戻ってきた'}).click();
+    assert.match(await page.locator('.nakama-sent').filter({hasText:'搬出入届'}).innerText(),/戻り 20/);
+    const n=JSON.parse((await stats(page)).raw).nakama;assert.deepEqual(n.trades,['denki']);assert.equal(n.kon.sent.length,2);
+    assert.deepEqual(page.errors,[]);await context.close();
+  });
   // The old UI's Firebase module is stubbed for behavior tests, never connected to a database.
   await run('old UI first use does not initialize storage; contact choices remain available', async () => {
     const {page,context}=await setup(null,{old:true}); await click(page,'[data-tab="tab-admin"]');
