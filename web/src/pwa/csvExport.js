@@ -3,6 +3,7 @@ import { load } from './storage.js';
 // localStorageのデータをCSV形式でエクスポートする
 
 import { getSetting, SETTINGS_KEYS } from './settings.js';
+import { ponRows, ponLedgerRows } from './nakama.js';
 
 // 勘定科目マッピング
 const ACCOUNT_MAP = {
@@ -113,6 +114,25 @@ function sessionsToRows(sessions, projects) {
 }
 
 /**
+ * ポンの立替(元請けが立て替え、請求から差し引いた分)を経費の行にする。
+ * 勘定科目と消費税の扱いは税理士さんの答え待ちなので、科目は「確認中」、消費税は空けておく。
+ */
+function ponToRows(data, billingMonth, projects) {
+  return ponLedgerRows(ponRows(data, billingMonth)).map(r => {
+    const project = projects.find(p => p.project_id === r.project_id);
+    return [
+      r.date,
+      '立替(勘定科目は確認中)',
+      r.amount,
+      '',
+      `立替の差し引き ${r.label}${r.payer ? `(${r.payer})` : ''}${r.memo ? ` ${r.memo}` : ''}`,
+      project?.address ?? project?.project_slug ?? '',
+      project?.project_code ?? '',
+    ];
+  });
+}
+
+/**
  * 月次CSVエクスポート（YYYY-MM）
  */
 export function exportMonthlyCSV(billingMonth) {
@@ -131,6 +151,7 @@ export function exportMonthlyCSV(billingMonth) {
   const rows = [
     ...sessionsToRows(sessions, projects),
     ...expensesToRows(expenses, projects),
+    ...ponToRows(data, billingMonth, projects),
   ];
 
   const filename = `senlings_${billingMonth}_monthly.csv`;
