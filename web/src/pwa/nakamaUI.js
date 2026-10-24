@@ -1,8 +1,8 @@
 // nakamaUI.js — 仲間の画面。芯(nakama.js)の下書きを見せて、出すかどうかは職人が決める。
 import { load } from './storage.js';
 import { getSetting, SETTINGS_KEYS } from './settings.js';
-import { PON_KINDS, HOO_TRADES, ponRows, ponTotal, ponText, setPonRate, addPonExtra, togglePonRow,
-  setTrades, hooText, keroText, recordSent, markReturned, konReminderText, readNakama, localDate } from './nakama.js';
+import { PON_KINDS, HOO_TRADES, ponRows, ponTotal, ponText, ponLabel, setPonRate, addPonExtra, togglePonRow, addPonTickets, editPonAmount,
+  hooText, keroText, recordSent, markReturned, konReminderText, readNakama, localDate } from './nakama.js';
 
 const $ = (tag, text = '', attrs = {}) => Object.assign(document.createElement(tag), { textContent: text, ...attrs });
 const yen = n => `${Math.round(n).toLocaleString('ja-JP')}円`;
@@ -61,31 +61,40 @@ function sentButton(parent, what, projectIdOf) {
 }
 
 // ── ポン ─────────────────────────────────────────────
+// いちばん多い所作は「チケットを受け取った」。月末は内訳と下書き。単価と行を足す口はたたむ。
 export function openPon(onChange = () => {}) {
   const box = panel('ポン ― 立替の内訳', 'pon');
   const ym = thisMonth();
-  p(box, '元請けが立て替えた分の内訳。請求から差し引きます。違う行は外せます。');
+  p(box, '元請けが立て替えた分の内訳。請求から差し引きます。');
   const msg = status(box);
   let first;
   if (!guard(msg, () => { first = !Object.keys(readNakama().pon.rates).length; })) return;
 
-  // 月末に見るのは、内訳と下書き。単価と行を足す口は、たたんでおく(最初の一回だけ開く)
-  const listSec = $('section'), draftSec = $('section');
+  const ticketSec = $('section'), listSec = $('section'), draftSec = $('section');
   const more = $('details', '', { className: 'nakama-more', id: 'pon-more', open: first });
   more.append($('summary', '単価と、行を足す'));
-  box.append(listSec, draftSec, more);
+  box.append(ticketSec, listSec, draftSec, more);
+
+  ticketSec.append($('h3', '駐車チケットを受け取った'));
+  const select = projectSelect(ticketSec, '現場', 'pon-project');
+  const tDate = field(ticketSec, '受け取った日', 'input', { type: 'date', value: today(), id: 'pon-ticket-date' });
+  const tCount = field(ticketSec, '枚数', 'input', { type: 'number', inputMode: 'numeric', min: 1, step: 1, id: 'pon-ticket-count' });
+  button(ticketSec, '受け取った', () => {
+    if (guard(msg, () => addPonTickets({ id: uid(), date: tDate.value, project_id: select.value, count: tCount.value }))) {
+      tCount.value = ''; msg.textContent = '残しました。'; render(); onChange();
+    } else if (msg.textContent.includes('単価')) more.open = true;
+  }, 'pon-add-tickets');
 
   const rateSec = $('section'); more.append(rateSec);
-  rateSec.append($('h3', '駐車代を立て替えてもらう現場'));
-  const select = projectSelect(rateSec, '現場', 'pon-project');
-  const rate = field(rateSec, '駐車代(1日あたり・円)', 'input', { type: 'number', inputMode: 'numeric', min: 0, id: 'pon-rate' });
+  rateSec.append($('h3', 'この現場の単価'));
+  const rate = field(rateSec, 'チケット1枚の単価(円)', 'input', { type: 'number', inputMode: 'numeric', min: 0, id: 'pon-rate' });
   const payer = field(rateSec, '立て替える人(会社)', 'input', { id: 'pon-payer', maxLength: 100 });
   const fill = () => guard(msg, () => { const r = readNakama().pon.rates[select.value]; rate.value = r?.parking_per_day || ''; payer.value = r?.payer || ''; });
-  select.onchange = fill; fill();
+  select.addEventListener('change', fill); fill();
   button(rateSec, '単価を残す', () => {
     if (guard(msg, () => setPonRate(select.value, { parking_per_day: rate.value, payer: payer.value }))) { msg.textContent = '残しました。'; render(); onChange(); }
   }, 'pon-save-rate');
-  p(rateSec, '単価は施設の決まりを見て、自分で入れます。', 'later-note');
+  p(rateSec, '単価は施設の決まりを見て、自分で入れます。受け取った日の単価で残ります。', 'later-note');
 
   const extraSec = $('section'); more.append(extraSec);
   extraSec.append($('h3', '時間外・その他を足す'));
@@ -100,23 +109,44 @@ export function openPon(onChange = () => {}) {
     }
   }, 'pon-add-extra');
 
+  function editRow(li, r) {
+    li.querySelector('.nakama-edit')?.remove();
+    const form = $('div', '', { className: 'nakama-edit' });
+    const input = $('input', '', { type: 'number', inputMode: 'numeric', min: 0, value: String(r.amount), className: 'nakama-edit-input' });
+    input.setAttribute('aria-label', '金額(円)');
+    const save = $('button', '残す', { type: 'button', className: 'nakama-mini' });
+    save.onclick = () => { if (guard(msg, () => editPonAmount(r.key, input.value))) { render(); onChange(); } };
+    form.append(input, save);
+    if (r.edited) {
+      const back = $('button', `元の${yen(r.original)}に戻す`, { type: 'button', className: 'nakama-mini' });
+      back.onclick = () => { if (guard(msg, () => editPonAmount(r.key, ''))) { render(); onChange(); } };
+      form.append(back);
+    }
+    li.append(form); input.focus();
+  }
+
   function render() {
     listSec.replaceChildren($('h3', `${ym.replace('-', '年')}月の内訳`));
     draftSec.replaceChildren();
     let rows;
     if (!guard(msg, () => { rows = ponRows(load(), ym); })) return;
-    if (!rows.length) p(listSec, first ? 'まだありません。下の「単価と、行を足す」から始めます。' : 'まだありません。');
+    if (!rows.length) p(listSec, 'まだありません。');
     const ul = $('ul', '', { className: 'nakama-rows' }); listSec.append(ul);
     for (const r of rows) {
-      const li = $('li', `${r.date}　${r.project}　${PON_KINDS[r.kind]}　${yen(r.amount)}`, { className: r.skipped ? 'nakama-row nakama-row--skipped' : 'nakama-row' });
+      const li = $('li', `${r.date}　${r.project}　${ponLabel(r)}　${yen(r.amount)}`, { className: r.skipped ? 'nakama-row nakama-row--skipped' : 'nakama-row' });
       li.dataset.key = r.key;
-      li.append($('span', `${r.source}${r.memo ? `・${r.memo}` : ''}${r.skipped ? '・外しています' : ''}`));
-      const t = $('button', r.skipped ? '戻す' : 'この行を外す', { type: 'button', className: 'nakama-mini' });
+      li.append($('span', `${r.source}${r.memo ? `・${r.memo}` : ''}${r.edited ? `・元 ${yen(r.original)}` : ''}${r.skipped ? '・外しています' : ''}`));
+      const tools = $('div', '', { className: 'nakama-tools' });
+      if (!r.skipped) {
+        const fix = $('button', '直す', { type: 'button', className: 'nakama-mini' });
+        fix.onclick = () => editRow(li, r); tools.append(fix);
+      }
+      const t = $('button', r.skipped ? '戻す' : '外す', { type: 'button', className: 'nakama-mini' });
       t.onclick = () => { if (guard(msg, () => togglePonRow(r.key))) { render(); onChange(); } };
-      li.append(t); ul.append(li);
+      tools.append(t); li.append(tools); ul.append(li);
     }
     p(listSec, `差し引き(立替)の合計　${yen(ponTotal(rows))}`, 'nakama-total');
-    draftSec.append($('h3', '立替の内訳(出す書類の下書き)'));
+    draftSec.append($('h3', '立替の内訳(別紙の下書き)'));
     draftBox(draftSec, ponText(rows, ym, userName()), 'pon-draft');
     sentButton(draftSec, `立替の内訳(${ym})`, () => select.value || null);
   }
@@ -141,16 +171,13 @@ export function openKero() {
 // ── ホー ─────────────────────────────────────────────
 export function openHoo() {
   const box = panel('ホー ― 検査・是正・完了の書類', 'hoo');
-  p(box, '職種で見どころが変わります。施設のチェックリストが届いたら、そちらが正です。');
+  p(box, '職種で見どころが変わります。施設のチェックリストがあれば、そちらが正です。');
   const msg = status(box);
-  const tradeSec = $('fieldset', '', { className: 'nakama-trades' }); tradeSec.append($('legend', '自分の職種(いくつでも)')); box.append(tradeSec);
-  const chosen = new Set(readNakama().trades);
-  for (const [k, t] of Object.entries(HOO_TRADES)) {
-    const w = $('label', ''); const c = $('input', '', { type: 'checkbox', value: k, checked: chosen.has(k) });
-    c.dataset.trade = k;
-    c.onchange = () => { c.checked ? chosen.add(k) : chosen.delete(k); if (guard(msg, () => setTrades([...chosen]))) render(); };
-    w.append(c, document.createTextNode(` ${t.label}`)); tradeSec.append(w);
-  }
+  let trades = [];
+  guard(msg, () => { trades = readNakama().trades; });
+  const names = trades.map(t => HOO_TRADES[t]?.label).filter(Boolean).join('・');
+  p(box, names ? `職種：${names}` : '職種がまだありません。', 'nakama-trade-line');
+  p(box, '職種は▲ホームの設定で選びます。', 'later-note');
   const select = projectSelect(box, '現場', 'hoo-project');
   const draft = $('section'); box.append(draft);
   function render() {

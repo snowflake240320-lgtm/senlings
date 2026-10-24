@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ponRows, ponTotal, ponText, setPonRate, addPonExtra, togglePonRow, setTrades, hooText, keroText,
+import { ponRows, ponTotal, ponText, setPonRate, addPonExtra, togglePonRow, addPonTickets, editPonAmount, ponLedgerRows, setTrades, hooText, keroText,
   recordSent, markReturned, konReminderText, readNakama, localDate, HOO_TRADES } from '../web/src/pwa/nakama.js';
 import { load } from '../web/src/pwa/storage.js';
 
@@ -31,29 +31,40 @@ test('pon: no rate, no rows; nothing is written just by reading', () => {
   assert.equal(s.writes, 0);
 });
 
-test('pon: one parking row per site per day, only in the month, from the day records', () => {
+test('pon: parking comes from tickets received, not from the days on site', () => {
   storage(); setPonRate('a', { parking_per_day: '1000', payer: '架空建装' });
+  assert.deepEqual(ponRows(load(), '2026-12'), [], 'days on site alone make no parking row');
+  assert.throws(() => addPonTickets({ id: 't0', date: '2026-12-01', project_id: 'b', count: 5 }), /単価/);
+  addPonTickets({ id: 't1', date: '2026-12-01', project_id: 'a', count: '20' });
+  addPonTickets({ id: 't1', date: '2026-12-01', project_id: 'a', count: '20' });   // 同じIDは一回だけ
+  addPonTickets({ id: 't2', date: '2026-11-28', project_id: 'a', count: 3 });       // 先月分は入らない
   const rows = ponRows(load(), '2026-12');
-  assert.deepEqual(rows.map(r => [r.date, r.project_id, r.amount]), [['2026-12-01', 'a', 1000], ['2026-12-02', 'a', 1000]]);
-  assert.equal(ponTotal(rows), 2000);
-  assert.equal(rows[0].payer, '架空建装');
+  assert.deepEqual(rows.map(r => [r.date, r.count, r.amount, r.payer]), [['2026-12-01', 20, 20000, '架空建装']]);
+  assert.match(rows[0].source, /チケット 20枚 × 1,000円/);
+  // 単価をあとで変えても、受け取った日の単価のまま
+  setPonRate('a', { parking_per_day: 1200, payer: '架空建装' });
+  assert.equal(ponTotal(ponRows(load(), '2026-12')), 20000);
 });
 
-test('pon: extra rows, skip and restore; the craftsman expense ledger is untouched', () => {
+test('pon: amount can be corrected in place; the original stays and can be restored', () => {
   const s = storage(); setPonRate('a', { parking_per_day: 1000 });
+  addPonTickets({ id: 't1', date: '2026-12-01', project_id: 'a', count: 20 });
   addPonExtra({ id: 'x', date: '2026-12-02', project_id: 'a', kind: 'overtime', amount: '8000', memo: '17-19時' });
-  addPonExtra({ id: 'x', date: '2026-12-02', project_id: 'a', kind: 'overtime', amount: '8000' });   // 同じIDは一回だけ
+  addPonExtra({ id: 'x', date: '2026-12-02', project_id: 'a', kind: 'overtime', amount: '8000' });
+  editPonAmount('ticket:t1', '19000');
   let rows = ponRows(load(), '2026-12');
-  assert.equal(rows.length, 3); assert.equal(ponTotal(rows), 10000);
-  togglePonRow('parking:a:2026-12-01');
-  rows = ponRows(load(), '2026-12');
-  assert.equal(rows.find(r => r.key === 'parking:a:2026-12-01').skipped, true);
-  assert.equal(ponTotal(rows), 9000); assert.equal(ponTotal(rows, 'b'), 0);
-  togglePonRow('parking:a:2026-12-01');
-  assert.equal(ponTotal(ponRows(load(), '2026-12')), 10000);
+  const t = rows.find(r => r.key === 'ticket:t1');
+  assert.deepEqual([t.amount, t.original, t.edited], [19000, 20000, true]);
+  assert.equal(ponTotal(rows), 27000);
+  togglePonRow('extra:x'); assert.equal(ponTotal(ponRows(load(), '2026-12')), 19000);
+  togglePonRow('extra:x');
+  editPonAmount('ticket:t1', ''); rows = ponRows(load(), '2026-12');
+  assert.deepEqual([rows.find(r => r.key === 'ticket:t1').amount, rows.find(r => r.key === 'ticket:t1').edited], [20000, false]);
+  assert.throws(() => editPonAmount('ticket:t1', '-5'), /金額/);
   const data = JSON.parse(s.raw);
   assert.deepEqual(data.expenses, fixture().expenses); assert.deepEqual(data.future, { keep: true });
-  assert.match(ponText(ponRows(load(), '2026-12'), '2026-12', '架空の職人'), /立替の内訳（2026年12月分）[\s\S]*時間外の負担金　8,000円　17-19時[\s\S]*合計　10,000円/);
+  assert.match(ponText(rows, '2026-12', '架空の職人'), /立替の内訳（2026年12月分）[\s\S]*駐車代\(チケット20枚\)　20,000円[\s\S]*時間外の負担金　8,000円　17-19時[\s\S]*合計　28,000円/);
+  assert.deepEqual(ponLedgerRows(rows).map(r => [r.label, r.amount]), [['駐車代(チケット20枚)', 20000], ['時間外の負担金', 8000]]);
 });
 
 test('pon: bad input is refused and nothing is written', () => {
@@ -78,6 +89,8 @@ test('malformed fields (a rate as text, an extra row without a date) stop too; s
     { pon: { rates: { a: { parking_per_day: '1000' } } } },
     { pon: { extra: [{ id: 'x', project_id: 'a', kind: 'overtime', amount: 100 }] } },
     { kon: { sent: [{ id: 's', at: '2026-12-01', what: 5 }] } },
+    { pon: { tickets: [{ id: 't', date: '2026-12-01', project_id: 'a', count: 1.5, unit_price: 1000 }] } },
+    { pon: { edits: { 'ticket:t': '900' } } },
   ]) {
     const s = storage({ ...fixture(), nakama });
     assert.throws(() => ponRows(load(), '2026-12'), /読み取れません/);

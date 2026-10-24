@@ -221,32 +221,46 @@ async function inject(page, mode) {
   }
   // ── 仲間:下書きまで。出すのは職人。報告しない ──
   async function openFacility(page){await click(page,'[data-tab="home"]');await page.locator('#setting-show-shisetsu').check();await click(page,'[data-tab="shisetsu"]');}
-  await run('nakama Pon: parking rate drafts one row from the day record; skip/restore; deduction shows on the invoice draft only', async () => {
+  await run('nakama Pon: tickets received make the parking row; edit in place keeps the original; deduction on the invoice draft and the monthly CSV', async () => {
     const {page,context}=await setup();await ready(page);await openFacility(page);
     await click(page,'#btn-nakama-pon');await page.locator('#local-dialog[data-nakama="pon"]').waitFor();
     assert.match(await page.locator('#local-dialog').innerText(),/まだありません/);
+    assert.equal(await page.locator('#pon-more').evaluate(el=>el.open),true,'first time: the rate fold is open');
+    // 単価が無いまま受け取ろうとすると、単価の口が開いて止まる
+    await page.locator('#pon-ticket-count').fill('20');await click(page,'#pon-add-tickets');
+    assert.match(await page.locator('#local-dialog [role=status]').first().innerText(),/単価/);
+    assert.equal(await page.locator('.nakama-row').count(),0);
     await page.locator('#pon-rate').fill('1000');await page.locator('#pon-payer').fill('架空建装');await click(page,'#pon-save-rate');
+    assert.equal(await page.locator('.nakama-row').count(),0,'days on site alone make no parking row');
+    await page.locator('#pon-ticket-count').fill('20');await click(page,'#pon-add-tickets');
     await page.locator('.nakama-row').first().waitFor();
-    assert.equal(await page.locator('.nakama-row').count(),1);
-    assert.match(await page.locator('.nakama-total').innerText(),/1,000円/);
-    assert.match(await page.locator('#pon-draft').inputValue(),/駐車代　1,000円[\s\S]*合計　1,000円/);
+    assert.match(await page.locator('.nakama-row').first().innerText(),/駐車代\(チケット20枚\)　20,000円/);
+    assert.match(await page.locator('.nakama-total').innerText(),/20,000円/);
     await page.locator('#pon-extra-amount').fill('8000');await click(page,'#pon-add-extra');
-    assert.match(await page.locator('.nakama-total').innerText(),/9,000円/);
-    await page.locator('.nakama-row[data-key^="parking:"] button').click();
-    assert.match(await page.locator('.nakama-total').innerText(),/8,000円/);
-    await page.locator('.nakama-row--skipped button').click();
-    assert.match(await page.locator('.nakama-total').innerText(),/9,000円/);
+    assert.match(await page.locator('.nakama-total').innerText(),/28,000円/);
+    const ticketRow=page.locator('.nakama-row[data-key^="ticket:"]');
+    await ticketRow.getByRole('button',{name:'直す'}).click();await ticketRow.locator('.nakama-edit-input').fill('19000');await ticketRow.getByRole('button',{name:'残す'}).click();
+    assert.match(await page.locator('.nakama-row[data-key^="ticket:"]').innerText(),/19,000円[\s\S]*元 20,000円/);
+    assert.match(await page.locator('.nakama-total').innerText(),/27,000円/);
+    await page.locator('.nakama-row[data-key^="extra:"]').getByRole('button',{name:'外す'}).click();
+    assert.match(await page.locator('.nakama-total').innerText(),/19,000円/);
+    await page.locator('.nakama-row--skipped').getByRole('button',{name:'戻す'}).click();
+    assert.match(await page.locator('#pon-draft').inputValue(),/駐車代\(チケット20枚\)　19,000円[\s\S]*合計　27,000円/);
     const saved=JSON.parse((await stats(page)).raw);
-    assert.deepEqual(saved.expenses,fixture().expenses);assert.deepEqual(saved.future,{keep:true});assert.equal(saved.nakama.pon.extra.length,1);
+    assert.deepEqual(saved.expenses,fixture().expenses);assert.deepEqual(saved.future,{keep:true});
+    assert.equal(saved.nakama.pon.tickets[0].count,20);assert.equal(Object.values(saved.nakama.pon.edits)[0],19000);
     await page.setViewportSize({width:320,height:844});
     assert.ok(await page.locator('#local-dialog').evaluate(el=>el.scrollWidth<=el.clientWidth),'pon dialog fits 320px');
     await page.locator('#local-dialog .local-close').click();
-    // 単価が残っていれば、次に開いたときは内訳と下書きが先。足す口はたたまれている
     await click(page,'#btn-nakama-pon');await page.locator('.nakama-row').first().waitFor();
-    assert.equal(await page.locator('#pon-more').evaluate(el=>el.open),false);
+    assert.equal(await page.locator('#pon-more').evaluate(el=>el.open),false,'second time: folded');
     await page.locator('#local-dialog .local-close').click();
     await click(page,'[data-tab="home"]');await click(page,'#btn-shimai-invoice');await click(page,'#btn-invoice-skip-expense');
-    await page.locator('#invoice-pon-row').waitFor();assert.match(await page.locator('#invoice-pon-row').innerText(),/−9,000円/);
+    await page.locator('#invoice-pon-row').waitFor();assert.match(await page.locator('#invoice-pon-row').innerText(),/−27,000円/);
+    const download=page.waitForEvent('download');await click(page,'#btn-export-csv-monthly-shimai');
+    const csv=await fs.readFile(await (await download).path(),'utf8');
+    assert.match(csv,/"立替\(勘定科目は確認中\)","19000",""[^\n]*駐車代\(チケット20枚\)\(架空建装\)/);
+    assert.match(csv,/"立替\(勘定科目は確認中\)","8000",""/);
     assert.deepEqual(page.errors,[]);await context.close();
   });
   await run('nakama Pon: a failed save keeps the stored bytes and says so', async () => {
@@ -257,7 +271,12 @@ async function inject(page, mode) {
   });
   await run('nakama Hoo, Kero, Kon: drafts follow trades; handed-over record and a gentle reminder; nothing is sent', async () => {
     const {page,context}=await setup();await ready(page);await openFacility(page);
-    await click(page,'#btn-nakama-hoo');await page.locator('[data-trade="denki"]').check();
+    await click(page,'#btn-nakama-hoo');assert.match(await page.locator('#local-dialog').innerText(),/職種がまだありません[\s\S]*▲ホームの設定で選びます/);
+    await page.locator('#local-dialog .local-close').click();
+    await click(page,'[data-tab="home"]');await page.locator('#setting-trades [data-trade="denki"]').check();
+    await page.locator('#setting-trades-status').filter({hasText:'残しました'}).waitFor();
+    await click(page,'[data-tab="shisetsu"]');await click(page,'#btn-nakama-hoo');
+    assert.match(await page.locator('#local-dialog').innerText(),/職種：電気/);
     assert.match(await page.locator('#hoo-draft').inputValue(),/■ 電気[\s\S]*回路表示/);
     assert.doesNotMatch(await page.locator('#hoo-draft').inputValue(),/■ 内装/);
     await page.locator('#local-dialog').getByRole('button',{name:'渡したことを控える(コン)'}).click();

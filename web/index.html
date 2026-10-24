@@ -157,6 +157,13 @@
       color: #e8e5df;
     }
     .setting-row input { width: 20px; height: 20px; accent-color: #c5a059; }
+    .setting-trades {
+      border: 1px solid #1e1e1a; padding: 10px 14px 12px; display: flex; flex-wrap: wrap; gap: 10px 18px;
+      font-family: 'Noto Serif JP', serif; font-size: 13px; color: #e8e5df;
+    }
+    .setting-trades legend { padding: 0 4px; color: #a0a0a0; font-size: 11px; letter-spacing: 0.12em; }
+    .setting-trades label { display: flex; align-items: center; gap: 6px; }
+    .setting-trades input { width: 20px; height: 20px; accent-color: #c5a059; }
 
     /* ── 仲間 ── */
     .nakama-list { display: flex; flex-direction: column; gap: 1px; background: #1e1e1a; border: 1px solid #1e1e1a; }
@@ -172,7 +179,7 @@
       font-size: 13px; color: #e8e5df; letter-spacing: 0.05em; line-height: 1.6;
     }
     .nakama-rows li span { display: block; margin-top: 3px; font-size: 11px; color: #777; }
-    .nakama-row { position: relative; padding-right: 96px !important; }
+    .nakama-row { position: relative; padding-right: 108px !important; }
     .nakama-row--skipped { color: #555 !important; text-decoration: line-through; }
     .nakama-more { margin-top: 16px; border-top: 1px solid #1e1e1a; }
     .nakama-more > summary {
@@ -181,7 +188,12 @@
     }
     .nakama-more > summary::before { content: '＋ '; }
     .nakama-more[open] > summary::before { content: '－ '; }
-    .nakama-row .nakama-mini { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); }
+    .nakama-row .nakama-tools { position: absolute; right: 10px; top: 12px; display: flex; gap: 6px; }
+    .nakama-edit { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; margin-right: -98px; }
+    .nakama-edit-input {
+      width: 120px; padding: 6px 8px; border: 1px solid #55554c; border-radius: 6px;
+      background: #0d0d0b; color: #e8e5df; font: inherit; font-size: 16px;
+    }
     .nakama-mini {
       background: none; border: 1px solid #2a2a24; color: #c5a059; font-size: 11px;
       padding: 4px 8px; font-family: inherit; cursor: pointer;
@@ -1582,6 +1594,10 @@
             <span>施設のタブを出す（試し）</span>
             <input type="checkbox" id="setting-show-shisetsu">
           </label>
+          <fieldset class="setting-trades" id="setting-trades">
+            <legend>職種（いくつでも）</legend>
+          </fieldset>
+          <p class="later-note" id="setting-trades-status" role="status"></p>
         </div>
       </div>
 

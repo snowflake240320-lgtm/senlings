@@ -47,13 +47,16 @@ export function nakamaOf(data) {
     && (pon.rates == null || (record(pon.rates) && Object.values(pon.rates).every(r => record(r) && money(r.parking_per_day) && str(r.payer ?? '', 100))))
     && list(pon.extra, r => record(r) && str(r.id, 100) && dateStr(r.date) && str(r.project_id, 200)
         && Object.hasOwn(PON_KINDS, r.kind) && money(r.amount) && str(r.memo ?? '', 200))
+    && list(pon.tickets, t => record(t) && str(t.id, 100) && dateStr(t.date) && str(t.project_id, 200)
+        && Number.isSafeInteger(t.count) && t.count > 0 && t.count <= 1000 && money(t.unit_price) && str(t.memo ?? '', 200))
+    && (pon.edits == null || (record(pon.edits) && Object.values(pon.edits).every(money)))
     && list(pon.skip, k => typeof k === 'string')
     && list(n.trades, t => typeof t === 'string')
     && list(kon.sent, s => record(s) && str(s.id, 100) && dateStr(s.at) && str(s.what, 200) && str(s.to ?? '', 100)
         && (s.returned_at == null || dateStr(s.returned_at)));
   if (!ok) throw new Error('仲間の記録が読み取れません。書き換えずに止めました。');
   return {
-    pon: { rates: pon.rates ?? {}, extra: pon.extra ?? [], skip: pon.skip ?? [] },
+    pon: { rates: pon.rates ?? {}, tickets: pon.tickets ?? [], extra: pon.extra ?? [], edits: pon.edits ?? {}, skip: pon.skip ?? [] },
     trades: n.trades ?? [],
     kon: { sent: kon.sent ?? [] },
   };
@@ -103,38 +106,73 @@ export function togglePonRow(key) {
   });
 }
 
+// 駐車代は「受け取ったチケット」から(会社が「誰に何枚」で分けているのと同じもの)。
+// 現場に入った日からは作らない。突き合わせを生まないため。
+export function addPonTickets({ id, date, project_id, count, memo }) {
+  const c = Number(count);
+  if (!id || !/^\d{4}-\d{2}-\d{2}$/.test(date ?? '') || !Number.isSafeInteger(c) || c <= 0 || c > 1000) throw new Error('受け取った日と枚数を確かめてください。');
+  return writeNakama((n, data) => {
+    if (!data.projects.some(p => p.project_id === project_id)) throw new Error('現場が見つかりません。');
+    const rate = n.pon.rates[project_id];
+    if (!rate || !(rate.parking_per_day > 0)) throw new Error('先に、この現場のチケット1枚の単価を入れてください。');
+    if (n.pon.tickets.some(t => t.id === id)) return;
+    n.pon.tickets = [...n.pon.tickets, { id, date, project_id, count: c, unit_price: rate.parking_per_day, memo: String(memo ?? '').trim().slice(0, 200), created_at: Date.now() }];
+  });
+}
+
+// 行の金額を直す。元の金額は消さない(original に残り、画面にも出る)。空なら元に戻す。
+export function editPonAmount(key, value) {
+  const restore = value === '' || value == null;
+  const a = restore ? null : amount(value);
+  return writeNakama(n => {
+    const edits = { ...n.pon.edits };
+    if (restore) delete edits[key]; else edits[key] = a;
+    n.pon.edits = edits;
+  });
+}
+
 export function ponRows(data, ym) {
   const n = nakamaOf(data);
   const names = Object.fromEntries((data.projects ?? []).map(p => [p.project_id, p.project_slug]));
   const rows = [];
-  const seen = new Set();
-  for (const s of data.work_sessions ?? []) {
-    const date = localDate(s.check_in_at);
-    const rate = n.pon.rates[s.project_id];
-    if (!date.startsWith(ym) || !rate || !(rate.parking_per_day > 0)) continue;
-    const key = `parking:${s.project_id}:${date}`;
-    if (seen.has(key)) continue;   // 同じ日の同じ現場は一行
-    seen.add(key);
-    rows.push({ key, date, project_id: s.project_id, project: names[s.project_id] ?? s.project_id, kind: 'parking',
-      amount: rate.parking_per_day, payer: rate.payer || '', source: '今日の現場の記録から', memo: '' });
+  for (const t of n.pon.tickets) {
+    if (!t.date.startsWith(ym)) continue;
+    rows.push({ key: `ticket:${t.id}`, date: t.date, project_id: t.project_id, project: names[t.project_id] ?? t.project_id, kind: 'parking',
+      original: t.count * t.unit_price, count: t.count, unit_price: t.unit_price, payer: n.pon.rates[t.project_id]?.payer || '',
+      source: `受け取ったチケット ${t.count}枚 × ${yen(t.unit_price)}`, memo: t.memo ?? '' });
   }
   for (const r of n.pon.extra) {
-    if (!r.date?.startsWith(ym)) continue;
+    if (!r.date.startsWith(ym)) continue;
     rows.push({ key: `extra:${r.id}`, date: r.date, project_id: r.project_id, project: names[r.project_id] ?? r.project_id, kind: r.kind,
-      amount: r.amount, payer: n.pon.rates[r.project_id]?.payer || '', source: '自分で足した行', memo: r.memo ?? '' });
+      original: r.amount, payer: n.pon.rates[r.project_id]?.payer || '', source: '自分で足した行', memo: r.memo ?? '' });
   }
   rows.sort((a, b) => a.date.localeCompare(b.date) || a.key.localeCompare(b.key));
-  return rows.map(r => ({ ...r, skipped: n.pon.skip.includes(r.key) }));
+  return rows.map(r => {
+    const edited = Object.hasOwn(n.pon.edits, r.key);
+    return { ...r, amount: edited ? n.pon.edits[r.key] : r.original, edited, skipped: n.pon.skip.includes(r.key) };
+  });
 }
 
 export function ponTotal(rows, projectId) {
   return rows.filter(r => !r.skipped && (!projectId || r.project_id === projectId)).reduce((t, r) => t + r.amount, 0);
 }
 
+export function ponLabel(r) {
+  return `${PON_KINDS[r.kind]}${r.count ? `(チケット${r.count}枚)` : ''}`;
+}
+
+// 別紙と取り込みファイル(CSV)に渡す行。外した行は入れない。
+// 勘定科目と消費税の扱いは税理士さんの答え待ちなので、決めつけずに空けておく。
+export function ponLedgerRows(rows) {
+  return rows.filter(r => !r.skipped).map(r => ({
+    date: r.date, project: r.project, project_id: r.project_id, label: ponLabel(r), amount: r.amount, payer: r.payer, memo: r.memo,
+  }));
+}
+
 export function ponText(rows, ym, userName) {
   const live = rows.filter(r => !r.skipped);
   const lines = [`立替の内訳（${ym.replace('-', '年')}月分）`, userName ? `作成：${userName}` : null, ''];
-  for (const r of live) lines.push(`${r.date}　${r.project}　${PON_KINDS[r.kind]}　${yen(r.amount)}${r.memo ? `　${r.memo}` : ''}`);
+  for (const r of live) lines.push(`${r.date}　${r.project}　${ponLabel(r)}　${yen(r.amount)}${r.memo ? `　${r.memo}` : ''}`);
   lines.push('', `合計　${yen(ponTotal(live))}`, '', '※この端末の記録から作った下書きです。違う行は直してからお使いください。');
   return lines.filter(l => l !== null).join('\n');
 }

@@ -12,6 +12,7 @@ import { exportInvoiceToExcel } from './src/pwa/invoiceExport.js';
 import { receiveProject, giveProject, writeMemo, takePhoto, reviewRecords, editSettings, showContact, sosText, copyText, exportText } from './src/pwa/localFeaturesUI.js';
 import { saveLocalRecord, contactPhone } from './src/pwa/localRecords.js';
 import { openPon, openKon, openKero, openHoo, ponDeductionFor } from './src/pwa/nakamaUI.js';
+import { HOO_TRADES, readNakama, setTrades } from './src/pwa/nakama.js';
 
 // ── データ読み込み ────────────────────────────────────────
 function getAllData() {
@@ -476,6 +477,26 @@ function renderHome() {
     applyShisetsuTab();
   };
 
+  // 職種はここで選ぶ(ホー・ケロ・今日の現場の人で使う)
+  const tradeBox = document.getElementById('setting-trades');
+  const tradeStatus = document.getElementById('setting-trades-status');
+  tradeBox.querySelectorAll('label').forEach(l => l.remove());
+  tradeStatus.textContent = '';
+  let chosen = [];
+  try { chosen = readNakama().trades; } catch (e) { tradeStatus.textContent = e.message; }
+  for (const [key, trade] of Object.entries(HOO_TRADES)) {
+    const label = document.createElement('label');
+    const box = Object.assign(document.createElement('input'), { type: 'checkbox', checked: chosen.includes(key) });
+    box.dataset.trade = key;
+    box.onchange = () => {
+      const next = [...tradeBox.querySelectorAll('input:checked')].map(i => i.dataset.trade);
+      try { setTrades(next); tradeStatus.textContent = '残しました。'; }
+      catch (e) { box.checked = !box.checked; tradeStatus.textContent = e.message; }
+    };
+    label.append(box, document.createTextNode(trade.label));
+    tradeBox.append(label);
+  }
+
   document.getElementById('btn-export-json-shimai').onclick = () => {
     exportAllDataAsJSON();
   };
@@ -524,7 +545,7 @@ function renderHome() {
             <span class="invoice-card-label">差し引き(立替)</span>
             <span class="invoice-card-value">−${deduction.toLocaleString()}円</span>
           </div>
-          <p class="later-note">ポンの内訳から。紙の請求書にはまだ載りません。</p>`);
+          <p class="later-note">ポンの内訳から。Excel にも一行で載り、内訳は別紙「立替内訳」に入ります。</p>`);
       }
       excelBtn.style.display = 'flex';
     } catch (err) {
