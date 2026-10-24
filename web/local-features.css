@@ -5,7 +5,7 @@
 .local-dialog h3 { font-size: 14px; color: #c5a059; font-weight: 500; }
 .local-dialog p { white-space: pre-wrap; overflow-wrap: anywhere; margin: 10px 0; color: #c4c1b9; font-size: 13px; }
 .local-dialog label { display: block; margin: 14px 0; color: #c4c1b9; font-size: 13px; }
-.local-dialog input:not([type=checkbox]), .local-dialog textarea { display: block; width: 100%; padding: 10px; margin-top: 6px; border: 1px solid #55554c; border-radius: 8px; background: #0d0d0b; color: #e8e5df; font: inherit; font-size: 16px; }
+.local-dialog input:not([type=checkbox]), .local-dialog textarea, .local-dialog select { display: block; width: 100%; padding: 10px; margin-top: 6px; border: 1px solid #55554c; border-radius: 8px; background: #0d0d0b; color: #e8e5df; font: inherit; font-size: 16px; }
 .local-dialog .local-choice { display: flex; gap: 10px; align-items: center; min-height: 32px; }
 .local-choice input { width: 20px; height: 20px; accent-color: #c5a059; }
 .local-close { flex-shrink: 0; background: none; border: 0; color: #c5a059; font: inherit; min-height: 44px; padding: 8px; }
