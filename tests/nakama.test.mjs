@@ -73,6 +73,22 @@ test('malformed nakama data stops without overwriting', () => {
   assert.equal(s.raw, before); assert.equal(s.writes, 0);
 });
 
+test('malformed fields (a rate as text, an extra row without a date) stop too; strings are trimmed', () => {
+  for (const nakama of [
+    { pon: { rates: { a: { parking_per_day: '1000' } } } },
+    { pon: { extra: [{ id: 'x', project_id: 'a', kind: 'overtime', amount: 100 }] } },
+    { kon: { sent: [{ id: 's', at: '2026-12-01', what: 5 }] } },
+  ]) {
+    const s = storage({ ...fixture(), nakama });
+    assert.throws(() => ponRows(load(), '2026-12'), /読み取れません/);
+    assert.equal(s.writes, 0);
+  }
+  storage(); setPonRate('a', { parking_per_day: 1000, payer: '  架空建装  ' });
+  recordSent({ id: 's', at: '2026-12-01', what: '  搬出入届 ', to: ' 架空統括 ' });
+  assert.equal(readNakama().pon.rates.a.payer, '架空建装');
+  assert.deepEqual([readNakama().kon.sent[0].what, readNakama().kon.sent[0].to], ['搬出入届', '架空統括']);
+});
+
 test('hoo: items follow the chosen trades only', () => {
   storage(); setTrades(['denki', 'unknown', 'denki']);
   assert.deepEqual(readNakama().trades, ['denki']);

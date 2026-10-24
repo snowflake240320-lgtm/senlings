@@ -64,22 +64,30 @@ function sentButton(parent, what, projectIdOf) {
 export function openPon(onChange = () => {}) {
   const box = panel('ポン ― 立替の内訳', 'pon');
   const ym = thisMonth();
-  p(box, '元請けが立て替えた駐車代や時間外の負担金を、今日の現場の記録から下書きします。請求から差し引く分です。毎日は触らず、月末に違う行だけ直します。');
+  p(box, '元請けが立て替えた分の内訳。請求から差し引きます。違う行は外せます。');
   const msg = status(box);
+  let first;
+  if (!guard(msg, () => { first = !Object.keys(readNakama().pon.rates).length; })) return;
 
-  const rateSec = $('section'); box.append(rateSec);
+  // 月末に見るのは、内訳と下書き。単価と行を足す口は、たたんでおく(最初の一回だけ開く)
+  const listSec = $('section'), draftSec = $('section');
+  const more = $('details', '', { className: 'nakama-more', id: 'pon-more', open: first });
+  more.append($('summary', '単価と、行を足す'));
+  box.append(listSec, draftSec, more);
+
+  const rateSec = $('section'); more.append(rateSec);
   rateSec.append($('h3', '駐車代を立て替えてもらう現場'));
   const select = projectSelect(rateSec, '現場', 'pon-project');
   const rate = field(rateSec, '駐車代(1日あたり・円)', 'input', { type: 'number', inputMode: 'numeric', min: 0, id: 'pon-rate' });
   const payer = field(rateSec, '立て替える人(会社)', 'input', { id: 'pon-payer', maxLength: 100 });
-  const fill = () => { const r = readNakama().pon.rates[select.value]; rate.value = r?.parking_per_day || ''; payer.value = r?.payer || ''; };
+  const fill = () => guard(msg, () => { const r = readNakama().pon.rates[select.value]; rate.value = r?.parking_per_day || ''; payer.value = r?.payer || ''; });
   select.onchange = fill; fill();
-  button(rateSec, 'この現場の単価を残す', () => {
+  button(rateSec, '単価を残す', () => {
     if (guard(msg, () => setPonRate(select.value, { parking_per_day: rate.value, payer: payer.value }))) { msg.textContent = '残しました。'; render(); onChange(); }
   }, 'pon-save-rate');
-  p(rateSec, '単価は施設の決まりを見て、自分で入れます。施設から届くようになったら、ここに入ります。', 'later-note');
+  p(rateSec, '単価は施設の決まりを見て、自分で入れます。', 'later-note');
 
-  const extraSec = $('section'); box.append(extraSec);
+  const extraSec = $('section'); more.append(extraSec);
   extraSec.append($('h3', '時間外・その他を足す'));
   const date = field(extraSec, '日付', 'input', { type: 'date', value: today(), id: 'pon-extra-date' });
   const kind = field(extraSec, '種類', 'select', { id: 'pon-extra-kind' });
@@ -92,15 +100,13 @@ export function openPon(onChange = () => {}) {
     }
   }, 'pon-add-extra');
 
-  const listSec = $('section'); box.append(listSec);
-  const draftSec = $('section'); box.append(draftSec);
   function render() {
     listSec.replaceChildren($('h3', `${ym.replace('-', '年')}月の内訳`));
     draftSec.replaceChildren();
     let rows;
     if (!guard(msg, () => { rows = ponRows(load(), ym); })) return;
-    if (!rows.length) p(listSec, 'まだありません。');
-    const ul = $('ul', '', { className: 'later-list' }); listSec.append(ul);
+    if (!rows.length) p(listSec, first ? 'まだありません。下の「単価と、行を足す」から始めます。' : 'まだありません。');
+    const ul = $('ul', '', { className: 'nakama-rows' }); listSec.append(ul);
     for (const r of rows) {
       const li = $('li', `${r.date}　${r.project}　${PON_KINDS[r.kind]}　${yen(r.amount)}`, { className: r.skipped ? 'nakama-row nakama-row--skipped' : 'nakama-row' });
       li.dataset.key = r.key;
@@ -161,7 +167,7 @@ export function openHoo() {
 // ── コン ─────────────────────────────────────────────
 export function openKon() {
   const box = panel('コン ― 期限と戻り', 'kon');
-  p(box, '渡した書類の控えです。戻りを待つものは、やさしいお願いの下書きを作れます。期限切れの印や催促はありません。');
+  p(box, '渡した書類の控えです。戻りを待つものは、お願いの文を用意できます。');
   const msg = status(box);
   const add = $('section'); box.append(add); add.append($('h3', '渡したことを控える'));
   const what = field(add, '何を', 'input', { maxLength: 200, id: 'kon-what' });

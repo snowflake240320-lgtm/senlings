@@ -238,6 +238,12 @@ async function inject(page, mode) {
     assert.match(await page.locator('.nakama-total').innerText(),/9,000円/);
     const saved=JSON.parse((await stats(page)).raw);
     assert.deepEqual(saved.expenses,fixture().expenses);assert.deepEqual(saved.future,{keep:true});assert.equal(saved.nakama.pon.extra.length,1);
+    await page.setViewportSize({width:320,height:844});
+    assert.ok(await page.locator('#local-dialog').evaluate(el=>el.scrollWidth<=el.clientWidth),'pon dialog fits 320px');
+    await page.locator('#local-dialog .local-close').click();
+    // 単価が残っていれば、次に開いたときは内訳と下書きが先。足す口はたたまれている
+    await click(page,'#btn-nakama-pon');await page.locator('.nakama-row').first().waitFor();
+    assert.equal(await page.locator('#pon-more').evaluate(el=>el.open),false);
     await page.locator('#local-dialog .local-close').click();
     await click(page,'[data-tab="home"]');await click(page,'#btn-shimai-invoice');await click(page,'#btn-invoice-skip-expense');
     await page.locator('#invoice-pon-row').waitFor();assert.match(await page.locator('#invoice-pon-row').innerText(),/−9,000円/);

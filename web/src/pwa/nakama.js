@@ -33,20 +33,29 @@ export function localDate(ts) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+const str = (v, max) => typeof v === 'string' && v.length <= max;
+const money = v => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 10_000_000;
+const dateStr = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+const list = (v, ok) => v == null || (Array.isArray(v) && v.every(ok));
+
+// 読めない形は、直さずに止める(保存の作法と同じ)。数は数、文字は文字。
 export function nakamaOf(data) {
   const n = data.nakama ?? {};
-  const ok = record(n)
-    && (n.pon == null || (record(n.pon)
-      && (n.pon.rates == null || (record(n.pon.rates) && Object.values(n.pon.rates).every(record)))
-      && (n.pon.extra == null || (Array.isArray(n.pon.extra) && n.pon.extra.every(record)))
-      && (n.pon.skip == null || (Array.isArray(n.pon.skip) && n.pon.skip.every(k => typeof k === 'string')))))
-    && (n.trades == null || (Array.isArray(n.trades) && n.trades.every(t => typeof t === 'string')))
-    && (n.kon == null || (record(n.kon) && (n.kon.sent == null || (Array.isArray(n.kon.sent) && n.kon.sent.every(record)))));
+  const pon = record(n) ? (n.pon ?? {}) : null;
+  const kon = record(n) ? (n.kon ?? {}) : null;
+  const ok = record(n) && record(pon) && record(kon)
+    && (pon.rates == null || (record(pon.rates) && Object.values(pon.rates).every(r => record(r) && money(r.parking_per_day) && str(r.payer ?? '', 100))))
+    && list(pon.extra, r => record(r) && str(r.id, 100) && dateStr(r.date) && str(r.project_id, 200)
+        && Object.hasOwn(PON_KINDS, r.kind) && money(r.amount) && str(r.memo ?? '', 200))
+    && list(pon.skip, k => typeof k === 'string')
+    && list(n.trades, t => typeof t === 'string')
+    && list(kon.sent, s => record(s) && str(s.id, 100) && dateStr(s.at) && str(s.what, 200) && str(s.to ?? '', 100)
+        && (s.returned_at == null || dateStr(s.returned_at)));
   if (!ok) throw new Error('仲間の記録が読み取れません。書き換えずに止めました。');
   return {
-    pon: { rates: n.pon?.rates ?? {}, extra: n.pon?.extra ?? [], skip: n.pon?.skip ?? [] },
+    pon: { rates: pon.rates ?? {}, extra: pon.extra ?? [], skip: pon.skip ?? [] },
     trades: n.trades ?? [],
-    kon: { sent: n.kon?.sent ?? [] },
+    kon: { sent: kon.sent ?? [] },
   };
 }
 
@@ -72,7 +81,7 @@ const amount = v => {
 export function setPonRate(projectId, { parking_per_day, payer }) {
   return writeNakama((n, data) => {
     if (!data.projects.some(p => p.project_id === projectId)) throw new Error('現場が見つかりません。');
-    n.pon.rates = { ...n.pon.rates, [projectId]: { parking_per_day: amount(parking_per_day), payer: String(payer ?? '').slice(0, 100) } };
+    n.pon.rates = { ...n.pon.rates, [projectId]: { parking_per_day: amount(parking_per_day), payer: String(payer ?? '').trim().slice(0, 100) } };
   });
 }
 
@@ -83,7 +92,7 @@ export function addPonExtra({ id, date, project_id, kind, amount: value, memo })
   return writeNakama((n, data) => {
     if (!data.projects.some(p => p.project_id === project_id)) throw new Error('現場が見つかりません。');
     if (n.pon.extra.some(r => r.id === id)) return;
-    n.pon.extra = [...n.pon.extra, { id, date, project_id, kind, amount: a, memo: String(memo ?? '').slice(0, 200), created_at: Date.now() }];
+    n.pon.extra = [...n.pon.extra, { id, date, project_id, kind, amount: a, memo: String(memo ?? '').trim().slice(0, 200), created_at: Date.now() }];
   });
 }
 
@@ -176,7 +185,7 @@ export function recordSent({ id, at, what, to, project_id }) {
   if (!id || !/^\d{4}-\d{2}-\d{2}$/.test(at ?? '') || !String(what ?? '').trim()) throw new Error('渡した日と、何を渡したかを入れてください。');
   return writeNakama(n => {
     if (n.kon.sent.some(s => s.id === id)) return;
-    n.kon.sent = [...n.kon.sent, { id, at, what: String(what).slice(0, 200), to: String(to ?? '').slice(0, 100), project_id: project_id ?? null, created_at: Date.now() }];
+    n.kon.sent = [...n.kon.sent, { id, at, what: String(what).trim().slice(0, 200), to: String(to ?? '').trim().slice(0, 100), project_id: project_id ?? null, created_at: Date.now() }];
   });
 }
 
