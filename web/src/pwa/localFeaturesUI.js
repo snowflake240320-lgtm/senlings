@@ -6,6 +6,7 @@ import { openRequestDialog, siteFromProject, appLink } from './requestUI.js';
 import { saveLocalRecord, contactPhone, SOS_LABELS } from './localRecords.js';
 import { savePhotoMeta, buildPhotoFilename } from './photo.js';
 import { SETTINGS_KEYS, getAllSettings, saveSettingsFromForm, getSetting } from './settings.js';
+import { readNakama, HOO_TRADES } from './nakama.js';
 
 const $ = (tag, text, attrs = {}) => Object.assign(document.createElement(tag), { textContent: text, ...attrs });
 let dialog;
@@ -44,6 +45,12 @@ function values(parent, packet, { showName = true, idLabel = '送り手の物件
 // 受け取る(郵便受け)。LINE などで届いた依頼の文を、まるごと貼る。いちばん下の〔Senlings〕の行から封筒を読む。
 // 封筒が無い文でも、現場名を決めれば、その文を「届いた連絡」として現場を立てられる。物件情報ファイル(JSON)も、そのまま受け取れる。
 // 受けるかどうか、その日に置くかどうかは、受けた人が決める。返事は LINE で、いつもどおりに。
+// つないでくれた人(「ほかの人へつなぐ」の書き出し「○○です。△△さんからの依頼です。…つなぎます」から)。残さず、あいさつの言葉にだけ使う
+export function introducerOf(text) {
+  const m = String(text ?? '').match(/(?:^|\n)\s*([^\n。]{1,40})です。[^\n]{0,60}からの依頼です。私は行けないので、つなぎます。/);
+  return m ? m[1].trim() : '';
+}
+
 export function receiveProject(onSaved) {
   const box = panel('受け取る');
   paragraph(box, 'LINE などで届いた依頼の文を、まるごとコピーして貼ります。確かめてから、自分の現場に加えます。');
@@ -81,9 +88,10 @@ export function receiveProject(onSaved) {
   box.append(choices, after);
 
   // 返事の下書き。送るのは人(共有の画面へ)。既読・催促は持たない。何も保存しない
-  function reply(title, text, id) {
-    after.replaceChildren();
+  function reply(title, text, id, { keep = false, note = '' } = {}) {
+    if (!keep) after.replaceChildren();
     after.append($('h3', title));
+    if (note) paragraph(after, note);
     const area = $('textarea', '', { rows: 6, value: text, id: `reply-${id}`, className: 'reply-text' });
     const w = $('label', '送る文(ここで直せます)'); w.append(area); after.append(w);
     const msg = status(after);
@@ -91,6 +99,19 @@ export function receiveProject(onSaved) {
       if (navigator.share) { try { await navigator.share({ text: area.value }); msg.textContent = '共有の画面に渡しました。'; return; } catch (e) { if (e?.name === 'AbortError') { msg.textContent = 'まだ送っていません。'; return; } } }
       try { await navigator.clipboard.writeText(area.value); msg.textContent = 'コピーしました。LINE などに貼って送ってください。'; } catch { msg.textContent = '文を長押しして選んでください。'; }
     }, `reply-send-${id}`);
+  }
+  // 依頼者へのあいさつ(Reachability。10-25 船長)。紹介の記録も点数も持たず、つながりは人と人のやりとりに残す。
+  // 受けた職人が、自分から依頼した人へ届く。つないでくれた人の名前は、あいさつの言葉の中で伝える(Senlings には残さない)。
+  function greet(env, me) {
+    let trades = '';
+    try { trades = readNakama().trades.map(k => HOO_TRADES[k]?.label).filter(Boolean).join('・'); } catch { trades = ''; }
+    const via = introducerOf(input.value);
+    const lines = [`${env.from ? `${env.from}さん` : 'ご担当の方'}`,
+      `${me ? `${me}です。` : ''}${trades ? `${trades}をやっています。` : ''}`.trim(),
+      via ? `${via}さんから、つないでもらいました。` : '',
+      `${env.work_date ? `${dayLabel(env.work_date)}、` : ''}${env.site.name}、伺います。`,
+      '当日は、どうぞよろしくお願いします。'].filter(Boolean);
+    reply('依頼した人へ、あいさつ', lines.join('\n'), 'greet', { keep: true, note: '受けたことを、あなたから伝えます。このやりとりが、そのまま「この現場に呼ばれた」しるしになります。' });
   }
   function renderChoices() {
     choices.replaceChildren();
@@ -106,15 +127,20 @@ export function receiveProject(onSaved) {
     };
     pick('自分で受ける', '現場を加える。その日に置くかは次に選ぶ', 'self', () => {
       const r = doAccept(); if (!r) return;
-      message.textContent = r.action === 'received' ? 'この版は受取済みです。' : 'この端末の現場に保存しました。返事は、いつもの相手とのやりとりで。';
-      choices.hidden = true; onSaved();
-      if (env.work_date) offerDay(r.project_id, env.work_date); else after.replaceChildren();
+      message.textContent = r.action === 'received' ? 'この版は受取済みです。' : 'この端末の現場に保存しました。';
+      choices.hidden = true; onSaved(); after.replaceChildren();
+      greet(env, me);
+      if (env.work_date) offerDay(r.project_id, env.work_date, { keep: true });
     });
     pick('協力して受ける', '現場を加えて、手伝ってくれる人に声をかける', 'together', () => {
       const r = doAccept(); if (!r) return;
-      choices.hidden = true; onSaved();
+      choices.hidden = true; onSaved(); after.replaceChildren();
+      message.textContent = 'この端末の現場に保存しました。';
+      greet(env, me);
+      if (env.work_date) offerDay(r.project_id, env.work_date, { keep: true });
       const project = load().projects.find(p => p.project_id === r.project_id);
-      openRequestDialog({ kind: 'ouen', from: me, site: siteFromProject(project, teijiOf(project)), workDate: env.work_date });
+      action(after, '手伝ってくれる人に声をかける(応援を呼ぶ)', () =>
+        openRequestDialog({ kind: 'ouen', from: me, site: siteFromProject(project, teijiOf(project)), workDate: env.work_date }), 'handoff-ouen');
     });
     pick('時期を調整する', 'その日は難しいと返す(現場は加えない)', 'later', () =>
       reply('時期を調整する', `${to}${day}${env.site.name} の件、ありがとうございます。その日は難しいです。\n○/○ からなら行けます。`, 'later'));
@@ -124,8 +150,8 @@ export function receiveProject(onSaved) {
       reply('受けない', `${to}${day}${env.site.name} の件、ありがとうございます。今回は見送らせてください。また声をかけてもらえると嬉しいです。`, 'decline'));
   }
   // その日に置くかは、受けた人が決める(押したときだけ)
-  function offerDay(projectId, date) {
-    after.replaceChildren();
+  function offerDay(projectId, date, { keep = false } = {}) {
+    if (!keep) after.replaceChildren();
     const other = teijiOn(load(), date);
     if (other?.project_id === projectId) { paragraph(after, `${dayLabel(date)} は、もうこの現場です。`); return; }
     const put = action(after, `${dayLabel(date)} を、この現場の日に${other ? '置き直す' : 'する'}`, () => {
