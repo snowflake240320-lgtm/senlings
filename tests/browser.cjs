@@ -273,7 +273,9 @@ async function inject(page, mode) {
   });
   await run('homescreen: iOS 18 shows share first; LINE shows the Safari switch; with records the moving note appears', async () => {
     let r=await setup(null,{ua:iosUA('18_6')});await r.page.locator('#homescreen-guide[open]').waitFor();
-    const steps=await r.page.locator('#homescreen-guide li').allInnerTexts();assert.equal(steps.length,3);assert.match(steps[0],/共有/);await r.context.close();
+    const steps=await r.page.locator('#homescreen-guide li').allInnerTexts();assert.equal(steps.length,3);assert.match(steps[0],/共有/);
+    assert.equal(await r.page.locator('#homescreen-guide figure svg').count(),2,'two drawn pictures');assert.equal(await r.page.locator('#homescreen-guide figure img').count(),1,'one photo');
+    assert.ok(await r.page.locator('#homescreen-guide figure img').evaluate(i=>i.complete&&i.naturalWidth>0),'photo loads');await r.context.close();
     r=await setup(JSON.stringify(fixture()),{ua:iosUA('26_0')+' Line/15.2.0'});await r.page.locator('#homescreen-guide[open]').waitFor();
     assert.match(await r.page.locator('#homescreen-safari').getAttribute('href'),/\?openExternalBrowser=1$/);
     assert.doesNotMatch(await r.page.locator('#homescreen-guide').innerText(),/JSON/);await r.context.close();

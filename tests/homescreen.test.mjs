@@ -10,12 +10,12 @@ test('iOS 26 (compact tab bar): the first tap is 「…」, four taps', () => {
   const s = st(ios('26_0'));
   assert.equal(s.kind, 'ios'); assert.equal(s.major, 26); assert.equal(s.compact, true); assert.equal(s.inLine, false);
   const t = homeScreenSteps(s);
-  assert.equal(t.steps.length, 4); assert.match(t.steps[0], /「…」/); assert.match(t.steps[3], /追加/);
+  assert.equal(t.steps.length, 4); assert.match(t.steps[0].text, /「…」/); assert.equal(t.steps[0].pic, 'safari26'); assert.match(t.steps[3].text, /追加/); assert.equal(t.steps[2].pic, 'sheet');
 });
 
 test('iOS 18 and earlier: share first, three taps', () => {
   const t = homeScreenSteps(st(ios('18_6')));
-  assert.equal(t.steps.length, 3); assert.match(t.steps[0], /共有/); assert.doesNotMatch(t.steps[0], /…/);
+  assert.equal(t.steps.length, 3); assert.match(t.steps[0].text, /共有/); assert.equal(t.steps[0].pic, 'safari18'); assert.doesNotMatch(t.steps[0].text, /…/);
 });
 
 test('inside LINE: cannot add; send them to Safari with LINE\'s own switch', () => {
@@ -34,7 +34,7 @@ test('Chrome on iPhone: share at the top', () => {
 test('Android: one button when the browser offers it, otherwise the menu steps', () => {
   const ua = 'Mozilla/5.0 (Linux; Android 15; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36';
   assert.equal(homeScreenSteps(st(ua, { installPrompt: {} })).button, 'ホーム画面に置く');
-  assert.match(homeScreenSteps(st(ua)).steps[0], /⋮/);
+  assert.match(homeScreenSteps(st(ua)).steps[0].text, /⋮/);
 });
 
 test('already on the home screen, or a desktop: nothing to show', () => {

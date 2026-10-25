@@ -30,9 +30,20 @@
 /* 申し送り画面の控えめな導線(入館ボタンと競わない) */
 .handover-fallback { margin: 8px 20px 12px; }
 
-/* ホーム画面に置く(案内の一枚)。10-25 */
-.homescreen-steps { margin: 12px 0 4px; padding-left: 1.6em; color: #e8e5df; font-size: 15px; line-height: 1.9; }
-.homescreen-steps li { padding-left: 4px; }
-.homescreen-steps li::marker { color: #c5a059; }
-.homescreen-guide .later-note { margin-top: 12px; }
+/* ホーム画面に置く(案内の一枚)。10-25。絵で見せる。「いまは置かずに使う」は小さく下に */
+.homescreen-guide { padding-bottom: 12px; }
+.local-dialog .homescreen-head { justify-content: flex-start; gap: 12px; }
+.homescreen-head h2:focus { outline: none; }
+.homescreen-icon { width: 36px; height: 36px; flex-shrink: 0; }
+.homescreen-icon svg { width: 36px; height: 36px; display: block; }
+.homescreen-lead { font-size: 15px; color: #e8e5df; }
+.homescreen-steps { margin: 14px 0 4px; padding: 0; list-style: none; counter-reset: step; }
+.homescreen-steps li { counter-increment: step; margin: 0 0 18px; }
+.homescreen-step-text { display: block; font-size: 16px; color: #e8e5df; line-height: 1.7; margin-bottom: 8px; }
+.homescreen-step-text::before { content: counter(step); display: inline-block; min-width: 26px; height: 26px; line-height: 26px; margin-right: 8px; border-radius: 13px; background: #c5a059; color: #0d0d0b; text-align: center; font-weight: 700; font-size: 14px; }
+.homescreen-pic { margin: 0; border-radius: 12px; overflow: hidden; border: 1px solid #2a2a24; background: #1c1c1e; }
+.homescreen-pic svg, .homescreen-pic img { display: block; width: 100%; height: auto; }
+.homescreen-done { display: flex; align-items: center; gap: 10px; margin: 8px 0 0; font-size: 14px; color: #e8e5df; }
+.homescreen-done svg { width: 28px; height: 28px; flex-shrink: 0; }
+.local-dialog .homescreen-later { display: block; width: auto; min-height: 0; margin: 20px auto 0; background: none; border: 0; border-radius: 0; color: #777; font: inherit; font-size: 12px; text-decoration: underline; padding: 8px; }
 a.local-action { display: block; text-align: center; text-decoration: none; box-sizing: border-box; }

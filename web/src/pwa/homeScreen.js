@@ -1,9 +1,10 @@
 // homeScreen.js — ホーム画面に置く(2026-10-25 船長の決め:入口は LINE、家はホーム画面)
 //
 // iPhone は、サイトが自分でホーム画面に置くことを許していない。だから職人の指は Safari で 3〜4 回。
-// 減らせないので、迷わない一枚にする。初日に船長が横で見る手順書でもある(手渡し。職人の指は 0 回)。
+// 減らせないので、迷わない一枚にする。絵で見せる(文字だけだと脱落する。10-25 船長)。
+// 初日に船長が横で見る手順書でもある(手渡し。職人の指は 0 回)。
 // - ホーム画面から開いているときは、何も出さない
-// - 「あとで」を押したら、もう出さない(▲ホームの設定から開ける)。催促しない
+// - 「いまは置かずに使う」は小さく下に。押したら、もう出さない(▲ホームの設定から開ける)。催促しない
 // - iPhone の版で手順が違う(iOS 26 からは「…」が先)ので、見分けて出し分ける
 // - LINE の中では置けない。Safari で開いてもらう
 // - Android は一押し(ブラウザが置かせてくれるとき)
@@ -27,17 +28,19 @@ export function homeScreenState({ ua, standalone, installPrompt = null } = {}) {
   return { kind: 'other' };
 }
 
-// 職人の言葉で、押すところだけ。
+// 職人の言葉で、押すところだけ。pic は下の絵の名前。
 export function homeScreenSteps(state) {
+  const sheet = { text: '下へなぞって「ホーム画面に追加」を押す', pic: 'sheet' };
+  const add = { text: '右上の「追加」を押す', pic: 'add' };
   if (state.kind === 'ios') {
-    if (state.inLine) return { lead: 'LINE の中では置けません。先に Safari で開きます。', steps: ['右下の「…」か 共有 を押して、「Safari で開く」', 'Safari で開くと、この案内がもう一度出ます'], safari: true };
-    if (state.otherBrowser) return { lead: '', steps: ['共有(□↑)を押す', '「ホーム画面に追加」を押す', '「追加」を押す'] };
-    if (state.compact) return { lead: '', steps: ['下の「…」を押す(共有 □↑ が見えていれば、それでも)', '「共有」を押す', '「ホーム画面に追加」を押す', '右上の「追加」を押す'] };
-    return { lead: '', steps: ['下の 共有(□↑)を押す', '「ホーム画面に追加」を押す', '右上の「追加」を押す'] };
+    if (state.inLine) return { lead: 'LINE の中では置けません。先に Safari で開きます。', steps: [{ text: '右下の「…」(無ければ □↑)を押して、「Safari で開く」', pic: 'line' }, { text: 'Safari で開くと、この案内がもう一度出ます', pic: null }], safari: true };
+    if (state.otherBrowser) return { lead: '', steps: [{ text: '共有(□↑)を押す', pic: 'share' }, sheet, add] };
+    if (state.compact) return { lead: '', steps: [{ text: '下の「…」を押す(共有 □↑ が見えていれば、それでも)', pic: 'safari26' }, { text: '「共有」を押す', pic: 'menu' }, sheet, add] };
+    return { lead: '', steps: [{ text: 'いちばん下の 共有(□↑)を押す', pic: 'safari18' }, sheet, add] };
   }
   if (state.kind === 'android') {
     if (state.prompt) return { lead: '', steps: [], button: 'ホーム画面に置く' };
-    return { lead: '', steps: ['右上の「⋮」を押す', '「ホーム画面に追加」か「アプリをインストール」を押す', '「追加」を押す'] };
+    return { lead: '', steps: [{ text: '右上の「⋮」を押す', pic: 'android' }, { text: '「ホーム画面に追加」か「アプリをインストール」を押す', pic: null }, { text: '「追加」を押す', pic: null }] };
   }
   return null;
 }
@@ -54,10 +57,47 @@ export function safariLink(loc = location) {
   return `${loc.origin}${loc.pathname}?openExternalBrowser=1`;
 }
 
+// ── 絵 ──────────────────────────────────────────────────
+// iPhone の画面の形を、押すところだけ金で囲んで描く。写真(sheet)は船長の iPhone の実物から。
+const BLUE = '#0a84ff', GOLD = '#c5a059', PANEL = '#1c1c1e', PILL = '#2c2c2e', TXT = '#f2f2f7', MUTE = '#8e8e93';
+const shareGlyph = (x, y, s = 1, c = BLUE) => `<g transform="translate(${x} ${y}) scale(${s})" fill="none" stroke="${c}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M-7 -2 h-3 v16 h20 v-16 h-3"/><path d="M0 -12 v16"/><path d="M-5 -7 l5 -5 l5 5"/></g>`;
+const ring = (x, y, w, h) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${Math.min(w, h) / 2}" fill="none" stroke="${GOLD}" stroke-width="3"/>`;
+const sIcon = (x, y, s) => `<g transform="translate(${x} ${y}) scale(${s / 24})"><rect width="24" height="24" rx="5.5" fill="#1a1a1a"/><g fill="#fff"><rect x="4" y="4" width="16" height="3"/><rect x="4" y="4" width="3" height="9.5"/><rect x="4" y="10.5" width="16" height="3"/><rect x="17" y="10.5" width="3" height="9.5"/><rect x="4" y="17" width="16" height="3"/></g></g>`;
+const PICS = {
+  // iOS 18 まで:下の段の真ん中が 共有
+  safari18: `<svg viewBox="0 0 340 118" xmlns="http://www.w3.org/2000/svg"><rect width="340" height="118" fill="${PANEL}"/><rect x="12" y="10" width="316" height="40" rx="12" fill="${PILL}"/><text x="30" y="35" font-size="13" fill="${TXT}">ぁあ</text><text x="170" y="35" font-size="13" fill="${TXT}" text-anchor="middle">senlings-git-… vercel.app</text><text x="306" y="36" font-size="16" fill="${TXT}">↻</text><g fill="none" stroke="${BLUE}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M44 80 l-8 8 l8 8"/><path d="M98 80 l8 8 l-8 8"/><path d="M233 80 h14 v16 h-14 z M233 96 l7 -3 l7 3"/><rect x="291" y="80" width="14" height="14" rx="2"/><rect x="296" y="76" width="14" height="14" rx="2"/></g>${shareGlyph(170, 88)}${ring(146, 64, 48, 48)}</svg>`,
+  // iOS 26:住所の右の「…」
+  safari26: `<svg viewBox="0 0 340 118" xmlns="http://www.w3.org/2000/svg"><rect width="340" height="118" fill="${PANEL}"/><path d="M30 46 l-8 10 l8 10" fill="none" stroke="${MUTE}" stroke-width="2.2" stroke-linecap="round"/><rect x="52" y="34" width="224" height="44" rx="22" fill="${PILL}"/><text x="164" y="61" font-size="13" fill="${TXT}" text-anchor="middle">senlings-git-… vercel.app</text><circle cx="308" cy="56" r="20" fill="${PILL}"/><text x="308" y="62" font-size="20" fill="${TXT}" text-anchor="middle" font-weight="700">…</text>${ring(282, 30, 52, 52)}</svg>`,
+  // 「…」の中の 共有
+  menu: `<svg viewBox="0 0 340 118" xmlns="http://www.w3.org/2000/svg"><rect width="340" height="118" fill="${PANEL}"/><rect x="40" y="8" width="260" height="102" rx="14" fill="${PILL}"/><rect x="52" y="22" width="120" height="10" rx="5" fill="#48484a"/><rect x="52" y="78" width="150" height="10" rx="5" fill="#48484a"/><text x="60" y="58" font-size="16" fill="${TXT}">共有</text>${shareGlyph(270, 54, 0.9, TXT)}${ring(46, 38, 248, 32)}</svg>`,
+  // 共有の一覧の中の「ホーム画面に追加」(写真)
+  sheet: null,
+  // 右上の「追加」
+  add: `<svg viewBox="0 0 340 150" xmlns="http://www.w3.org/2000/svg"><rect width="340" height="150" fill="${PANEL}"/><text x="16" y="34" font-size="15" fill="${BLUE}">キャンセル</text><text x="170" y="34" font-size="15" fill="${TXT}" text-anchor="middle" font-weight="700">ホーム画面に追加</text><text x="324" y="34" font-size="15" fill="${BLUE}" text-anchor="end" font-weight="700">追加</text>${ring(282, 14, 48, 30)}${sIcon(18, 72, 56)}<rect x="88" y="78" width="236" height="44" rx="10" fill="${PILL}"/><text x="102" y="106" font-size="16" fill="${TXT}">Senlings</text></svg>`,
+  // ほかのブラウザ(Chrome など):共有の印
+  share: `<svg viewBox="0 0 340 90" xmlns="http://www.w3.org/2000/svg"><rect width="340" height="90" fill="${PANEL}"/><text x="40" y="52" font-size="15" fill="${TXT}">この印を押す →</text>${shareGlyph(230, 45, 1.3)}${ring(200, 15, 60, 60)}</svg>`,
+  // LINE の中:右下の「…」
+  line: `<svg viewBox="0 0 340 118" xmlns="http://www.w3.org/2000/svg"><rect width="340" height="118" fill="${PANEL}"/><rect x="0" y="70" width="340" height="48" fill="${PILL}"/><g fill="none" stroke="${MUTE}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M40 86 l-8 8 l8 8"/><path d="M90 86 l8 8 l-8 8"/></g>${shareGlyph(250, 94, 0.9, TXT)}<text x="306" y="100" font-size="22" fill="${TXT}" text-anchor="middle" font-weight="700">…</text><rect x="110" y="14" width="200" height="40" rx="10" fill="${PILL}"/><text x="130" y="40" font-size="15" fill="${TXT}">Safari で開く</text>${ring(284, 72, 44, 44)}</svg>`,
+  // Android:右上の「⋮」
+  android: `<svg viewBox="0 0 340 90" xmlns="http://www.w3.org/2000/svg"><rect width="340" height="90" fill="${PANEL}"/><rect x="14" y="22" width="276" height="44" rx="22" fill="${PILL}"/><text x="150" y="49" font-size="13" fill="${TXT}" text-anchor="middle">senlings-git-… vercel.app</text><text x="316" y="52" font-size="24" fill="${TXT}" text-anchor="middle" font-weight="700">⋮</text>${ring(296, 24, 40, 40)}</svg>`,
+};
+export const SHEET_IMG = 'icons/guide/sheet-add.jpg';
+
 const $ = (tag, text = '', attrs = {}) => Object.assign(document.createElement(tag), { textContent: text, ...attrs });
 
+function picture(name) {
+  if (!name) return null;
+  const fig = $('figure', '', { className: 'homescreen-pic' });
+  if (name === 'sheet') {
+    fig.append($('img', '', { src: SHEET_IMG, alt: '共有の一覧。「ホーム画面に追加」の行', loading: 'lazy' }));
+  } else if (PICS[name]) {
+    fig.innerHTML = PICS[name];
+  } else return null;
+  return fig;
+}
+
 /**
- * 案内の一枚。閉じ方は「あとで」(もう出さない)か、置き終えて開き直すか。
+ * 案内の一枚。閉じ方は、置き終えてホーム画面から開き直すか、いちばん下の小さな「いまは置かずに使う」。
  * @param {object} state  homeScreenState() の答え
  * @param {object} o
  * @param {object} [o.installPrompt]  Android の beforeinstallprompt
@@ -69,20 +109,27 @@ export function openHomeScreenGuide(state, { installPrompt = null, hasRecords = 
   document.getElementById('homescreen-guide')?.remove();
   const dialog = $('dialog', '', { className: 'local-dialog homescreen-guide', id: 'homescreen-guide' });
   dialog.setAttribute('aria-label', 'ホーム画面に置く');
-  const head = $('header');
-  const close = $('button', 'あとで', { className: 'local-close', type: 'button', id: 'homescreen-later' });
-  head.append($('h2', 'ホーム画面に置く'), close);
+  const head = $('header', '', { className: 'homescreen-head' });
+  const icon = $('span', '', { className: 'homescreen-icon' });
+  icon.innerHTML = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">${sIcon(0, 0, 24)}</svg>`;
+  const h2 = $('h2', 'ホーム画面に置く'); h2.tabIndex = -1; h2.autofocus = true; // 開いたとき、小さな「いまは置かずに使う」に目印が付かないように
+  head.append(icon, h2);
   dialog.append(head);
-  dialog.append($('p', '置いておくと、記録が消えません。開くのも一回で済みます。'));
-  if (text.lead) dialog.append($('p', text.lead));
+  dialog.append($('p', '置いておくと、記録が消えません。開くのも一回で済みます。', { className: 'homescreen-lead' }));
+  if (text.lead) dialog.append($('p', text.lead, { className: 'homescreen-lead' }));
   if (text.steps.length) {
     const ol = $('ol', '', { className: 'homescreen-steps' });
-    for (const s of text.steps) ol.append($('li', s));
+    for (const s of text.steps) {
+      const li = $('li');
+      li.append($('span', s.text, { className: 'homescreen-step-text' }));
+      const fig = picture(s.pic);
+      if (fig) li.append(fig);
+      ol.append(li);
+    }
     dialog.append(ol);
   }
   if (text.safari) {
-    const a = $('a', 'Safari で開く', { href: safariLink(), className: 'local-action', id: 'homescreen-safari' });
-    dialog.append(a);
+    dialog.append($('a', 'Safari で開く', { href: safariLink(), className: 'local-action', id: 'homescreen-safari' }));
   }
   if (text.button) {
     const b = $('button', text.button, { type: 'button', className: 'local-action', id: 'homescreen-install' });
@@ -92,10 +139,17 @@ export function openHomeScreenGuide(state, { installPrompt = null, hasRecords = 
     };
     dialog.append(b);
   }
-  if (!text.safari) dialog.append($('p', '置いたら、次からはホーム画面の Senlings から開いてください。', { className: 'later-note' }));
+  if (!text.safari) {
+    const done = $('p', '', { className: 'homescreen-done' });
+    done.innerHTML = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">${sIcon(0, 0, 24)}</svg>`;
+    done.append($('span', 'ホーム画面に、この印が出ます。次からはここから開いてください。'));
+    dialog.append(done);
+  }
   if (hasRecords && !text.safari) dialog.append($('p', 'ここ(ブラウザ)で入れた記録は、ホーム画面の Senlings には移りません。持っていくなら、▲ホームの「JSON」で持ち出してから。', { className: 'later-note' }));
-  close.onclick = () => { writeLater(); dialog.close(); dialog.remove(); onLater(); };
-  dialog.addEventListener('cancel', e => { e.preventDefault(); close.onclick(); });
+  const later = $('button', 'いまは置かずに使う', { className: 'homescreen-later', type: 'button', id: 'homescreen-later' });
+  later.onclick = () => { writeLater(); dialog.close(); dialog.remove(); onLater(); };
+  dialog.append(later);
+  dialog.addEventListener('cancel', e => { e.preventDefault(); later.onclick(); });
   document.body.append(dialog);
   dialog.showModal();
   return dialog;
