@@ -22,7 +22,8 @@ export function homeScreenState({ ua, standalone, installPrompt = null } = {}) {
   if (ios) {
     const m = ua.match(/OS (\d+)_/);
     const major = m ? Number(m[1]) : 0;
-    return { kind: 'ios', major, inLine, otherBrowser: /CriOS|FxiOS|EdgiOS|OPT\//.test(ua), compact: major >= 26 };
+    const chrome = /CriOS/.test(ua);
+    return { kind: 'ios', major, inLine, chrome, otherBrowser: chrome || /FxiOS|EdgiOS|OPT\//.test(ua), compact: major >= 26 };
   }
   if (/Android/.test(ua)) return { kind: 'android', inLine, prompt: !!installPrompt };
   return { kind: 'other' };
@@ -34,7 +35,8 @@ export function homeScreenSteps(state) {
   const add = { text: '右上の「追加」を押す', pic: 'add' };
   if (state.kind === 'ios') {
     if (state.inLine) return { lead: 'LINE の中では置けません。先に Safari で開きます。', steps: [{ text: '右下の「…」(無ければ □↑)を押して、「Safari で開く」', pic: 'line' }, { text: 'Safari で開くと、この案内がもう一度出ます', pic: null }], safari: true };
-    if (state.otherBrowser) return { lead: '', steps: [{ text: '共有(□↑)を押す', pic: 'share' }, sheet, add] };
+    if (state.chrome) return { lead: 'Chrome でも置けます。', steps: [{ text: '右上の 共有(□↑)を押す', pic: 'chrome' }, sheet, add] };
+    if (state.otherBrowser) return { lead: '', steps: [{ text: '共有(□↑)を押す(上の段か、下の段にあります)', pic: 'share' }, sheet, add] };
     if (state.compact) return { lead: '', steps: [{ text: '下の「…」を押す(共有 □↑ が見えていれば、それでも)', pic: 'safari26' }, { text: '「共有」を押す', pic: 'menu' }, sheet, add] };
     return { lead: '', steps: [{ text: 'いちばん下の 共有(□↑)を押す', pic: 'safari18' }, sheet, add] };
   }
@@ -74,7 +76,9 @@ const PICS = {
   sheet: null,
   // 右上の「追加」
   add: `<svg viewBox="0 0 340 150" xmlns="http://www.w3.org/2000/svg"><rect width="340" height="150" fill="${PANEL}"/><text x="16" y="34" font-size="15" fill="${BLUE}">キャンセル</text><text x="170" y="34" font-size="15" fill="${TXT}" text-anchor="middle" font-weight="700">ホーム画面に追加</text><text x="324" y="34" font-size="15" fill="${BLUE}" text-anchor="end" font-weight="700">追加</text>${ring(282, 14, 48, 30)}${sIcon(18, 72, 56)}<rect x="88" y="78" width="236" height="44" rx="10" fill="${PILL}"/><text x="102" y="106" font-size="16" fill="${TXT}">Senlings</text></svg>`,
-  // ほかのブラウザ(Chrome など):共有の印
+  // Chrome(iPhone):右上の 共有
+  chrome: `<svg viewBox="0 0 340 90" xmlns="http://www.w3.org/2000/svg"><rect width="340" height="90" fill="#2b2b2b"/><rect x="12" y="22" width="316" height="46" rx="23" fill="#444"/><circle cx="38" cy="45" r="9" fill="none" stroke="${TXT}" stroke-width="2"/><circle cx="38" cy="45" r="3" fill="${TXT}"/><text x="170" y="50" font-size="14" fill="${TXT}" text-anchor="middle">…lgtms-projects.vercel.app</text>${shareGlyph(300, 45, 1, TXT)}${ring(276, 21, 48, 48)}</svg>`,
+  // ほかのブラウザ:共有の印
   share: `<svg viewBox="0 0 340 90" xmlns="http://www.w3.org/2000/svg"><rect width="340" height="90" fill="${PANEL}"/><text x="40" y="52" font-size="15" fill="${TXT}">この印を押す →</text>${shareGlyph(230, 45, 1.3)}${ring(200, 15, 60, 60)}</svg>`,
   // LINE の中:右下の「…」
   line: `<svg viewBox="0 0 340 118" xmlns="http://www.w3.org/2000/svg"><rect width="340" height="118" fill="${PANEL}"/><rect x="0" y="70" width="340" height="48" fill="${PILL}"/><g fill="none" stroke="${MUTE}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M40 86 l-8 8 l8 8"/><path d="M90 86 l8 8 l-8 8"/></g>${shareGlyph(250, 94, 0.9, TXT)}<text x="306" y="100" font-size="22" fill="${TXT}" text-anchor="middle" font-weight="700">…</text><rect x="110" y="14" width="200" height="40" rx="10" fill="${PILL}"/><text x="130" y="40" font-size="15" fill="${TXT}">Safari で開く</text>${ring(284, 72, 44, 44)}</svg>`,
