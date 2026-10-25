@@ -342,6 +342,7 @@ async function inject(page, mode) {
     const text=(await page.evaluate(()=>window.shared))[0];assert.match(text,/^【現場のご案内】藤田建装 園原より/);
     assert.equal(await page.evaluate(()=>localStorage.getItem('senlings_irai_from')),'藤田建装 園原');
     assert.equal(await page.evaluate(()=>localStorage.getItem('senlings_v0')),null,'the page keeps no records');
+    assert.match(await page.locator('.rule').innerText(),/契約している相手まで/,'the page says who to send to');
     const w=await page.evaluate(()=>[document.documentElement.scrollWidth,innerWidth,[...document.querySelectorAll('*')].filter(e=>e.getBoundingClientRect().right>innerWidth+1).map(e=>e.tagName+'.'+e.className).slice(0,5)]);assert.ok(w[0]<=w[1],JSON.stringify(w));assert.deepEqual(page.errors,[]);await context.close();
   });
   // ホーム画面に置く(10-25):入口は LINE、家はホーム画面。案内は一回だけ、催促しない、記録には触れない
