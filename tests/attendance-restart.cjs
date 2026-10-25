@@ -71,6 +71,7 @@ async function send(p) {
 }
 async function exported(p) {
   await p.locator('[data-tab="home"]').click();
+  await p.locator('#btn-settings').click(); // 全部の持ち出しは設定の中
   const promise = p.waitForEvent('download'); await p.locator('#btn-export-json-shimai').click();
   const download = await promise; return JSON.parse(await fs.readFile(await download.path(), 'utf8'));
 }

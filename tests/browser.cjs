@@ -111,7 +111,7 @@ async function inject(page, mode) {
     junbi: { prepare: shimai, selector: '#junbi-project', select: 'p', success: '#junbi-now:not(:empty)' },
     invoice: { prepare: shimai, selector: '#btn-shimai-invoice', success: '.invoice-card-title' },
     skip: { prepare: async p => { await shimai(p); await click(p,'#btn-shimai-invoice'); }, selector: '#btn-invoice-skip-expense', success: '.invoice-card-title' },
-    json: { prepare: shimai, selector: '#btn-export-json-shimai' },
+    json: { prepare: async p => { await shimai(p); await click(p,'#btn-settings'); }, selector: '#btn-export-json-shimai' },
     csv: { prepare: shimai, selector: '#btn-export-csv-monthly-shimai' },
   };
   for (const [name, action] of Object.entries(actions)) {
@@ -146,7 +146,8 @@ async function inject(page, mode) {
     await page.locator('#return-complete-modal:not([hidden])').waitFor(); await click(page,'#btn-return-to-shimai');
     await click(page,'[data-tab="home"]'); await click(page,'#btn-shimai-invoice'); await click(page,'#btn-invoice-skip-expense');
     await page.locator('.invoice-card-title').waitFor();
-    for (const selector of ['#btn-export-json-shimai','#btn-export-csv-monthly-shimai']) {
+    for (const selector of ['#btn-export-csv-monthly-shimai','#btn-export-json-shimai']) {
+      if (selector.includes('json')) await click(page,'#btn-settings'); // 全部の持ち出しは設定の中
       const download=page.waitForEvent('download'); await click(page,selector); const d=await download;
       const content=await fs.readFile(await d.path(),'utf8');
       assert.ok(content.includes(selector.includes('json') ? '"future"' : '労務費'));
@@ -203,11 +204,11 @@ async function inject(page, mode) {
       assert.equal(await page.locator(`[data-tab="${tab}"].active`).count(),1);
     }
     assert.deepEqual(await stats(page),before);
-    await click(page,'[data-tab="home"]');assert.equal(await page.locator('#setting-show-shisetsu').isChecked(),true);
+    await click(page,'[data-tab="home"]');await click(page,'#btn-settings');assert.equal(await page.locator('#setting-show-shisetsu').isChecked(),true);
     await page.locator('#setting-show-shisetsu').uncheck();assert.deepEqual(await visible(),['現場','仕舞い','調査','ホーム']);
     await page.reload();await ready(page);
     assert.deepEqual(await visible(),['現場','仕舞い','調査','ホーム'],'putting it away is remembered');
-    await click(page,'[data-tab="home"]');await page.locator('#setting-show-shisetsu').check();
+    await click(page,'[data-tab="home"]');await click(page,'#btn-settings');await page.locator('#setting-show-shisetsu').check();
     assert.deepEqual(await visible(),['施設','現場','仕舞い','調査','ホーム']);
     await page.reload();await ready(page);assert.deepEqual(await visible(),['施設','現場','仕舞い','調査','ホーム']);
     assert.equal((await stats(page)).raw,before.raw);assert.deepEqual(page.errors,[]);await context.close();
@@ -321,7 +322,7 @@ async function inject(page, mode) {
     await click(page,'#homescreen-later');assert.equal(await page.locator('#homescreen-guide').count(),0);
     assert.equal(await page.evaluate(()=>localStorage.getItem('senlings_homescreen_later')),'1');
     await page.reload();await page.locator('.site-empty').waitFor();assert.equal(await page.locator('#homescreen-guide').count(),0,'not nagged');
-    await click(page,'[data-tab="home"]');assert.equal(await page.locator('#btn-homescreen').isVisible(),true);
+    await click(page,'[data-tab="home"]');await click(page,'#btn-settings');assert.equal(await page.locator('#btn-homescreen').isVisible(),true);
     await click(page,'#btn-homescreen');await page.locator('#homescreen-guide[open]').waitFor();
     assert.equal((await stats(page)).writes,0);assert.deepEqual(page.errors,[]);await context.close();
   });
@@ -340,7 +341,7 @@ async function inject(page, mode) {
   await run('homescreen: from the home screen itself, nothing is shown and the settings row is hidden', async () => {
     const {page,context}=await setup(JSON.stringify(fixture()),{ua:iosUA('26_0'),standalone:true});await ready(page);
     assert.equal(await page.locator('#homescreen-guide').count(),0);
-    await click(page,'[data-tab="home"]');assert.equal(await page.locator('#btn-homescreen').isVisible(),false);
+    await click(page,'[data-tab="home"]');await click(page,'#btn-settings');assert.equal(await page.locator('#btn-homescreen').isVisible(),false);
     assert.deepEqual(page.errors,[]);await context.close();
   });
   // 見やすさ(10-25):▲ホームで選ぶ。この端末だけの好みで、記録(senlings_v0)には書かない
@@ -349,7 +350,7 @@ async function inject(page, mode) {
     const before=await stats(page);
     const size=sel=>page.locator(sel).first().evaluate(el=>parseFloat(getComputedStyle(el).fontSize));
     const base=await size('.site-slug');
-    await click(page,'[data-tab="home"]');assert.equal(await page.locator('#setting-mieru input[value=""]').isChecked(),true);
+    await click(page,'[data-tab="home"]');await click(page,'#btn-settings');assert.equal(await page.locator('#setting-mieru input[value=""]').isChecked(),true);
     for (const [v,min] of [['50',base+1],['70',base+3]]) {
       await page.locator(`#setting-mieru label:has(input[value="${v}"])`).click();
       assert.equal(await page.evaluate(()=>document.documentElement.dataset.mieru),v);
@@ -359,7 +360,7 @@ async function inject(page, mode) {
       for (const tab of ['genba','shimai','home','mitsumori','shisetsu']) {
         await click(page,`[data-tab="${tab}"]`);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${v} ${tab} fits`);
       }
-      await click(page,'[data-tab="home"]');assert.equal(await page.locator(`#setting-mieru input[value="${v}"]`).isChecked(),true);
+      await click(page,'[data-tab="home"]');await click(page,'#btn-settings');assert.equal(await page.locator(`#setting-mieru input[value="${v}"]`).isChecked(),true);
     }
     await page.locator('#setting-mieru label:has(input[value=""])').click();
     assert.equal(await page.evaluate(()=>document.documentElement.dataset.mieru),undefined);
@@ -378,7 +379,7 @@ async function inject(page, mode) {
   for (const width of [320,390]) {
     await run(`shell: five tabs fit at ${width}px without horizontal overflow`, async () => {
       const {page,context}=await setup();await page.setViewportSize({width,height:844});await ready(page);
-      await click(page,'[data-tab="home"]');await page.locator('#setting-show-shisetsu').check();
+      await click(page,'[data-tab="home"]');await click(page,'#btn-settings');await page.locator('#setting-show-shisetsu').check();
       for (const tab of ['shisetsu','genba','shimai','home','mitsumori']) {
         await click(page,`[data-tab="${tab}"]`);
         assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),tab);
@@ -388,7 +389,7 @@ async function inject(page, mode) {
     });
   }
   // ── 仲間:下書きまで。出すのは職人。報告しない ──
-  async function openFacility(page){await click(page,'[data-tab="home"]');await page.locator('#setting-show-shisetsu').check();await click(page,'[data-tab="shisetsu"]');}
+  async function openFacility(page){await click(page,'[data-tab="home"]');await click(page,'#btn-settings');await page.locator('#setting-show-shisetsu').check();await click(page,'[data-tab="shisetsu"]');}
   await run('nakama Pon: tickets received make the parking row; edit in place keeps the original; deduction on the invoice draft and the monthly CSV', async () => {
     const {page,context}=await setup();await ready(page);await openFacility(page);
     await click(page,'#btn-nakama-pon');await page.locator('#local-dialog[data-nakama="pon"]').waitFor();
@@ -441,7 +442,7 @@ async function inject(page, mode) {
     const {page,context}=await setup();await ready(page);await openFacility(page);
     await click(page,'#btn-nakama-hoo');assert.match(await page.locator('#local-dialog').innerText(),/職種がまだありません[\s\S]*▲ホームの設定で選びます/);
     await page.locator('#local-dialog .local-close').click();
-    await click(page,'[data-tab="home"]');await page.locator('#setting-trades [data-trade="denki"]').check();
+    await click(page,'[data-tab="home"]');await click(page,'#btn-settings');await page.locator('#setting-trades [data-trade="denki"]').check();
     await page.locator('#setting-trades-status').filter({hasText:'残しました'}).waitFor();
     await click(page,'[data-tab="shisetsu"]');await click(page,'#btn-nakama-hoo');
     assert.match(await page.locator('#local-dialog').innerText(),/職種：電気/);

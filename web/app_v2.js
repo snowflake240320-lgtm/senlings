@@ -770,6 +770,9 @@ function renderHome() {
 
 const GENBA_SCREENS = new Set(['screen-site-top', 'screen-handover', 'screen-working', 'screen-rest', 'screen-sos', 'screen-return']);
 const TAB_SCREENS = { shisetsu: 'screen-shisetsu', shimai: 'screen-shimai', home: 'screen-home', mitsumori: 'screen-mitsumori' };
+// 設定はホームの中の一枚。開いていても、タブは▲ホームのまま
+document.getElementById('btn-settings').onclick = () => { renderHome(); showScreen('screen-settings'); };
+document.getElementById('btn-back-settings').onclick = () => { renderHome(); showScreen('screen-home'); };
 let genbaScreen = 'screen-site-top';
 
 function activeScreenId() {
@@ -886,7 +889,7 @@ document.getElementById('btn-add-site-save')?.addEventListener('click', () => {
 window.addEventListener('senlings-storage-ready', () => {
   if (document.getElementById('screen-site-top').classList.contains('active')) renderSiteTop();
   if (document.getElementById('screen-shimai').classList.contains('active')) renderShimai();
-  if (document.getElementById('screen-home').classList.contains('active')) renderHome();
+  if (document.getElementById('screen-home').classList.contains('active') || document.getElementById('screen-settings').classList.contains('active')) renderHome();
 });
 
 document.getElementById('btn-receive-property').onclick = () => receiveProject(renderSiteTop);

@@ -1446,6 +1446,14 @@
     .setting-mieru label:has(input:focus-visible) { outline: 2px solid #c5a059; outline-offset: 2px; }
     .mieru-sample { color: #e8e5df; line-height: 1.2; }
     .mieru-sample--0 { font-size: 15px; } .mieru-sample--50 { font-size: 18px; } .mieru-sample--70 { font-size: 22px; font-weight: 600; }
+      /* ── ホームの設定(10-25) ── */
+    .home-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .home-settings-btn { display: flex; flex-direction: column; align-items: center; gap: 2px; background: none; border: 1px solid #2a2a24; border-radius: 10px; color: #c0bcb4; font: inherit; font-size: 11px; padding: 8px 10px; cursor: pointer; flex-shrink: 0; }
+    .home-settings-btn svg { width: 22px; height: 22px; }
+    .home-settings-btn:active { background: #1c1c18; }
+    html[data-mieru="50"] .home-settings-btn { font-size: 13px; }
+    html[data-mieru="70"] .home-settings-btn { font-size: 14px; color: #dedad2; }
+    html[data-mieru="70"] .home-settings-btn svg { width: 26px; height: 26px; }
   </style>
 </head>
 <body>
@@ -1790,14 +1798,21 @@
   <div id="screen-home" class="screen">
     <div style="display:flex; flex-direction:column; height:calc(100dvh - 60px); overflow-y:auto;">
 
-      <div class="shimai-header">
-        <div class="shimai-header-label">SENLINGS</div>
-        <div class="shimai-header-title">ホーム</div>
-        <div class="shimai-header-sub">前の晩と、月の終わりに。</div>
+      <div class="shimai-header home-header">
+        <div>
+          <div class="shimai-header-label">SENLINGS</div>
+          <div class="shimai-header-title">ホーム</div>
+          <div class="shimai-header-sub">前の晩と、月の終わりに。</div>
+        </div>
+        <button class="home-settings-btn" id="btn-settings" type="button" aria-label="設定">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Zm8.3 4.6-.1-1.1 1.7-1.4-1.8-3.1-2.1.7a7.7 7.7 0 0 0-1.9-1.1L15.7 4h-3.6l-.4 2.1c-.7.3-1.3.6-1.9 1.1l-2.1-.7-1.8 3.1 1.7 1.4a7.6 7.6 0 0 0 0 2.2l-1.7 1.4 1.8 3.1 2.1-.7c.6.5 1.2.8 1.9 1.1l.4 2.1h3.6l.4-2.1c.7-.3 1.3-.6 1.9-1.1l2.1.7 1.8-3.1-1.7-1.4Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+          <span>設定</span>
+        </button>
       </div>
 
+      <!-- 前の晩 -->
       <div class="shimai-section">
-        <p class="shimai-section-label">準備</p>
+        <p class="shimai-section-label">前の晩</p>
         <ul class="later-list junbi" id="junbi" hidden>
           <li>
             <label class="junbi-row" for="junbi-project">
@@ -1816,9 +1831,9 @@
         </button>
       </div>
 
-      <!-- 請求書のたたき台 -->
+      <!-- 月の終わり -->
       <div class="shimai-section" style="margin-top:20px;">
-        <p class="shimai-section-label">請求書のたたき台</p>
+        <p class="shimai-section-label">月の終わり</p>
         <button class="shimai-action-btn" id="btn-shimai-invoice">
           <span>今月の請求書を作る</span>
           <span class="shimai-action-arrow">›</span>
@@ -1831,44 +1846,37 @@
             <span class="shimai-action-arrow">›</span>
           </button>
         </div>
+        <button class="shimai-action-btn" id="btn-export-csv-monthly-shimai" style="margin-top:8px;">
+          <span>会計ソフトへ渡す(今月の CSV)</span>
+          <span class="shimai-action-arrow">›</span>
+        </button>
       </div>
 
-      <!-- データをエクスポートする -->
-      <div class="shimai-section" style="margin-top:20px;">
-        <p class="shimai-section-label">データをエクスポートする</p>
-        <p class="later-note" style="margin:0 0 10px;">
-          このデータはあなたのものです。いつでも持ち出せます。
-        </p>
-        <div style="display:flex; flex-direction:column; gap:8px;">
-          <button class="shimai-action-btn" id="btn-export-json-shimai">
-            <span>JSON（全データ）をダウンロード</span>
-            <span class="shimai-action-arrow">›</span>
-          </button>
-          <div style="display:flex; gap:8px;">
-            <button class="shimai-action-btn" id="btn-export-csv-monthly-shimai"
-              style="flex:1; justify-content:center;">
-              CSV（月次）
-            </button>
-            <button class="shimai-action-btn" id="btn-export-csv-project-shimai"
-              style="flex:1; justify-content:center;">
-              CSV（工事）
-            </button>
-          </div>
-        </div>
+      <div class="shimai-section" style="margin-top:20px; padding-bottom:24px;">
+        <p class="shimai-section-label">これから</p>
+        <ul class="later-list">
+          <li>家の住所<span>この端末から出さない</span></li>
+          <li>頼れる人</li>
+          <li>青色申告<span>月に一回、取り込みファイルで</span></li>
+          <li>そなえ<span>AED・消火器・服に火がついたとき</span></li>
+          <li>一年のアルバム</li>
+        </ul>
       </div>
 
-      <!-- 設定 -->
-      <div class="shimai-section" style="margin-top:20px;">
-        <p class="shimai-section-label">設定</p>
+    </div>
+  </div>
+
+  <!-- ── ▲ホームの設定(ホームの中の一枚。タブは▲ホームのまま) ── -->
+  <div id="screen-settings" class="screen">
+    <div style="display:flex; flex-direction:column; height:calc(100dvh - 60px); overflow-y:auto;">
+      <div class="screen-header">
+        <button class="back-btn" id="btn-back-settings" aria-label="ホームへ戻る">‹</button>
+        <span class="screen-title">設定</span>
+      </div>
+
+      <div class="shimai-section" style="margin-top:12px;">
+        <p class="shimai-section-label">見え方</p>
         <div style="display:flex; flex-direction:column; gap:8px;">
-          <button class="shimai-action-btn" id="btn-shimai-settings">
-            <span>名前・単価・税率</span>
-            <span class="shimai-action-arrow">›</span>
-          </button>
-          <button class="shimai-action-btn" id="btn-homescreen" hidden>
-            <span>ホーム画面に置く</span>
-            <span class="shimai-action-arrow">›</span>
-          </button>
           <fieldset class="setting-mieru" id="setting-mieru">
             <legend>見やすさ・字の大きさ</legend>
             <label><input type="radio" name="mieru" value=""><span class="mieru-sample mieru-sample--0">Aa あ</span><span>ふつう</span></label>
@@ -1879,6 +1887,20 @@
             <span>施設のタブを出す</span>
             <input type="checkbox" id="setting-show-shisetsu">
           </label>
+          <button class="shimai-action-btn" id="btn-homescreen" hidden>
+            <span>ホーム画面に置く</span>
+            <span class="shimai-action-arrow">›</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="shimai-section" style="margin-top:20px;">
+        <p class="shimai-section-label">あなたのこと</p>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <button class="shimai-action-btn" id="btn-shimai-settings">
+            <span>名前・単価・税率</span>
+            <span class="shimai-action-arrow">›</span>
+          </button>
           <fieldset class="setting-trades" id="setting-trades">
             <legend>職種（いくつでも）</legend>
           </fieldset>
@@ -1887,17 +1909,19 @@
       </div>
 
       <div class="shimai-section" style="margin-top:20px; padding-bottom:24px;">
-        <p class="shimai-section-label">これから</p>
-        <ul class="later-list">
-          <li>家の住所<span>この端末から出さない</span></li>
-          <li>応援を呼ぶ</li>
-          <li>頼れる人</li>
-          <li>青色申告<span>月に一回、取り込みファイルで</span></li>
-          <li>そなえ<span>AED・消火器・服に火がついたとき</span></li>
-          <li>一年のアルバム</li>
-        </ul>
+        <p class="shimai-section-label">持ち出す</p>
+        <p class="later-note" style="margin:0 0 10px;">このデータはあなたのものです。いつでも持ち出せます。</p>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <button class="shimai-action-btn" id="btn-export-json-shimai">
+            <span>全部(JSON)</span>
+            <span class="shimai-action-arrow">›</span>
+          </button>
+          <button class="shimai-action-btn" id="btn-export-csv-project-shimai">
+            <span>工事ごと(CSV)</span>
+            <span class="shimai-action-arrow">›</span>
+          </button>
+        </div>
       </div>
-
     </div>
   </div>
 
