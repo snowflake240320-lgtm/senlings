@@ -2,7 +2,7 @@ import { load } from './storage.js';
 import { TRANSFER_FIELDS, makeTransfer, inspectTransfer, acceptTransfer } from './projectTransfer.js';
 import { findEnvelope, envelopeToTransfer, envelopeText, makeEnvelope, dayLabel, KINDS } from './envelope.js';
 import { placeTeiji, teijiOn, setProjectTeiji, teijiOf } from './work.js';
-import { openRequestDialog, siteFromProject, appLink } from './requestUI.js';
+import { openRequestDialog, siteFromProject, appLink, generalRules } from './requestUI.js';
 import { saveLocalRecord, contactPhone, SOS_LABELS } from './localRecords.js';
 import { savePhotoMeta, buildPhotoFilename } from './photo.js';
 import { SETTINGS_KEYS, getAllSettings, saveSettingsFromForm, getSetting } from './settings.js';
@@ -145,6 +145,7 @@ export function receiveProject(onSaved) {
     });
     pick('受けない', '見送ると返す(何も残さない)', 'decline', () =>
       reply('受けない', `${to}${day}${env.site.name} の件、ありがとうございます。今回は見送らせてください。また声をかけてもらえると嬉しいです。`, 'decline'));
+    choices.append(generalRules());
   }
   // その日に置くかは、受けた人が決める(押したときだけ)
   function offerDay(projectId, date, { keep = false } = {}) {

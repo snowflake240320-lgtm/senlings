@@ -278,6 +278,7 @@ async function inject(page, mode) {
     await receive(other.page,`[LINE]\n${text}\n既読`);
     assert.match(await other.page.locator('#handoff-preview').innerText(),/応援のお願い\(架空の職人より\)/);
     assert.equal(await other.page.locator('#handoff-accept').isHidden(),true,'an envelope asks what to do');assert.equal(await other.page.locator('.request-choice').count(),5);
+    await other.page.locator('#handoff-choices .mayottara summary').click();assert.match(await other.page.locator('#handoff-choices .mayottara').innerText(),/越えて/,'迷ったら、一般論');
     assert.equal(JSON.parse((await stats(other.page)).raw ?? 'null'),null,'nothing is kept before choosing');
     await click(other.page,'#choice-self');await other.page.locator('#handoff-place-day').waitFor();
     // 受けたら、依頼した人へのあいさつの下書き(送るのは本人。Senlings は残さない)
@@ -343,6 +344,7 @@ async function inject(page, mode) {
     assert.equal(await page.evaluate(()=>localStorage.getItem('senlings_irai_from')),'藤田建装 園原');
     assert.equal(await page.evaluate(()=>localStorage.getItem('senlings_v0')),null,'the page keeps no records');
     assert.match(await page.locator('.rule').innerText(),/契約している相手まで/,'the page says who to send to');
+    await page.locator('.mayottara summary').click();assert.match(await page.locator('.mayottara').innerText(),/偽装請負/);
     const w=await page.evaluate(()=>[document.documentElement.scrollWidth,innerWidth,[...document.querySelectorAll('*')].filter(e=>e.getBoundingClientRect().right>innerWidth+1).map(e=>e.tagName+'.'+e.className).slice(0,5)]);assert.ok(w[0]<=w[1],JSON.stringify(w));assert.deepEqual(page.errors,[]);await context.close();
   });
   // ホーム画面に置く(10-25):入口は LINE、家はホーム画面。案内は一回だけ、催促しない、記録には触れない

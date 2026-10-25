@@ -9,6 +9,24 @@ function localDate(ts) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+// 迷ったら、一般論(10-25 船長)。個別の判断ではない。決めるのは当人で、迷いが大きいときは専門家へ
+export const GENERAL_RULES = Object.freeze([
+  ['頼むのは、自分に頼んだ人と、自分が頼む人のあいだだけ', '仕事の依頼は一段ずつ。間の人を越えて、その先の人へ直接頼まない。返事やあいさつも、自分に頼んでくれた人へ。'],
+  ['やり方・時間・配置の指示は、雇っている会社から', '請負では、作業の指示を出すのは請け負った会社。元請けが下の職人へ直接指示すると、偽装請負になり得る(職業安定法44条)。建設の仕事は派遣も禁止(労働者派遣法4条)。'],
+  ['安全と連絡調整は、別', '駐車・搬入・停電・朝礼・危ない場所などのお知らせは、現場のみんなに向けてよい(元方事業者の安全の役目)。'],
+  ['一人親方を、雇い人のように扱わない', '時間ややり方を細かく管理すると、請負ではなく雇用と見られる方向に寄る。'],
+  ['単価や請求は、契約の相手とだけ', '自分の単価・請求・勤怠は、依頼の文に乗せない。Senlings も乗せない。'],
+]);
+
+export function generalRules(lead = '迷ったら(一般論)') {
+  const d = $('details', '', { className: 'mayottara' });
+  d.append($('summary', lead));
+  const ul = $('ul');
+  for (const [head, body] of GENERAL_RULES) { const li = $('li'); li.append($('strong', head), $('span', body)); ul.append(li); }
+  d.append(ul, $('p', '一般論です。個別の判断は、契約の相手と決めてください。迷いが大きいときは、専門家(社労士・弁護士)へ。', { className: 'mayottara-note' }));
+  return d;
+}
+
 export function appLink(loc = typeof location === 'undefined' ? null : location) {
   return loc ? `${loc.origin}/?openExternalBrowser=1` : '';
 }
@@ -57,7 +75,7 @@ export function renderComposer(container, { kind, from = '', site = {}, workDate
   const make = $('button', '文を見る', { type: 'button', className: 'local-action', id: 'req-make' });
   const share = $('button', 'LINE などで送る', { type: 'button', className: 'local-action request-send', id: 'req-share', hidden: true });
   const copy = $('button', 'コピーする', { type: 'button', className: 'local-action', id: 'req-copy', hidden: true });
-  container.append(make, preview, share, copy, msg);
+  container.append(make, preview, share, copy, msg, generalRules());
 
   let text = '';
   const reset = () => { text = ''; preview.hidden = true; share.hidden = true; copy.hidden = true; msg.textContent = ''; };

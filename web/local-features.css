@@ -69,3 +69,14 @@ a.local-action { display: block; text-align: center; text-decoration: none; box-
 .request-choice:active { border-color: #c5a059; }
 .local-action[hidden] { display: none; }
 .reply-text { min-height: 120px; }
+
+/* 迷ったら(一般論)。10-25 */
+.mayottara { margin-top: 16px; border-top: 1px solid #2a2a24; padding-top: 6px; }
+.mayottara summary { cursor: pointer; padding: 10px 0; color: #c5a059; font-size: 14px; }
+.mayottara ul { list-style: none; margin: 4px 0 0; padding: 0; }
+.mayottara li { margin: 0 0 12px; }
+.mayottara li strong { display: block; color: #e8e5df; font-weight: 500; font-size: 14px; margin-bottom: 2px; }
+.mayottara li span { display: block; color: #c4c1b9; font-size: 13px; line-height: 1.7; }
+.mayottara-note { color: #8a8780 !important; font-size: 12px !important; }
+html[data-mieru="70"] .mayottara li strong { font-size: 16px; }
+html[data-mieru="70"] .mayottara li span { font-size: 15px; color: #dedad2; }
