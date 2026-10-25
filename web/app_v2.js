@@ -777,14 +777,15 @@ document.querySelectorAll('.tab').forEach(tab => {
 // ── ● 施設のタブの出し入れ(殻のあいだは、この端末の中の試しの設定) ──
 const SHOW_SHISETSU_KEY = 'senlings_shell_show_shisetsu';
 
+// 施設のタブは、はじめから出す(10-25 船長)。しまったときだけ覚えておく。
 function readShowShisetsu() {
-  try { return localStorage.getItem(SHOW_SHISETSU_KEY) === '1'; } catch { return false; }
+  try { return localStorage.getItem(SHOW_SHISETSU_KEY) !== '0'; } catch { return true; }
 }
 
 function writeShowShisetsu(on) {
   try {
-    if (on) localStorage.setItem(SHOW_SHISETSU_KEY, '1');
-    else localStorage.removeItem(SHOW_SHISETSU_KEY);
+    if (on) localStorage.removeItem(SHOW_SHISETSU_KEY);
+    else localStorage.setItem(SHOW_SHISETSU_KEY, '0');
   } catch { /* 保存できなくても、この画面の間は出し入れできる */ }
 }
 

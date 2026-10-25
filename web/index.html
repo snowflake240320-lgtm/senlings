@@ -1706,7 +1706,7 @@
             <span class="shimai-action-arrow">›</span>
           </button>
           <label class="setting-row" for="setting-show-shisetsu">
-            <span>施設のタブを出す（試し）</span>
+            <span>施設のタブを出す</span>
             <input type="checkbox" id="setting-show-shisetsu">
           </label>
           <fieldset class="setting-trades" id="setting-trades">
@@ -1754,7 +1754,7 @@
 
   <!-- ── 下部タブバー(●施設 → ■現場 → ◆仕舞 → ▲ホーム → 見積) ── -->
   <nav class="tab-bar">
-    <button class="tab" data-tab="shisetsu" hidden>
+    <button class="tab" data-tab="shisetsu">
       <svg class="tab-icon-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <circle cx="12" cy="12" r="8" fill="currentColor"/>
       </svg>
@@ -1762,7 +1762,7 @@
     </button>
     <button class="tab active" data-tab="genba">
       <svg class="tab-icon-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path d="M2 20 L12 4 L22 20 Z" fill="currentColor"/>
+        <rect x="5" y="5" width="14" height="14" fill="currentColor"/>
       </svg>
       <span class="tab-label">現場</span>
     </button>
@@ -1774,7 +1774,7 @@
     </button>
     <button class="tab" data-tab="home">
       <svg class="tab-icon-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path d="M3 11 L12 3 L21 11 V21 H3 Z" fill="currentColor"/>
+        <path d="M2 20 L12 4 L22 20 Z" fill="currentColor"/>
       </svg>
       <span class="tab-label">ホーム</span>
     </button>

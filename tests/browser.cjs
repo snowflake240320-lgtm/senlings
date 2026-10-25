@@ -192,24 +192,23 @@ async function inject(page, mode) {
     assert.equal(await page.locator('.invoice-card-title').count(),0);await context.close();
   });
   // ── 維新の殻:●施設 → ■現場 → ◆仕舞 → ▲ホーム → 見積 ──
-  await run('shell tabs: order, facility hidden until chosen, no write on tab moves', async () => {
+  await run('shell tabs: order, facility shown from the start, can be put away, no write on tab moves', async () => {
     const {page,context}=await setup();await ready(page);
     const visible=async()=>page.locator('.tab:visible .tab-label').allInnerTexts();
-    assert.deepEqual(await visible(),['現場','仕舞い','ホーム','見積']);
+    assert.deepEqual(await visible(),['施設','現場','仕舞い','ホーム','見積']);
     const before=await stats(page);
-    for (const [tab,screen] of [['shimai','#screen-shimai'],['home','#screen-home'],['mitsumori','#screen-mitsumori'],['genba','#screen-site-top']]) {
+    for (const [tab,screen] of [['shisetsu','#screen-shisetsu'],['shimai','#screen-shimai'],['home','#screen-home'],['mitsumori','#screen-mitsumori'],['genba','#screen-site-top']]) {
       await click(page,`[data-tab="${tab}"]`);await page.locator(`${screen}.active`).waitFor();
       assert.equal(await page.locator(`[data-tab="${tab}"].active`).count(),1);
     }
     assert.deepEqual(await stats(page),before);
-    await click(page,'[data-tab="home"]');await page.locator('#setting-show-shisetsu').check();
-    assert.deepEqual(await visible(),['施設','現場','仕舞い','ホーム','見積']);
-    await click(page,'[data-tab="shisetsu"]');await page.locator('#screen-shisetsu.active').waitFor();
-    assert.equal(JSON.parse((await stats(page)).raw).settings,JSON.parse(before.raw).settings);
-    await page.reload();await ready(page);
-    assert.deepEqual(await visible(),['施設','現場','仕舞い','ホーム','見積']);
     await click(page,'[data-tab="home"]');assert.equal(await page.locator('#setting-show-shisetsu').isChecked(),true);
     await page.locator('#setting-show-shisetsu').uncheck();assert.deepEqual(await visible(),['現場','仕舞い','ホーム','見積']);
+    await page.reload();await ready(page);
+    assert.deepEqual(await visible(),['現場','仕舞い','ホーム','見積'],'putting it away is remembered');
+    await click(page,'[data-tab="home"]');await page.locator('#setting-show-shisetsu').check();
+    assert.deepEqual(await visible(),['施設','現場','仕舞い','ホーム','見積']);
+    await page.reload();await ready(page);assert.deepEqual(await visible(),['施設','現場','仕舞い','ホーム','見積']);
     assert.equal((await stats(page)).raw,before.raw);assert.deepEqual(page.errors,[]);await context.close();
   });
   await run('shell: Shimai while working, back to the same working screen; no confirm modal', async () => {
