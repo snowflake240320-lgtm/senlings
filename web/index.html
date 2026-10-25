@@ -6,7 +6,10 @@
   <title>Senlings</title>
   <script>
     // 見やすさ(▲ホームの設定)。この端末だけの好み。描く前に当てて、ちらつかせない
-    try { var m = localStorage.getItem('senlings_mieru'); if (m === '50' || m === '70') document.documentElement.dataset.mieru = m; } catch (e) {}
+    // はじめは「いちばん大きく」(10-25 船長)。ふつうを選んだら '0' を覚える
+    var m = '70';
+    try { var v = localStorage.getItem('senlings_mieru'); if (v === '0' || v === '50' || v === '70') m = v; } catch (e) {}
+    if (m !== '0') document.documentElement.dataset.mieru = m;
   </script>
   <link rel="stylesheet" href="local-features.css">
   <link rel="manifest" href="manifest.json">

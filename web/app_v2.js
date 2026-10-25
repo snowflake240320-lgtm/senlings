@@ -828,11 +828,12 @@ function applyShisetsuTab() {
 
 // ── 見やすさ(ふつう/大きめ=50代向け/いちばん大きく=70代向け)。この端末の中の好み ──
 const MIERU_KEY = 'senlings_mieru';
+// はじめは「いちばん大きく」(10-25 船長)。ふつうを選んだら '0' を覚える
 function readMieru() {
-  try { const v = localStorage.getItem(MIERU_KEY); return v === '50' || v === '70' ? v : ''; } catch { return ''; }
+  try { const v = localStorage.getItem(MIERU_KEY); return v === '0' ? '' : v === '50' ? '50' : '70'; } catch { return '70'; }
 }
 function writeMieru(v) {
-  try { if (v) localStorage.setItem(MIERU_KEY, v); else localStorage.removeItem(MIERU_KEY); } catch { /* 保存できなくても、この画面の間は効く */ }
+  try { localStorage.setItem(MIERU_KEY, v || '0'); } catch { /* 保存できなくても、この画面の間は効く */ }
 }
 function applyMieru(v) {
   if (v) document.documentElement.dataset.mieru = v; else delete document.documentElement.dataset.mieru;

@@ -345,13 +345,20 @@ async function inject(page, mode) {
     assert.deepEqual(page.errors,[]);await context.close();
   });
   // 見やすさ(10-25):▲ホームで選ぶ。この端末だけの好みで、記録(senlings_v0)には書かない
-  await run('mieru: choose readability in Home, remembered on reload, no record write, fits at 320px', async () => {
+  await run('mieru: いちばん大きく by default; choose in Settings, remembered on reload, no record write, fits at 320px', async () => {
     const {page,context}=await setup();await page.setViewportSize({width:320,height:844});await ready(page);
     const before=await stats(page);
     const size=sel=>page.locator(sel).first().evaluate(el=>parseFloat(getComputedStyle(el).fontSize));
-    const base=await size('.site-slug');
-    await click(page,'[data-tab="home"]');await click(page,'#btn-settings');assert.equal(await page.locator('#setting-mieru input[value=""]').isChecked(),true);
+    assert.equal(await page.evaluate(()=>document.documentElement.dataset.mieru),'70','the default is the easiest to read');
+    const big=await size('.site-slug');
+    await click(page,'[data-tab="home"]');await click(page,'#btn-settings');assert.equal(await page.locator('#setting-mieru input[value="70"]').isChecked(),true);
+    await page.locator('#setting-mieru label:has(input[value=""])').click();
+    assert.equal(await page.evaluate(()=>document.documentElement.dataset.mieru),undefined);
+    await page.reload();await ready(page);
+    assert.equal(await page.evaluate(()=>document.documentElement.dataset.mieru),undefined,'ふつう is remembered');
+    const base=await size('.site-slug');assert.ok(big>=base+3);
     for (const [v,min] of [['50',base+1],['70',base+3]]) {
+      await click(page,'[data-tab="home"]');await click(page,'#btn-settings');
       await page.locator(`#setting-mieru label:has(input[value="${v}"])`).click();
       assert.equal(await page.evaluate(()=>document.documentElement.dataset.mieru),v);
       await page.reload();await ready(page);
@@ -362,9 +369,6 @@ async function inject(page, mode) {
       }
       await click(page,'[data-tab="home"]');await click(page,'#btn-settings');assert.equal(await page.locator(`#setting-mieru input[value="${v}"]`).isChecked(),true);
     }
-    await page.locator('#setting-mieru label:has(input[value=""])').click();
-    assert.equal(await page.evaluate(()=>document.documentElement.dataset.mieru),undefined);
-    assert.equal(await size('.shimai-action-btn'),15);
     assert.deepEqual(await stats(page),before,'the record is not touched');assert.deepEqual(page.errors,[]);await context.close();
   });
   for (const width of [320,390]) await run(`teiji: working screen with overtime fits at ${width}px`, async () => {
