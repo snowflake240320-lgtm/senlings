@@ -614,6 +614,13 @@ function renderHome() {
     applyShisetsuTab();
   };
 
+  // 見やすさ・字の大きさ(この端末だけの好み。記録には入れない)
+  const mieru = readMieru();
+  document.querySelectorAll('#setting-mieru input[name=mieru]').forEach(r => {
+    r.checked = r.value === mieru;
+    r.onchange = () => { if (r.checked) { writeMieru(r.value); applyMieru(r.value); } };
+  });
+
   // 職種はここで選ぶ(ホー・ケロ・今日の現場の人で使う)
   const tradeBox = document.getElementById('setting-trades');
   const tradeStatus = document.getElementById('setting-trades-status');
@@ -794,6 +801,18 @@ function applyShisetsuTab() {
   const on = document.getElementById('setting-show-shisetsu')?.checked ?? readShowShisetsu();
   tab.hidden = !on;
   if (!on && activeScreenId() === 'screen-shisetsu') openTab('genba');
+}
+
+// ── 見やすさ(ふつう/大きめ=50代向け/いちばん大きく=70代向け)。この端末の中の好み ──
+const MIERU_KEY = 'senlings_mieru';
+function readMieru() {
+  try { const v = localStorage.getItem(MIERU_KEY); return v === '50' || v === '70' ? v : ''; } catch { return ''; }
+}
+function writeMieru(v) {
+  try { if (v) localStorage.setItem(MIERU_KEY, v); else localStorage.removeItem(MIERU_KEY); } catch { /* 保存できなくても、この画面の間は効く */ }
+}
+function applyMieru(v) {
+  if (v) document.documentElement.dataset.mieru = v; else delete document.documentElement.dataset.mieru;
 }
 
 // ── 現場追加 ──────────────────────────────────────────────

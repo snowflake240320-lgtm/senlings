@@ -255,6 +255,29 @@ async function inject(page, mode) {
     assert.match(await page.locator('#invoice-zangyo-row').innerText(),/1時間\(3,906円\)/);
     assert.deepEqual(page.errors,[]);await context.close();
   });
+  // 見やすさ(10-25):▲ホームで選ぶ。この端末だけの好みで、記録(senlings_v0)には書かない
+  await run('mieru: choose readability in Home, remembered on reload, no record write, fits at 320px', async () => {
+    const {page,context}=await setup();await page.setViewportSize({width:320,height:844});await ready(page);
+    const before=await stats(page);
+    const size=sel=>page.locator(sel).first().evaluate(el=>parseFloat(getComputedStyle(el).fontSize));
+    const base=await size('.site-slug');
+    await click(page,'[data-tab="home"]');assert.equal(await page.locator('#setting-mieru input[value=""]').isChecked(),true);
+    for (const [v,min] of [['50',base+1],['70',base+3]]) {
+      await page.locator(`#setting-mieru label:has(input[value="${v}"])`).click();
+      assert.equal(await page.evaluate(()=>document.documentElement.dataset.mieru),v);
+      await page.reload();await ready(page);
+      assert.equal(await page.evaluate(()=>document.documentElement.dataset.mieru),v,'remembered on this device');
+      assert.ok(await size('.site-slug')>=min);
+      for (const tab of ['genba','shimai','home','mitsumori','shisetsu']) {
+        await click(page,`[data-tab="${tab}"]`);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${v} ${tab} fits`);
+      }
+      await click(page,'[data-tab="home"]');assert.equal(await page.locator(`#setting-mieru input[value="${v}"]`).isChecked(),true);
+    }
+    await page.locator('#setting-mieru label:has(input[value=""])').click();
+    assert.equal(await page.evaluate(()=>document.documentElement.dataset.mieru),undefined);
+    assert.equal(await size('.shimai-action-btn'),15);
+    assert.deepEqual(await stats(page),before,'the record is not touched');assert.deepEqual(page.errors,[]);await context.close();
+  });
   for (const width of [320,390]) await run(`teiji: working screen with overtime fits at ${width}px`, async () => {
     const data=fixture();data.work_sessions.push(endedTeiji());
     const {page,context}=await setup(JSON.stringify(data));await page.setViewportSize({width,height:844});

@@ -4,6 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Senlings</title>
+  <script>
+    // 見やすさ(▲ホームの設定)。この端末だけの好み。描く前に当てて、ちらつかせない
+    try { var m = localStorage.getItem('senlings_mieru'); if (m === '50' || m === '70') document.documentElement.dataset.mieru = m; } catch (e) {}
+  </script>
   <link rel="stylesheet" href="local-features.css">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="favicon.ico">
@@ -1311,6 +1315,131 @@
     .zangyo-said { font-size: 13px; color: #c8c4bc; }
     .zangyo-undo, .site-card-cancel-btn { color: #8a8780; }
     .tab .tab-label { color: #b8b4ac; }
+  
+    /* ── 見やすさ(10-25 船長)。▲ホームで選ぶ。ふつう=いまの形/大きめ=50代向け/いちばん大きく=70代向け ── */
+    html[data-mieru="50"], html[data-mieru="50"] body { font-size: 15px; }
+    html[data-mieru="70"], html[data-mieru="70"] body { font-size: 17px; }
+    html[data-mieru="50"] .site-top-eyebrow { font-size: 12px; }
+    html[data-mieru="70"] .site-top-eyebrow { font-size: 13px; }
+    html[data-mieru="50"] .site-top-heading { font-size: 22px; }
+    html[data-mieru="70"] .site-top-heading { font-size: 25px; }
+    html[data-mieru="50"] .site-slug { font-size: 21px; }
+    html[data-mieru="70"] .site-slug { font-size: 23px; }
+    html[data-mieru="50"] .site-address { font-size: 15px; }
+    html[data-mieru="70"] .site-address { font-size: 17px; }
+    html[data-mieru="50"] .site-checkin-time { font-size: 13px; }
+    html[data-mieru="70"] .site-checkin-time { font-size: 15px; }
+    html[data-mieru="50"] .site-fallback-label { font-size: 13px; }
+    html[data-mieru="70"] .site-fallback-label { font-size: 15px; }
+    html[data-mieru="50"] .site-fallback-link { font-size: 16px; }
+    html[data-mieru="70"] .site-fallback-link { font-size: 18px; }
+    html[data-mieru="50"] .screen-title { font-size: 17px; }
+    html[data-mieru="70"] .screen-title { font-size: 19px; }
+    html[data-mieru="50"] .screen-subtitle { font-size: 13px; }
+    html[data-mieru="70"] .screen-subtitle { font-size: 15px; }
+    html[data-mieru="50"] .handover-label { font-size: 17px; }
+    html[data-mieru="70"] .handover-label { font-size: 19px; }
+    html[data-mieru="50"] .handover-text { font-size: 16px; }
+    html[data-mieru="70"] .handover-text { font-size: 18px; }
+    html[data-mieru="50"] .checkin-btn { font-size: 17px; }
+    html[data-mieru="70"] .checkin-btn { font-size: 19px; }
+    html[data-mieru="50"] .working-checkin-time { font-size: 14px; }
+    html[data-mieru="70"] .working-checkin-time { font-size: 16px; }
+    html[data-mieru="50"] .btn-main-text { font-size: 18px; }
+    html[data-mieru="70"] .btn-main-text { font-size: 20px; }
+    html[data-mieru="50"] .btn-sub { font-size: 11px; }
+    html[data-mieru="70"] .btn-sub { font-size: 12px; }
+    html[data-mieru="50"] .later-list li { font-size: 15px; }
+    html[data-mieru="70"] .later-list li { font-size: 17px; }
+    html[data-mieru="50"] .later-list li span { font-size: 13px; }
+    html[data-mieru="70"] .later-list li span { font-size: 15px; }
+    html[data-mieru="50"] .later-note { font-size: 13px; }
+    html[data-mieru="70"] .later-note { font-size: 15px; }
+    html[data-mieru="50"] .setting-row, html[data-mieru="50"] .setting-trades, html[data-mieru="50"] .junbi-select { font-size: 15px; }
+    html[data-mieru="70"] .setting-row, html[data-mieru="70"] .setting-trades, html[data-mieru="70"] .junbi-select { font-size: 17px; }
+    html[data-mieru="50"] .setting-trades legend, html[data-mieru="50"] .setting-mieru legend { font-size: 13px; }
+    html[data-mieru="70"] .setting-trades legend, html[data-mieru="70"] .setting-mieru legend { font-size: 15px; }
+    html[data-mieru="50"] .shimai-header-label { font-size: 12px; }
+    html[data-mieru="70"] .shimai-header-label { font-size: 13px; }
+    html[data-mieru="50"] .shimai-header-title { font-size: 22px; }
+    html[data-mieru="70"] .shimai-header-title { font-size: 25px; }
+    html[data-mieru="50"] .shimai-header-sub { font-size: 13px; }
+    html[data-mieru="70"] .shimai-header-sub { font-size: 15px; }
+    html[data-mieru="50"] .shimai-section-label { font-size: 12px; }
+    html[data-mieru="70"] .shimai-section-label { font-size: 14px; }
+    html[data-mieru="50"] .shimai-action-btn { font-size: 16px; }
+    html[data-mieru="70"] .shimai-action-btn { font-size: 18px; }
+    html[data-mieru="50"] .today-record-name { font-size: 16px; }
+    html[data-mieru="70"] .today-record-name { font-size: 18px; }
+    html[data-mieru="50"] .today-record-empty { font-size: 14px; }
+    html[data-mieru="70"] .today-record-empty { font-size: 16px; }
+    html[data-mieru="50"] .invoice-card-row { font-size: 16px; }
+    html[data-mieru="70"] .invoice-card-row { font-size: 18px; }
+    html[data-mieru="50"] .invoice-card-label { font-size: 13px; }
+    html[data-mieru="70"] .invoice-card-label { font-size: 15px; }
+    html[data-mieru="50"] .invoice-card-title { font-size: 12px; }
+    html[data-mieru="70"] .invoice-card-title { font-size: 14px; }
+    html[data-mieru="50"] .tab .tab-label { font-size: 12px; }
+    html[data-mieru="70"] .tab .tab-label { font-size: 13px; }
+    html[data-mieru="50"] .sos-option { font-size: 16px; }
+    html[data-mieru="70"] .sos-option { font-size: 18px; }
+    html[data-mieru="50"] .sos-memo { font-size: 15px; }
+    html[data-mieru="70"] .sos-memo { font-size: 17px; }
+    html[data-mieru="50"] .sos-complete-sub { font-size: 14px; }
+    html[data-mieru="70"] .sos-complete-sub { font-size: 16px; }
+    html[data-mieru="50"] .return-section-label { font-size: 12px; }
+    html[data-mieru="70"] .return-section-label { font-size: 14px; }
+    html[data-mieru="50"] .mood-btn, html[data-mieru="50"] .category-btn { font-size: 15px; }
+    html[data-mieru="70"] .mood-btn, html[data-mieru="70"] .category-btn { font-size: 17px; }
+    html[data-mieru="50"] .return-memo { font-size: 15px; }
+    html[data-mieru="70"] .return-memo { font-size: 17px; }
+    html[data-mieru="50"] .site-card-resume-btn { font-size: 15px; }
+    html[data-mieru="70"] .site-card-resume-btn { font-size: 17px; }
+    html[data-mieru="50"] .site-card-cancel-btn { font-size: 13px; }
+    html[data-mieru="70"] .site-card-cancel-btn { font-size: 15px; }
+    html[data-mieru="50"] .zangyo-btn { font-size: 15px; }
+    html[data-mieru="70"] .zangyo-btn { font-size: 17px; }
+    html[data-mieru="50"] .zangyo-said { font-size: 14px; }
+    html[data-mieru="70"] .zangyo-said { font-size: 16px; }
+    html[data-mieru="50"] .zangyo-undo { font-size: 13px; }
+    html[data-mieru="70"] .zangyo-undo { font-size: 14px; }
+    html[data-mieru="50"] .teiji-form { font-size: 14px; }
+    html[data-mieru="70"] .teiji-form { font-size: 16px; }
+    html[data-mieru="50"] .nakama-btn { font-size: 15px; }
+    html[data-mieru="70"] .nakama-btn { font-size: 17px; }
+    html[data-mieru="50"] .nakama-btn span, html[data-mieru="50"] .nakama-rows li span { font-size: 12px; }
+    html[data-mieru="70"] .nakama-btn span, html[data-mieru="70"] .nakama-rows li span { font-size: 14px; }
+    html[data-mieru="50"] .nakama-rows li { font-size: 14px; }
+    html[data-mieru="70"] .nakama-rows li { font-size: 16px; }
+    html[data-mieru="50"] .nakama-mini { font-size: 12px; }
+    html[data-mieru="70"] .nakama-mini { font-size: 14px; }
+    html[data-mieru="50"] .local-dialog h2 { font-size: 20px; }
+    html[data-mieru="70"] .local-dialog h2 { font-size: 22px; }
+    html[data-mieru="50"] .local-dialog h3 { font-size: 15px; }
+    html[data-mieru="70"] .local-dialog h3 { font-size: 17px; }
+    html[data-mieru="50"] .local-dialog p, html[data-mieru="50"] .local-dialog label, html[data-mieru="50"] #sos-copy-text { font-size: 14px; }
+    html[data-mieru="70"] .local-dialog p, html[data-mieru="70"] .local-dialog label, html[data-mieru="70"] #sos-copy-text { font-size: 16px; }
+    /* 大きめ:説明の灰色を一段明るく */
+    html[data-mieru="50"] .later-list li, html[data-mieru="50"] .handover-text { color: #d6d2ca; }
+    html[data-mieru="50"] .later-list li span, html[data-mieru="50"] .later-note, html[data-mieru="50"] .invoice-card-label, html[data-mieru="50"] .site-fallback-label, html[data-mieru="50"] .shimai-section-label { color: #a8a49c; }
+    /* いちばん大きく:字を太く、灰色をさらに明るく、押すところを広く */
+    html[data-mieru="70"] .site-slug, html[data-mieru="70"] .screen-title, html[data-mieru="70"] .working-site-name { font-weight: 600; }
+    html[data-mieru="70"] .site-top-heading, html[data-mieru="70"] .shimai-header-title, html[data-mieru="70"] .site-fallback-link, html[data-mieru="70"] .handover-label, html[data-mieru="70"] .shimai-action-btn, html[data-mieru="70"] .later-list li { font-weight: 500; }
+    html[data-mieru="70"] .site-address, html[data-mieru="70"] .later-list li, html[data-mieru="70"] .handover-text, html[data-mieru="70"] .working-checkin-time, html[data-mieru="70"] .zangyo-said { color: #ece9e2; }
+    html[data-mieru="70"] .later-list li span, html[data-mieru="70"] .later-note, html[data-mieru="70"] .invoice-card-label, html[data-mieru="70"] .invoice-card-title, html[data-mieru="70"] .site-fallback-label, html[data-mieru="70"] .shimai-section-label, html[data-mieru="70"] .shimai-header-sub, html[data-mieru="70"] .screen-subtitle, html[data-mieru="70"] .tab .tab-label, html[data-mieru="70"] .zangyo-undo, html[data-mieru="70"] .site-card-cancel-btn, html[data-mieru="70"] .btn-sub { color: #c8c4bc; }
+    html[data-mieru="70"] .tab.active .tab-label { color: #c5a059; }
+    html[data-mieru="70"] .site-fallback-link { padding: 16px 0; }
+    html[data-mieru="70"] .later-list li { padding: 15px 14px; line-height: 1.6; }
+    html[data-mieru="70"] .tab .tab-icon-svg { width: 24px; height: 24px; }
+    /* 選ぶ欄 */
+    .setting-mieru { border: 1px solid #1e1e1a; padding: 10px 14px 14px; display: flex; gap: 8px; flex-wrap: wrap; }
+    .setting-mieru legend { padding: 0 4px; font-size: 11px; color: #b0aca4; font-family: 'Noto Serif JP', serif; letter-spacing: 0.05em; }
+    .setting-mieru label { flex: 1 1 0; min-width: 84px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 6px; border: 1px solid #2a2a24; border-radius: 8px; color: #c0bcb4; font-size: 12px; cursor: pointer; text-align: center; }
+    .setting-mieru input { position: absolute; opacity: 0; pointer-events: none; }
+    .setting-mieru label:has(input:checked) { border-color: #c5a059; color: #c5a059; background: #1c1c18; }
+    .setting-mieru label:has(input:focus-visible) { outline: 2px solid #c5a059; outline-offset: 2px; }
+    .mieru-sample { color: #e8e5df; line-height: 1.2; }
+    .mieru-sample--0 { font-size: 15px; } .mieru-sample--50 { font-size: 18px; } .mieru-sample--70 { font-size: 22px; font-weight: 600; }
   </style>
 </head>
 <body>
@@ -1696,8 +1825,7 @@
       <!-- データをエクスポートする -->
       <div class="shimai-section" style="margin-top:20px;">
         <p class="shimai-section-label">データをエクスポートする</p>
-        <p style="font-size:11px; color:#555; font-family:'Noto Serif JP',serif;
-          margin-bottom:10px; letter-spacing:0.05em;">
+        <p class="later-note" style="margin:0 0 10px;">
           このデータはあなたのものです。いつでも持ち出せます。
         </p>
         <div style="display:flex; flex-direction:column; gap:8px;">
@@ -1726,6 +1854,12 @@
             <span>名前・単価・税率</span>
             <span class="shimai-action-arrow">›</span>
           </button>
+          <fieldset class="setting-mieru" id="setting-mieru">
+            <legend>見やすさ・字の大きさ</legend>
+            <label><input type="radio" name="mieru" value=""><span class="mieru-sample mieru-sample--0">Aa あ</span><span>ふつう</span></label>
+            <label><input type="radio" name="mieru" value="50"><span class="mieru-sample mieru-sample--50">Aa あ</span><span>大きめ</span></label>
+            <label><input type="radio" name="mieru" value="70"><span class="mieru-sample mieru-sample--70">Aa あ</span><span>いちばん大きく</span></label>
+          </fieldset>
           <label class="setting-row" for="setting-show-shisetsu">
             <span>施設のタブを出す</span>
             <input type="checkbox" id="setting-show-shisetsu">
