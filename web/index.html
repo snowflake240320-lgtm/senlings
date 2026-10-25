@@ -426,102 +426,104 @@
       background: #2a2210;
     }
 
-    /* ── 今日の現場と定時(2026-10-25) ── */
-    .site-card-today {
-      background: #1e1a10;
-      border-color: #c5a059;
-    }
-    .handover-teiji {
-      flex-shrink: 0;
-      padding: 10px 20px 0;
-    }
-    .handover-teiji-line {
-      font-size: 12px;
-      color: #a0a0a0;
-      font-family: 'Noto Serif JP', serif;
-      letter-spacing: 0.06em;
-    }
+    /* ── 今日の現場と定時(2026-10-25)。前からある部品の形に合わせる ── */
+    .handover-teiji:empty { display: none; }
     .teiji-form {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: 6px;
-      margin-top: 8px;
-      color: #a0a0a0;
-      font-size: 12px;
+      gap: 8px;
+      padding: 12px 0;
+      color: #8a8780;
+      font-family: 'Noto Serif JP', serif;
+      font-size: 13px;
     }
     .teiji-form input {
       background: #161614;
       color: #e8e5df;
       border: 1px solid #2a2a24;
       border-radius: 8px;
-      padding: 6px 8px;
+      padding: 8px 10px;
       font-size: 14px;
+      font-family: 'Noto Sans JP', sans-serif;
     }
+    .teiji-form button {
+      padding: 8px 16px;
+      background: #1c1c18;
+      border: 1px solid #c5a059;
+      border-radius: 8px;
+      color: #c5a059;
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .teiji-form [role=status] { flex-basis: 100%; font-size: 11px; color: #d95b29; }
     .working-zangyo {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: 10px;
-      padding: 12px 20px 0 52px;
+      gap: 12px;
+      padding: 14px 20px 0 52px;
     }
     .working-zangyo[hidden], .junbi[hidden] { display: none; }
     .zangyo-btn {
-      padding: 8px 14px;
-      background: transparent;
-      border: 1px solid #3a3a32;
-      border-radius: 999px;
+      padding: 10px 16px;
+      background: #1c1c18;
+      border: 1px solid #c5a059;
+      border-radius: 8px;
       color: #c5a059;
-      font-size: 13px;
-      font-family: 'Noto Serif JP', serif;
-      letter-spacing: 0.06em;
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: 0.05em;
       cursor: pointer;
     }
+    .zangyo-btn:active { background: #1e1a10; }
     .zangyo-said {
       font-size: 12px;
       color: #a0a0a0;
       font-family: 'Noto Serif JP', serif;
+      letter-spacing: 0.08em;
     }
     .zangyo-undo {
       background: none;
       border: none;
-      color: #777;
+      color: #555;
       font-size: 11px;
-      text-decoration: underline;
+      font-family: 'Noto Serif JP', serif;
+      letter-spacing: 0.05em;
       cursor: pointer;
       padding: 4px 0;
     }
-    .junbi { display: flex; flex-direction: column; gap: 6px; }
-    .junbi .zangyo-undo { align-self: flex-start; }
     .junbi-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      padding: 12px 14px;
-      border: 1px solid #1e1e1a;
-      font-family: 'Noto Serif JP', serif;
-      font-size: 13px;
-      color: #e8e5df;
+      cursor: pointer;
     }
-    .junbi-row select {
+    .junbi-select {
+      appearance: none;
+      -webkit-appearance: none;
       flex: 1;
       min-width: 0;
-      max-width: 60%;
-      background: #161614;
-      color: #e8e5df;
-      border: 1px solid #2a2a24;
-      border-radius: 8px;
-      padding: 8px;
-      font-size: 14px;
-    }
-    .junbi-now {
-      font-size: 12px;
-      color: #a0a0a0;
+      background: transparent;
+      border: none;
+      color: #c5a059;
       font-family: 'Noto Serif JP', serif;
+      font-size: 13px;
       letter-spacing: 0.05em;
+      text-align: right;
+      text-align-last: right;
+      padding: 0;
+      cursor: pointer;
     }
-    .junbi-now:empty { display: none; }
+    .junbi-select option { color: #e8e5df; background: #161614; }
+    .junbi .junbi-now { color: #e8e5df; }
+    .junbi-now:empty, .junbi-hint[hidden] { display: none; }
+    .junbi .zangyo-undo { margin-top: 4px; }
+    #junbi-status:empty { display: none; }
 
     /* ── 画面3: 作業中 ── */
     #screen-working {
@@ -1328,9 +1330,10 @@
       <div class="site-fallback-links">
         <button class="site-fallback-link" id="btn-project-contact">担当者へ確認する</button>
         <button class="site-fallback-link" id="btn-give-property">この物件の情報を渡す</button>
+        <button class="site-fallback-link" id="btn-teiji-fix" type="button"></button>
       </div>
+      <div id="handover-teiji" class="handover-teiji"></div>
     </div>
-    <div id="handover-teiji" class="handover-teiji"></div>
     <div class="checkin-area">
       <button class="checkin-btn" id="btn-today">今日はここ</button>
     </div>
@@ -1638,15 +1641,18 @@
 
       <div class="shimai-section">
         <p class="shimai-section-label">準備</p>
-        <div class="junbi" id="junbi" hidden>
-          <label class="junbi-row" for="junbi-project">
-            <span id="junbi-date">明日</span>
-            <select id="junbi-project"></select>
-          </label>
-          <p class="junbi-now" id="junbi-now"></p>
-          <button class="zangyo-undo" id="btn-junbi-clear" type="button" hidden>外す</button>
-          <p class="later-note" id="junbi-status" role="status"></p>
-        </div>
+        <ul class="later-list junbi" id="junbi" hidden>
+          <li>
+            <label class="junbi-row" for="junbi-project">
+              <span id="junbi-date">明日の現場を選ぶ</span>
+              <select id="junbi-project" class="junbi-select"></select>
+            </label>
+            <span class="junbi-now" id="junbi-now"></span>
+            <span class="junbi-hint" id="junbi-hint">前の晩に選べば、朝はもう現場の上</span>
+            <button class="zangyo-undo" id="btn-junbi-clear" type="button" hidden>外す</button>
+          </li>
+        </ul>
+        <p class="later-note" id="junbi-status" role="status"></p>
       </div>
 
       <!-- 請求書のたたき台 -->

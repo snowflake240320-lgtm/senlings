@@ -31,7 +31,6 @@ function renderSiteTop() {
 
   const list = document.getElementById('site-list');
   if (!list) return;
-  document.querySelector('.site-top-heading').textContent = todayProject ? '今日の現場' : '今日はどこへ入りますか？';
 
   if (projects.length === 0) {
     list.innerHTML = '<p class="site-empty">現場が登録されていません。</p>';
@@ -211,20 +210,16 @@ function renderHandoverTeiji(project) {
   const fresh = (load().projects ?? []).find(p => p.project_id === project.project_id) ?? project;
   const t = teijiOf(fresh);
   box.replaceChildren();
-  const line = document.createElement('p');
-  line.className = 'handover-teiji-line';
-  line.textContent = `定時 ${formatTeiji(t)}${t.rule ? '' : '(現場の決まりが無いとき)'}`;
-  const fix = Object.assign(document.createElement('button'), { type: 'button', className: 'nakama-mini', id: 'btn-teiji-fix', textContent: '直す' });
-  line.append(' ', fix);
-  box.append(line);
+  const fix = document.getElementById('btn-teiji-fix');
+  fix.textContent = `定時 ${formatTeiji(t)}`;
   fix.onclick = () => {
-    if (box.querySelector('.teiji-form')) return;
+    if (box.querySelector('.teiji-form')) { box.replaceChildren(); return; }
     const form = document.createElement('div');
     form.className = 'teiji-form';
     const start = Object.assign(document.createElement('input'), { type: 'time', value: t.start, id: 'teiji-start', step: 900 });
     const end = Object.assign(document.createElement('input'), { type: 'time', value: t.end, id: 'teiji-end', step: 900 });
     start.setAttribute('aria-label', '始業'); end.setAttribute('aria-label', '終業');
-    const save = Object.assign(document.createElement('button'), { type: 'button', className: 'nakama-mini', id: 'btn-teiji-save', textContent: '残す' });
+    const save = Object.assign(document.createElement('button'), { type: 'button', id: 'btn-teiji-save', textContent: '残す' });
     const msg = document.createElement('span'); msg.setAttribute('role', 'status');
     save.onclick = () => {
       try { setProjectTeiji(project.project_id, start.value, end.value, todayStr()); renderHandoverTeiji(project); }
@@ -588,13 +583,14 @@ function renderJunbi() {
   const projects = (data.projects ?? []).filter(p => !p.archive);
   const placed = teijiOn(data, tomorrow);
   const select = document.getElementById('junbi-project');
-  select.replaceChildren(...[{ project_id: '', project_slug: '(選ぶ)' }, ...projects].map(p =>
+  select.replaceChildren(...[{ project_id: '', project_slug: '選ぶ ›' }, ...projects].map(p =>
     Object.assign(document.createElement('option'), { value: p.project_id, textContent: p.project_slug, selected: placed?.project_id === p.project_id })));
   const [, m, d] = tomorrow.split('-').map(Number);
-  document.getElementById('junbi-date').textContent = `明日 ${m}/${d}`;
+  document.getElementById('junbi-date').textContent = `明日 ${m}/${d} の現場`;
   const now = document.getElementById('junbi-now');
   const placedProject = placed && projects.find(p => p.project_id === placed.project_id);
-  now.textContent = placedProject ? `${placedProject.project_slug}　${teijiLabel(placed)}` : '';
+  now.textContent = placedProject ? teijiLabel(placed) : '';
+  document.getElementById('junbi-hint').hidden = !!placedProject;
   document.getElementById('btn-junbi-clear').hidden = !placed;
   select.onchange = () => {
     try {

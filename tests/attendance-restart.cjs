@@ -139,7 +139,7 @@ async function run(name, fn) {
     await p.locator('.site-card').filter({ hasText: '修正版・架空現場C' }).click();
     await p.getByText('届いた連絡', { exact: true }).click();
     assert.equal(await p.locator('.handover-text').innerText(), '架空の原文\n二行目も保持');
-    assert.match(await p.locator('#handover-teiji').innerText(), /定時 8:00〜17:00/);
+    assert.equal(await p.locator('#btn-teiji-fix').innerText(), '定時 8:00〜17:00');
     await p.locator('#btn-today').click(); await p.locator('#screen-working.active').waitFor();
     const placed = await data(p); const teiji = placed.work_sessions.at(-1);
     assert.equal(teiji.kind, 'teiji'); assert.equal(teiji.overtime_minutes, 0);

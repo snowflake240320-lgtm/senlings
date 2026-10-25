@@ -225,9 +225,9 @@ async function inject(page, mode) {
     // 開き直しを試すので、起動のたびに元へ戻す仕掛け(初期データの書き込み)は使わない
     const {page,context}=await setup(null);await page.evaluate(raw=>replaceStored(raw),JSON.stringify(fixture()));await page.reload();await ready(page);
     await click(page,'.site-card');
-    assert.match(await page.locator('#handover-teiji').innerText(),/定時 8:00〜17:00/);
+    assert.equal(await page.locator('#btn-teiji-fix').innerText(),'定時 8:00〜17:00');
     await click(page,'#btn-teiji-fix');await page.locator('#teiji-start').fill('08:30');await page.locator('#teiji-end').fill('17:30');await click(page,'#btn-teiji-save');
-    assert.equal(await page.locator('#handover-teiji').innerText(),'定時 8:30〜17:30 直す');
+    assert.equal(await page.locator('#btn-teiji-fix').innerText(),'定時 8:30〜17:30');assert.equal(await page.locator('#handover-teiji .teiji-form').count(),0);
     assert.equal(await page.locator('#btn-today').innerText(),'今日はここ');
     await click(page,'#btn-today');await page.locator('#screen-working.active').waitFor();
     assert.match(await page.locator('#working-checkin-time').innerText(),/^定時 8:30〜17:30/);
@@ -247,7 +247,7 @@ async function inject(page, mode) {
     await click(page,'#btn-zangyo');
     // 準備:明日の現場
     await click(page,'[data-tab="home"]');await page.locator('#junbi-project').selectOption('p');
-    assert.match(await page.locator('#junbi-now').innerText(),/^TEST　定時 8:30〜17:30$/);
+    assert.equal(await page.locator('#junbi-project').inputValue(),'p');assert.equal(await page.locator('#junbi-now').innerText(),'定時 8:30〜17:30');
     d=JSON.parse((await stats(page)).raw);assert.equal(d.work_sessions.filter(s=>s.kind==='teiji').length,2);
     await click(page,'#btn-junbi-clear');assert.equal(await page.locator('#junbi-now').innerText(),'');
     // たたき台:同じ日の古い記録と定時は一日。残業は押した分だけ
