@@ -1,6 +1,6 @@
 import { load } from './storage.js';
 import { TRANSFER_FIELDS, makeTransfer, inspectTransfer, acceptTransfer } from './projectTransfer.js';
-import { findEnvelope, envelopeToTransfer, envelopeText, dayLabel, KINDS } from './envelope.js';
+import { findEnvelope, envelopeToTransfer, envelopeText, makeEnvelope, dayLabel, KINDS } from './envelope.js';
 import { placeTeiji, teijiOn, setProjectTeiji, teijiOf } from './work.js';
 import { openRequestDialog, siteFromProject, appLink } from './requestUI.js';
 import { saveLocalRecord, contactPhone, SOS_LABELS } from './localRecords.js';
@@ -45,12 +45,6 @@ function values(parent, packet, { showName = true, idLabel = '送り手の物件
 // 受け取る(郵便受け)。LINE などで届いた依頼の文を、まるごと貼る。いちばん下の〔Senlings〕の行から封筒を読む。
 // 封筒が無い文でも、現場名を決めれば、その文を「届いた連絡」として現場を立てられる。物件情報ファイル(JSON)も、そのまま受け取れる。
 // 受けるかどうか、その日に置くかどうかは、受けた人が決める。返事は LINE で、いつもどおりに。
-// つないでくれた人(「ほかの人へつなぐ」の書き出し「○○です。△△さんからの依頼です。…つなぎます」から)。残さず、あいさつの言葉にだけ使う
-export function introducerOf(text) {
-  const m = String(text ?? '').match(/(?:^|\n)\s*([^\n。]{1,40})です。[^\n]{0,60}からの依頼です。私は行けないので、つなぎます。/);
-  return m ? m[1].trim() : '';
-}
-
 export function receiveProject(onSaved) {
   const box = panel('受け取る');
   paragraph(box, 'LINE などで届いた依頼の文を、まるごとコピーして貼ります。確かめてから、自分の現場に加えます。');
@@ -100,18 +94,16 @@ export function receiveProject(onSaved) {
       try { await navigator.clipboard.writeText(area.value); msg.textContent = 'コピーしました。LINE などに貼って送ってください。'; } catch { msg.textContent = '文を長押しして選んでください。'; }
     }, `reply-send-${id}`);
   }
-  // 依頼者へのあいさつ(Reachability。10-25 船長)。紹介の記録も点数も持たず、つながりは人と人のやりとりに残す。
-  // 受けた職人が、自分から依頼した人へ届く。つないでくれた人の名前は、あいさつの言葉の中で伝える(Senlings には残さない)。
+  // 頼んでくれた人へのあいさつ(Reachability。10-25 船長)。紹介の記録も点数も持たず、つながりは人と人のやりとりに残す。
+  // あいさつは「自分に頼んでくれた人」へ。間の人を越えて、その先の依頼主へは行かない(越えない。縦を飛び越えない)。
   function greet(env, me) {
     let trades = '';
     try { trades = readNakama().trades.map(k => HOO_TRADES[k]?.label).filter(Boolean).join('・'); } catch { trades = ''; }
-    const via = introducerOf(input.value);
     const lines = [`${env.from ? `${env.from}さん` : 'ご担当の方'}`,
       `${me ? `${me}です。` : ''}${trades ? `${trades}をやっています。` : ''}`.trim(),
-      via ? `${via}さんから、つないでもらいました。` : '',
       `${env.work_date ? `${dayLabel(env.work_date)}、` : ''}${env.site.name}、伺います。`,
       '当日は、どうぞよろしくお願いします。'].filter(Boolean);
-    reply('依頼した人へ、あいさつ', lines.join('\n'), 'greet', { keep: true, note: '受けたことを、あなたから伝えます。このやりとりが、そのまま「この現場に呼ばれた」しるしになります。' });
+    reply('頼んでくれた人へ、あいさつ', lines.join('\n'), 'greet', { keep: true, note: `受けたことを、${env.from ? `${env.from}さん` : '頼んでくれた人'}へ伝えます。このやりとりが、そのまま「この現場に呼ばれた」しるしになります。` });
   }
   function renderChoices() {
     choices.replaceChildren();
@@ -144,8 +136,13 @@ export function receiveProject(onSaved) {
     });
     pick('時期を調整する', 'その日は難しいと返す(現場は加えない)', 'later', () =>
       reply('時期を調整する', `${to}${day}${env.site.name} の件、ありがとうございます。その日は難しいです。\n○/○ からなら行けます。`, 'later'));
-    pick('ほかの人へつなぐ', '依頼の文をそのまま渡す。差出人と連絡先は変えない', 'pass', () =>
-      reply('ほかの人へつなぐ', `${me ? `${me}です。` : ''}${env.from ? `${env.from}さん` : ''}からの依頼です。私は行けないので、つなぎます。直接やりとりしてください。\n\n${envelopeText(env, { link: appLink() })}`, 'pass'));
+    // つなぐ=自分の名前で頼み直す。受けた人の依頼主はあなたになり、あいさつも返事もあなたへ届く(越えない)
+    pick('ほかの人へつなぐ', 'あなたの名前で、ほかの人に頼み直す', 'pass', () => {
+      const again = makeEnvelope({ kind: 'ouen', from: me, date: env.date, work_date: env.work_date ?? '', note: env.note ?? '',
+        site: { ...env.site, revision: Math.max(env.site.revision, Math.floor(Date.now() / 1000)) } });
+      reply('ほかの人へつなぐ', envelopeText(again, { link: appLink() }), 'pass',
+        { note: me ? '' : '設定で呼び名を入れると、相手があなたに返事できます。' });
+    });
     pick('受けない', '見送ると返す(何も残さない)', 'decline', () =>
       reply('受けない', `${to}${day}${env.site.name} の件、ありがとうございます。今回は見送らせてください。また声をかけてもらえると嬉しいです。`, 'decline'));
   }

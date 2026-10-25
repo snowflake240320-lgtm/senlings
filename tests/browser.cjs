@@ -309,15 +309,14 @@ async function inject(page, mode) {
     await p.evaluate(n=>localStorage.setItem('senlings_v0',JSON.stringify({settings:{senlings_user_name:n}})),'つなぐ人');
     const kept0=await p.evaluate(()=>localStorage.getItem('senlings_v0'));
     await receive(p,text);await click(p,'#choice-pass');await click(p,'#reply-send-pass');
-    const passed=(await p.evaluate(()=>window.shared)).at(-1);assert.match(passed,/^つなぐ人です。架空の元請けさんからの依頼です。私は行けないので、つなぎます。/);
+    const passed=(await p.evaluate(()=>window.shared)).at(-1);assert.match(passed,/^【応援のお願い】つなぐ人より\n/,'passing on is asking again in your own name');assert.doesNotMatch(passed,/架空の元請け/);
     assert.equal(await p.evaluate(()=>localStorage.getItem('senlings_v0')),kept0,'passing on keeps nothing');
     // つないだ文を受けた人にも、元の差出人のまま届く
     const third=await setup(null);const q=third.page;await q.locator('.site-empty').waitFor();await q.evaluate(()=>localStorage.setItem('senlings_homescreen_later','1'));await q.evaluate(n=>localStorage.setItem('senlings_v0',JSON.stringify({settings:{senlings_user_name:n}})),'三人目');
-    await receive(q,passed);assert.match(await q.locator('#handoff-preview').innerText(),/応援のお願い\(架空の元請けより\)/);
-    // つないでもらった人は、依頼した人へ自分であいさつする。つないだ人の名前は言葉の中だけ
+    await receive(q,passed);assert.match(await q.locator('#handoff-preview').innerText(),/応援のお願い\(つなぐ人より\)/);
+    // あいさつは、自分に頼んでくれた人(つなぐ人)へ。その先の依頼主へは越えない
     await click(q,'#choice-self');const g=await q.locator('#reply-greet').inputValue();
-    assert.match(g,/^架空の元請けさん\n三人目です。/);assert.match(g,/\nつなぐ人さんから、つないでもらいました。\n/);
-    const kept=JSON.stringify(JSON.parse(await q.evaluate(()=>localStorage.getItem('senlings_v0'))));assert.doesNotMatch(kept,/つないでもらいました|introduc/,'who connected them is not kept');
+    assert.match(g,/^つなぐ人さん\n三人目です。/);assert.doesNotMatch(g,/架空の元請け/,'does not go over the head of the one who asked');
     await third.context.close();
     await receive(p,text);await click(p,'#choice-together');await p.locator('#reply-greet').waitFor();await click(p,'#handoff-ouen');await p.locator('#req-name').waitFor();
     assert.equal(await p.locator('#req-name').inputValue(),'TEST');assert.equal(JSON.parse(await p.evaluate(()=>localStorage.getItem('senlings_v0'))).projects.length,1);
