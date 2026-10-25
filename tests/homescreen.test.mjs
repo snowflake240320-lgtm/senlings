@@ -22,7 +22,7 @@ test('inside LINE: cannot add; send them to Safari with LINE\'s own switch', () 
   const s = st(ios('26_0') + ' Line/15.2.0');
   assert.equal(s.inLine, true);
   const t = homeScreenSteps(s);
-  assert.equal(t.safari, true); assert.match(t.lead, /Safari/);
+  assert.equal(t.safari, true); assert.match(t.steps[0].text, /Safari で開く/);
   assert.equal(safariLink({ origin: 'https://x.example', pathname: '/' }), 'https://x.example/?openExternalBrowser=1');
 });
 
@@ -30,7 +30,7 @@ test('Chrome on iPhone: share is at the top right, with its own picture', () => 
   const s = st(ios('18_6').replace('Version/18.0', 'CriOS/130.0'));
   assert.equal(s.chrome, true); assert.equal(s.otherBrowser, true);
   const t = homeScreenSteps(s);
-  assert.equal(t.steps.length, 4); assert.match(t.steps[0].text, /右上/); assert.equal(t.steps[0].pic, 'chrome'); assert.match(t.lead, /Chrome/);
+  assert.equal(t.steps.length, 4); assert.match(t.steps[0].text, /右上/); assert.equal(t.steps[0].pic, 'chrome');
 });
 
 test('Android: one button when the browser offers it, otherwise the menu steps', () => {

@@ -36,8 +36,8 @@ export function homeScreenSteps(state) {
   const sheet = { text: '下のほうにある「ホーム画面に追加」を押す', pic: 'sheet' };
   const add = { text: '右上の「追加」を押す', pic: 'add' };
   if (state.kind === 'ios') {
-    if (state.inLine) return { lead: 'LINE の中では置けません。先に Safari で開きます。', steps: [{ text: '右下の「…」(無ければ □↑)を押して、「Safari で開く」', pic: 'line' }, { text: 'Safari で開くと、この案内がもう一度出ます', pic: null }], safari: true };
-    if (state.chrome) return { lead: 'Chrome でも置けます。', steps: [{ text: '右上の 共有(□↑)を押す', pic: 'chrome' }, more, sheet, add] };
+    if (state.inLine) return { lead: '', steps: [{ text: '右下の「…」(無ければ □↑)→「Safari で開く」', pic: 'line' }], safari: true };
+    if (state.chrome) return { lead: '', steps: [{ text: '右上の 共有(□↑)を押す', pic: 'chrome' }, more, sheet, add] };
     if (state.otherBrowser) return { lead: '', steps: [{ text: '共有(□↑)を押す(上の段か、下の段にあります)', pic: 'share' }, more, sheet, add] };
     if (state.compact) return { lead: '', steps: [{ text: '下の「…」を押す(共有 □↑ が見えていれば、それでも)', pic: 'safari26' }, { text: '「共有」を押す', pic: 'menu' }, more, sheet, add] };
     return { lead: '', steps: [{ text: 'いちばん下の 共有(□↑)を押す', pic: 'safari18' }, more, sheet, add] };
@@ -123,7 +123,7 @@ export function openHomeScreenGuide(state, { installPrompt = null, hasRecords = 
   const head = $('header', '', { className: 'homescreen-head' });
   const icon = $('span', '', { className: 'homescreen-icon' });
   icon.innerHTML = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">${sIcon(0, 0, 24)}</svg>`;
-  const h2 = $('h2', 'ホーム画面に置く'); h2.tabIndex = -1; h2.autofocus = true; // 開いたとき、小さな「いまは置かずに使う」に目印が付かないように
+  const h2 = $('h2', 'ホーム画面に置いてください'); h2.tabIndex = -1; h2.autofocus = true; // 開いたとき、小さな「いまは置かずに使う」に目印が付かないように
   head.append(icon, h2);
   dialog.append(head);
   if (arrival?.label) {
@@ -131,20 +131,19 @@ export function openHomeScreenGuide(state, { installPrompt = null, hasRecords = 
     card.append($('small', '届いています'), $('strong', arrival.label));
     dialog.append(card);
   }
-  dialog.append($('p', '置いておくと、記録が消えません。開くのも一回で済みます。', { className: 'homescreen-lead' }));
-  // ホーム画面の Senlings は、ここ(ブラウザ)とは別の置き場所。依頼は、置く前にコピーして持っていく
+  // ホーム画面の Senlings は、ここ(ブラウザ)とは別の置き場所。依頼は、置く前にコピーして持っていく(説明は押したあとに一言だけ)
   if (arrival?.text && !text.safari) {
-    dialog.append($('p', 'ホーム画面の Senlings は、ここ(ブラウザ)とは別の置き場所です。置く前に、この依頼をコピーしておきます。置いたら、ホーム画面の Senlings の「受け取る」で貼るだけ。', { className: 'homescreen-lead' }));
     const msg = $('p', '', { className: 'request-msg', id: 'homescreen-copy-msg' }); msg.setAttribute('role', 'status');
-    const copy = $('button', 'まず、依頼をコピーする', { type: 'button', className: 'local-action request-send', id: 'homescreen-copy' });
+    const copy = $('button', '依頼をコピーしておく', { type: 'button', className: 'local-action request-send', id: 'homescreen-copy' });
     copy.onclick = async () => {
-      try { await navigator.clipboard.writeText(arrival.text); msg.textContent = 'コピーしました。次は、ホーム画面に置きます。'; }
+      try { await navigator.clipboard.writeText(arrival.text); msg.textContent = 'コピーしました。置いたら「受け取る」で貼ります。'; }
       catch { msg.textContent = 'コピーできませんでした。LINE の文を、あとでまるごとコピーしてください。'; }
     };
     dialog.append(copy, msg);
   }
   if (text.lead) dialog.append($('p', text.lead, { className: 'homescreen-lead' }));
   if (text.steps.length) {
+    dialog.append($('p', '手順', { className: 'homescreen-label' }));
     const ol = $('ol', '', { className: 'homescreen-steps' });
     for (const s of text.steps) {
       const li = $('li');
@@ -169,7 +168,7 @@ export function openHomeScreenGuide(state, { installPrompt = null, hasRecords = 
   if (!text.safari) {
     const done = $('p', '', { className: 'homescreen-done' });
     done.innerHTML = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">${sIcon(0, 0, 24)}</svg>`;
-    done.append($('span', 'ホーム画面に、この印が出ます。次からはここから開いてください。'));
+    done.append($('span', '次から、この印で開く'));
     dialog.append(done);
   }
   if (hasRecords && !text.safari) dialog.append($('p', 'ここ(ブラウザ)で入れた記録は、ホーム画面の Senlings には移りません。持っていくなら、▲ホームの「JSON」で持ち出してから。', { className: 'later-note' }));

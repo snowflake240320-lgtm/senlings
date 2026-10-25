@@ -16,7 +16,7 @@ import { openPon, openKon, openKero, openHoo, ponDeductionFor } from './src/pwa/
 import { HOO_TRADES, readNakama, setTrades } from './src/pwa/nakama.js';
 import { homeScreenState, openHomeScreenGuide, readLater } from './src/pwa/homeScreen.js';
 import { openRequestDialog, siteFromProject } from './src/pwa/requestUI.js';
-import { readArrival, fromLinkCode, envelopeText, bodyText } from './src/pwa/envelope.js';
+import { readArrival, fromLinkCode, envelopeText, bodyText, dayLabel } from './src/pwa/envelope.js';
 import { openShirase, openKinkyu } from './src/pwa/shiraseUI.js';
 
 // ── データ読み込み ────────────────────────────────────────
@@ -1015,7 +1015,7 @@ async function arrive() {
   try { env = await fromLinkCode(a.request); }
   catch (e) { receiveProject(renderSiteTop).querySelector('[role=status]').textContent = e.message; return true; }
   const text = envelopeText(env);
-  const label = `${bodyText(env).split('\n').slice(0, 2).join('\n')}`;
+  const label = `${bodyText(env).split('\n')[0]}\n${env.work_date ? `${dayLabel(env.work_date)} ` : ''}${env.site.name}`;
   const open = () => receiveProject(renderSiteTop, { text });
   if (!offerHomeScreen(false, { label, text, hash: raw, later: 'いまは置かずに、ここで見る', onLater: open })) open();
   return true;

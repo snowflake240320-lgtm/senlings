@@ -108,3 +108,5 @@ html[data-mieru="70"] .site-welcome-main { font-size: 20px; }
 html[data-mieru="70"] .site-welcome-main small, html[data-mieru="70"] .site-welcome-sub small { font-size: 15px; color: #b8b4ac; }
 html[data-mieru="70"] .site-welcome-sub { font-size: 18px; }
 .shisetsu-name { color: #e8e5df; font-size: 17px; margin-top: 4px; } .shisetsu-name[hidden] { display: none; } html[data-mieru="70"] .shisetsu-name { font-size: 19px; }
+.homescreen-label { color: #c5a059 !important; font-size: 14px !important; letter-spacing: 0.1em; margin: 14px 0 4px !important; }
+.local-dialog.homescreen-guide h2, html[data-mieru] .local-dialog.homescreen-guide h2 { font-size: clamp(14px, 4.4vw, 19px); white-space: nowrap; }
