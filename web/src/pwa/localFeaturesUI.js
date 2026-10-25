@@ -1,10 +1,11 @@
 import { load } from './storage.js';
 import { TRANSFER_FIELDS, makeTransfer, inspectTransfer, acceptTransfer } from './projectTransfer.js';
-import { findEnvelope, envelopeToTransfer, dayLabel, KINDS } from './envelope.js';
-import { placeTeiji, teijiOn, setProjectTeiji } from './work.js';
+import { findEnvelope, envelopeToTransfer, envelopeText, dayLabel, KINDS } from './envelope.js';
+import { placeTeiji, teijiOn, setProjectTeiji, teijiOf } from './work.js';
+import { openRequestDialog, siteFromProject, appLink } from './requestUI.js';
 import { saveLocalRecord, contactPhone, SOS_LABELS } from './localRecords.js';
 import { savePhotoMeta, buildPhotoFilename } from './photo.js';
-import { SETTINGS_KEYS, getAllSettings, saveSettingsFromForm } from './settings.js';
+import { SETTINGS_KEYS, getAllSettings, saveSettingsFromForm, getSetting } from './settings.js';
 
 const $ = (tag, text, attrs = {}) => Object.assign(document.createElement(tag), { textContent: text, ...attrs });
 let dialog;
@@ -58,21 +59,70 @@ export function receiveProject(onSaved) {
   box.append(preview);
   const after = $('div', '', { id: 'handoff-after' });
   let confirmed = null, packetJson = null, envelope = null, fileGeneration = 0, slugInput = null;
+  // 受けるかどうかは、受けた人が決める(受注の前の五択。10-25 船長)。封筒のときだけ出す
+  const choices = $('div', '', { className: 'request-choices', id: 'handoff-choices', hidden: true });
+  function doAccept() {
+    if (!confirmed || confirmed !== input.value || !packetJson) return null;
+    const result = acceptTransfer(packetJson, undefined, undefined, { slug: slugInput?.value });
+    if (envelope && result.action !== 'received' && envelope.site.start && envelope.site.end) setProjectTeiji(result.project_id, envelope.site.start, envelope.site.end);
+    return result;
+  }
   const accept = action(box, '確認して受け取る', () => {
     if (!confirmed || confirmed !== input.value || !packetJson) return;
     try {
-      const result = acceptTransfer(packetJson, undefined, undefined, { slug: slugInput?.value });
+      const result = doAccept();
       message.textContent = result.action === 'received' ? 'この版は受取済みです。現場は増やしていません。' : 'この端末の現場に保存しました。返事は、いつもの相手とのやりとりで。';
       accept.disabled = true;
-      if (envelope && result.action !== 'received') {
-        if (envelope.site.start && envelope.site.end) setProjectTeiji(result.project_id, envelope.site.start, envelope.site.end);
-      }
       if (envelope?.work_date) offerDay(result.project_id, envelope.work_date);
       onSaved();
     } catch (error) { message.textContent = error.message; }
   }, 'handoff-accept');
   accept.disabled = true;
-  box.append(after);
+  box.append(choices, after);
+
+  // 返事の下書き。送るのは人(共有の画面へ)。既読・催促は持たない。何も保存しない
+  function reply(title, text, id) {
+    after.replaceChildren();
+    after.append($('h3', title));
+    const area = $('textarea', '', { rows: 6, value: text, id: `reply-${id}`, className: 'reply-text' });
+    const w = $('label', '送る文(ここで直せます)'); w.append(area); after.append(w);
+    const msg = status(after);
+    action(after, 'LINE などで送る', async () => {
+      if (navigator.share) { try { await navigator.share({ text: area.value }); msg.textContent = '共有の画面に渡しました。'; return; } catch (e) { if (e?.name === 'AbortError') { msg.textContent = 'まだ送っていません。'; return; } } }
+      try { await navigator.clipboard.writeText(area.value); msg.textContent = 'コピーしました。LINE などに貼って送ってください。'; } catch { msg.textContent = '文を長押しして選んでください。'; }
+    }, `reply-send-${id}`);
+  }
+  function renderChoices() {
+    choices.replaceChildren();
+    if (!envelope) { choices.hidden = true; accept.hidden = false; return; }
+    choices.hidden = false; accept.hidden = true;
+    const env = envelope, me = getSetting(SETTINGS_KEYS.USER_NAME) ?? '';
+    const day = env.work_date ? `${dayLabel(env.work_date)} の` : '';
+    const to = env.from ? `${env.from}さん\n` : '';
+    choices.append($('p', 'どうしますか。選ぶまで、何も残しません。', { className: 'request-choices-lead' }));
+    const pick = (text, sub, id, fn) => {
+      const b = $('button', '', { type: 'button', className: 'request-choice', id: `choice-${id}` });
+      b.append($('span', text), $('small', sub)); b.onclick = () => { try { fn(); } catch (e) { message.textContent = e.message; } }; choices.append(b);
+    };
+    pick('自分で受ける', '現場を加える。その日に置くかは次に選ぶ', 'self', () => {
+      const r = doAccept(); if (!r) return;
+      message.textContent = r.action === 'received' ? 'この版は受取済みです。' : 'この端末の現場に保存しました。返事は、いつもの相手とのやりとりで。';
+      choices.hidden = true; onSaved();
+      if (env.work_date) offerDay(r.project_id, env.work_date); else after.replaceChildren();
+    });
+    pick('協力して受ける', '現場を加えて、手伝ってくれる人に声をかける', 'together', () => {
+      const r = doAccept(); if (!r) return;
+      choices.hidden = true; onSaved();
+      const project = load().projects.find(p => p.project_id === r.project_id);
+      openRequestDialog({ kind: 'ouen', from: me, site: siteFromProject(project, teijiOf(project)), workDate: env.work_date });
+    });
+    pick('時期を調整する', 'その日は難しいと返す(現場は加えない)', 'later', () =>
+      reply('時期を調整する', `${to}${day}${env.site.name} の件、ありがとうございます。その日は難しいです。\n○/○ からなら行けます。`, 'later'));
+    pick('ほかの人へつなぐ', '依頼の文をそのまま渡す。差出人と連絡先は変えない', 'pass', () =>
+      reply('ほかの人へつなぐ', `${me ? `${me}です。` : ''}${env.from ? `${env.from}さん` : ''}からの依頼です。私は行けないので、つなぎます。直接やりとりしてください。\n\n${envelopeText(env, { link: appLink() })}`, 'pass'));
+    pick('受けない', '見送ると返す(何も残さない)', 'decline', () =>
+      reply('受けない', `${to}${day}${env.site.name} の件、ありがとうございます。今回は見送らせてください。また声をかけてもらえると嬉しいです。`, 'decline'));
+  }
   // その日に置くかは、受けた人が決める(押したときだけ)
   function offerDay(projectId, date) {
     after.replaceChildren();
@@ -84,7 +134,7 @@ export function receiveProject(onSaved) {
     }, 'handoff-place-day');
   }
   const inspect = action(box, '内容を確認する', () => {
-    confirmed = null; packetJson = null; envelope = null; accept.disabled = true; preview.replaceChildren(); after.replaceChildren(); slugInput = null;
+    confirmed = null; packetJson = null; envelope = null; accept.disabled = true; accept.hidden = false; choices.hidden = true; preview.replaceChildren(); after.replaceChildren(); slugInput = null;
     try {
       const text = input.value;
       let plain = false;
@@ -117,11 +167,12 @@ export function receiveProject(onSaved) {
         : '新しい現場として加えます。この端末に置くだけで、相手には何も送られません。';
       accept.textContent = plan.action === 'update' ? '確認してこの版を反映する' : '確認して受け取る';
       confirmed = input.value; accept.disabled = plan.action === 'received';
+      if (plan.action !== 'received') renderChoices(); else { choices.hidden = true; accept.hidden = false; }
       if (plan.action === 'received' && envelope?.work_date) offerDay(plan.project_id, envelope.work_date);
     } catch (error) { message.textContent = error.message; }
   }, 'handoff-inspect');
   box.insertBefore(inspect, message);
-  input.oninput = () => { fileGeneration++; confirmed = null; packetJson = null; envelope = null; slugInput = null; accept.disabled = true; preview.replaceChildren(); after.replaceChildren(); message.textContent = ''; };
+  input.oninput = () => { fileGeneration++; confirmed = null; packetJson = null; envelope = null; slugInput = null; accept.disabled = true; accept.hidden = false; choices.hidden = true; preview.replaceChildren(); after.replaceChildren(); message.textContent = ''; };
   file.onchange = async () => {
     const ticket = ++fileGeneration;
     confirmed = null; slugInput = null; accept.disabled = true; preview.replaceChildren();

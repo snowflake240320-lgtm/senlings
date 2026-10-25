@@ -60,3 +60,12 @@ a.local-action { display: block; text-align: center; text-decoration: none; box-
 .request-preview[hidden], .request-send[hidden], #req-copy[hidden] { display: none; }
 .request-send { background: #1e1a10; border-color: #c5a059; color: #c5a059; font-weight: 500; }
 .request-msg { color: #c4c1b9; font-size: 13px; margin-top: 10px; min-height: 1em; }
+
+/* 受注の前の五択(10-25)。どれも同じ重さで並べる。受けないも、失敗ではない */
+.request-choices[hidden] { display: none; }
+.request-choices-lead { color: #e8e5df !important; font-size: 15px !important; margin-top: 16px !important; }
+.request-choice { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; min-height: 52px; margin: 8px 0 0; padding: 12px 14px; border: 1px solid #55554c; border-radius: 10px; background: #1c1c18; color: #e8e5df; font: inherit; font-size: 16px; text-align: left; cursor: pointer; }
+.request-choice small { color: #a8a49c; font-size: 12px; }
+.request-choice:active { border-color: #c5a059; }
+.local-action[hidden] { display: none; }
+.reply-text { min-height: 120px; }

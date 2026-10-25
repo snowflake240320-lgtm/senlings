@@ -277,7 +277,9 @@ async function inject(page, mode) {
     await other.page.evaluate(()=>localStorage.setItem('senlings_homescreen_later','1'));
     await receive(other.page,`[LINE]\n${text}\n既読`);
     assert.match(await other.page.locator('#handoff-preview').innerText(),/応援のお願い\(架空の職人より\)/);
-    await click(other.page,'#handoff-accept');await other.page.locator('#handoff-place-day').waitFor();
+    assert.equal(await other.page.locator('#handoff-accept').isHidden(),true,'an envelope asks what to do');assert.equal(await other.page.locator('.request-choice').count(),5);
+    assert.equal(JSON.parse((await stats(other.page)).raw ?? 'null'),null,'nothing is kept before choosing');
+    await click(other.page,'#choice-self');await other.page.locator('#handoff-place-day').waitFor();
     let d=JSON.parse((await stats(other.page)).raw);
     assert.equal(d.projects.length,1);assert.equal(d.projects[0].project_slug,'TEST');assert.deepEqual(d.projects[0].teiji,{start:'08:30',end:'17:30'});
     assert.match(d.projects[0].site_info.raw,/ボードの手が足りません/);assert.doesNotMatch(d.projects[0].site_info.raw,/〔Senlings〕/);
@@ -288,6 +290,27 @@ async function inject(page, mode) {
     await receive(other.page,text);assert.match(await other.page.locator('#local-dialog [role=status]').innerText(),/受取済み/);
     assert.equal(JSON.parse((await stats(other.page)).raw).projects.length,1);
     assert.deepEqual(other.page.errors,[]);await other.context.close();
+  });
+  await run('request: five choices before taking it on — later/decline/pass only draft a reply and keep nothing; together adds the site and opens 応援を呼ぶ', async () => {
+    const {page,context}=await setup();await ready(page);await stubShare(page);
+    await click(page,'.site-card');await click(page,'#btn-request-help'); // 申し送りの「この現場に人を頼む」
+    await page.locator('#req-from').fill('架空の元請け');await click(page,'#req-make');await click(page,'#req-share');
+    const text=(await page.evaluate(()=>window.shared))[0];await click(page,'#local-dialog .local-close');
+    const other=await setup(null);const p=other.page;await p.locator('.site-empty').waitFor();await p.evaluate(()=>localStorage.setItem('senlings_homescreen_later','1'));await stubShare(p);
+    for (const [id,re] of [['later',/その日は難しいです/],['decline',/見送らせてください/]]) {
+      await receive(p,text);await click(p,`#choice-${id}`);assert.match(await p.locator(`#reply-${id}`).inputValue(),re);
+      await click(p,`#reply-send-${id}`);assert.match((await p.evaluate(()=>window.shared)).at(-1),/^架空の元請けさん/);
+      assert.equal(await p.evaluate(()=>localStorage.getItem('senlings_v0')),null,`${id} keeps nothing`);
+    }
+    await receive(p,text);await click(p,'#choice-pass');await click(p,'#reply-send-pass');
+    const passed=(await p.evaluate(()=>window.shared)).at(-1);assert.match(passed,/からの依頼です。私は行けないので、つなぎます。/);
+    assert.equal(await p.evaluate(()=>localStorage.getItem('senlings_v0')),null,'passing on keeps nothing');
+    // つないだ文を受けた人にも、元の差出人のまま届く
+    const third=await setup(null);const q=third.page;await q.locator('.site-empty').waitFor();await q.evaluate(()=>localStorage.setItem('senlings_homescreen_later','1'));
+    await receive(q,passed);assert.match(await q.locator('#handoff-preview').innerText(),/応援のお願い\(架空の元請けより\)/);await third.context.close();
+    await receive(p,text);await click(p,'#choice-together');await p.locator('#req-name').waitFor();
+    assert.equal(await p.locator('#req-name').inputValue(),'TEST');assert.equal(JSON.parse(await p.evaluate(()=>localStorage.getItem('senlings_v0'))).projects.length,1);
+    assert.deepEqual(p.errors,[]);await other.context.close();await context.close();
   });
   await run('request: a plain LINE text without the Senlings line still becomes a site; a cut-off line is refused without writing', async () => {
     const {page,context}=await setup(null);await page.locator('.site-empty').waitFor();await page.evaluate(()=>localStorage.setItem('senlings_homescreen_later','1'));

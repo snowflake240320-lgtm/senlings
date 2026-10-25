@@ -62,3 +62,14 @@ test('notes of several lines, no sender, and a site without hours all come back 
   assert.equal(env.note, '一行目\n■二行目\n三行目'); assert.equal(env.site.parking, '屋上 / 2台まで');
   assert.deepEqual(findEnvelope(envelopeText(env)), env);
 });
+
+test('孫請けを守る:依頼の文には、単価・請求・勤怠・メモ・SOS・届いた原文が乗り得ない(端末の外へ出るのは現場の案内だけ)', async () => {
+  const { siteFromProject } = await import('../web/src/pwa/requestUI.js');
+  const project = { project_id: 'p1', project_slug: '架空の現場', address: '架空の住所', project_code: 'K-001',
+    site_info: { parking: '屋上', raw: '元請けからの原文(単価 25,000円)', contact: '架空の担当' },
+    unit_price: 25000, settings: { senlings_work_unit_price: '25000' }, personal_note: '自分のメモ' };
+  const site = siteFromProject(project, { start: '08:00', end: '17:00' });
+  assert.deepEqual(Object.keys(site).sort(), ['address', 'contact', 'end', 'name', 'parking', 'source_id', 'start']);
+  const text = envelopeText(makeEnvelope({ kind: 'ouen', from: 'x', date: '2026-10-25', site }));
+  for (const secret of ['25,000', '25000', 'K-001', '自分のメモ', '原文']) assert.equal(text.includes(secret), false, secret);
+});
