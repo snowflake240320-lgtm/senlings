@@ -10,3 +10,26 @@ renderComposer(document.getElementById('composer'), {
   from,
   onFrom: v => { try { if (v) localStorage.setItem(FROM_KEY, v); } catch { /* そのまま */ } },
 });
+
+// 施設の入口(10-25 夜 船長「施設紹介なら施設」)。名前だけが入ったリンク。何も保存しない
+const nameIn = document.getElementById('shisetsu-name-in');
+const out = document.getElementById('shisetsu-out');
+const share = document.getElementById('shisetsu-share');
+const msg = document.getElementById('shisetsu-msg');
+let text = '';
+nameIn.oninput = () => { text = ''; out.hidden = true; share.hidden = true; msg.textContent = ''; };
+document.getElementById('shisetsu-make').onclick = () => {
+  const name = nameIn.value.replace(/\s+/g, ' ').trim().slice(0, 100);
+  const link = `${location.origin}/?openExternalBrowser=1#shisetsu${name ? `=${encodeURIComponent(name)}` : ''}`;
+  text = `${name ? `【${name}】` : ''}Senlings の施設の入口です。施設の決まりと、仲間の四人が見られます。\n${link}`;
+  out.textContent = text; out.hidden = false; share.hidden = false; msg.textContent = '';
+};
+share.onclick = async () => {
+  if (!text) return;
+  if (navigator.share) {
+    try { await navigator.share({ text }); msg.textContent = '共有の画面に渡しました。'; return; }
+    catch (e) { if (e?.name === 'AbortError') { msg.textContent = 'まだ送っていません。'; return; } }
+  }
+  try { await navigator.clipboard.writeText(text); msg.textContent = 'コピーしました。LINE などに貼って送ってください。'; }
+  catch { msg.textContent = '上の文を長押しして選んでください。'; }
+};

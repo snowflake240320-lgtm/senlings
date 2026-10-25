@@ -1,6 +1,6 @@
 // requestUI.js — 依頼の一枚(頼む側)。職人の「応援を呼ぶ」と、元請けの「現場の依頼」で同じ部品を使う。
 // 送るのは人。Senlings は文を下書きして、共有の画面(LINE など)へ渡すだけ。既読も催促も持たない。
-import { makeEnvelope, envelopeText, SITE_FIELDS, KINDS, fnv, TOKEN_MARK } from './envelope.js';
+import { makeEnvelope, envelopeText, envelopeLink, SITE_FIELDS, KINDS, fnv, TOKEN_MARK } from './envelope.js';
 
 const $ = (tag, text = '', attrs = {}) => Object.assign(document.createElement(tag), { textContent: text, ...attrs });
 
@@ -81,15 +81,16 @@ export function renderComposer(container, { kind, from = '', site = {}, workDate
   const reset = () => { text = ''; preview.hidden = true; share.hidden = true; copy.hidden = true; msg.textContent = ''; };
   form.addEventListener('input', reset);
 
-  make.onclick = () => {
+  make.onclick = async () => {
     try {
       // 同じ現場は同じ照合用ID(受けた側では、新しい版として上書きされ、表札は変わらない)。版は送るたびに新しく。
       const s = { ...site, name: nameIn.value, start: startIn.value, end: endIn.value, revision: Math.floor(Date.now() / 1000) };
       for (const [key] of SITE_FIELDS) s[key] = siteIns[key].value;
       const env = makeEnvelope({ kind, from: fromIn.value, date: localDate(Date.now()), work_date: dateIn.value, note: noteIn.value, site: s });
-      text = envelopeText(env, { link });
+      // リンクには依頼そのものが入る(押せば、その現場の依頼が開く)
+      text = envelopeText(env, { link: await envelopeLink(env, link) });
       // 見る欄では、Senlings 用の一行を畳む(送る文には、そのまま入る)
-      preview.textContent = text.replace(/〔Senlings〕\S+/, `${TOKEN_MARK}(Senlings 用の短い一行)`); preview.hidden = false;
+      preview.textContent = text.replace(/〔Senlings〕\S+/, `${TOKEN_MARK}(Senlings 用の短い一行)`).replace(/(Senlings で開く → \S+?)#r=\S+/, '$1(この依頼が開くリンク)'); preview.hidden = false;
       share.hidden = false; copy.hidden = false;
       msg.textContent = 'この文で送ります。直すときは上の欄を直して、もう一度「文を見る」。';
       onFrom(fromIn.value.trim());

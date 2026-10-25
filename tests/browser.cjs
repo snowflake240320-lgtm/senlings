@@ -13,7 +13,8 @@ const ymd = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-$
 const endedTeiji = (projectId = 'p') => { const now = Date.now(); return { id: `teiji:${ymd(new Date())}`, kind: 'teiji', date: ymd(new Date()), project_id: projectId,
   check_in_at: now - 10 * 3600000, check_out_at: now - 3600000 + 60000, break_minutes: 60, overtime_minutes: 0, placed_at: now - 11 * 3600000 }; };
 const server = http.createServer(async (req, res) => {
-  const file = path.resolve(web, '.' + (req.url === '/' ? '/index.html' : req.url.split('?')[0]));
+  const p = req.url.split('?')[0]; // 本番(Vercel)と同じく、/?… も /irai/ も index.html
+  const file = path.resolve(web, '.' + (p.endsWith('/') ? `${p}index.html` : p));
   if (!file.startsWith(web + path.sep)) return res.writeHead(403).end();
   try {
     const data = await fs.readFile(file);
@@ -388,6 +389,71 @@ async function inject(page, mode) {
     await click(page,'#kinkyu-make');assert.match(await page.locator('#kinkyu-preview').innerText(),/^【速報】火事です/);
     assert.deepEqual(await stats(page),before,'emergencies keep no record');assert.deepEqual(page.errors,[]);await context.close();
   });
+  const iosUA = v => `Mozilla/5.0 (iPhone; CPU iPhone OS ${v} like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/${v.split('_')[0]}.0 Mobile/15E148 Safari/604.1`;
+  // 開いて何もない、は避ける(10-25 夜):依頼のリンクなら依頼、施設のリンクなら施設、何も無ければ次に押すもの
+  async function makeLink(){const {page,context}=await setup(JSON.stringify(withContact()));await ready(page);await stubShare(page);
+    await click(page,'.site-card');await click(page,'#btn-request-help');await page.locator('#req-from').fill('架空の職人');await click(page,'#req-make');await page.locator('#req-preview:not([hidden])').waitFor();
+    assert.match(await page.locator('#req-preview').innerText(),/Senlings で開く → \S+\(この依頼が開くリンク\)/,'the long link is folded in the preview');
+    await click(page,'#req-share');const text=(await page.evaluate(()=>window.shared))[0];await context.close();
+    const link=text.match(/Senlings で開く → (\S+)/)[1];assert.match(link,/\?openExternalBrowser=1#r=z/);return {text,link:link.replace(/^https?:\/\/[^/]+/,origin)};}
+  await run('arrival: empty start shows what to press, not nothing', async () => {
+    const {page,context}=await setup(null);await page.locator('.site-welcome').waitFor();
+    assert.match(await page.locator('.site-welcome').innerText(),/LINE で依頼が届いたら/);
+    assert.deepEqual(await page.locator('.site-welcome button').allInnerTexts(),['受け取る\nコピーした依頼の文を貼る','自分で現場を立てる\n名前ひとつで。あとから直せます','施設を見る\n施設の決まりと、仲間の四人']);
+    await click(page,'#btn-welcome-receive');await page.locator('#handoff-input').waitFor();await click(page,'#local-dialog .local-close');
+    await click(page,'#btn-welcome-shisetsu');await page.locator('#screen-shisetsu.active').waitFor();
+    await click(page,'[data-tab="genba"]');await click(page,'#btn-welcome-add');await page.locator('#add-site-modal:not([hidden])').waitFor();
+    assert.equal((await stats(page)).writes,0);assert.deepEqual(page.errors,[]);await context.close();
+  });
+  await run('arrival: a request link opens the request itself (five choices, nothing kept), the # is cleared, and choosing works', async () => {
+    const {link}=await makeLink();
+    const {page,context}=await setup(null);await page.locator('.site-welcome').waitFor();
+    await page.goto(link);await page.locator('#handoff-choices:not([hidden])').waitFor();
+    assert.match(await page.locator('#handoff-preview').innerText(),/応援のお願い\(架空の職人より\)/);
+    assert.equal(await page.evaluate(()=>location.hash),'','the # is read once and cleared');
+    assert.equal(await page.evaluate(()=>rawStored()),null,'nothing is kept before choosing');
+    await click(page,'#choice-self');await page.locator('#reply-greet').waitFor();
+    const d=JSON.parse(await page.evaluate(()=>rawStored()));assert.equal(d.projects[0].project_slug,'TEST');assert.equal(d.projects[0].site_info.contact,'架空の田中');
+    await page.reload();await ready(page);assert.equal(await page.locator('#handoff-choices').count(),0,'reopening does not ask again');
+    assert.deepEqual(page.errors,[]);await context.close();
+  });
+  await run('arrival: on iPhone the guide comes first with the request on top and a copy button; 置かずに見る opens the request; in LINE, Safari carries the request', async () => {
+    const {text,link}=await makeLink();
+    const {page,context}=await setup(null,{ua:iosUA('26_0')});await page.locator('#homescreen-guide[open]').waitFor();await click(page,'#homescreen-later');
+    await page.evaluate(()=>localStorage.removeItem('senlings_homescreen_later'));
+    await page.goto(link);await page.locator('#homescreen-guide[open]').waitFor();
+    assert.match(await page.locator('#homescreen-arrival').innerText(),/届いています\n【応援のお願い】架空の職人より/);
+    await page.evaluate(()=>{window.copied=[];navigator.clipboard.writeText=async t=>{window.copied.push(t);};});
+    await click(page,'#homescreen-copy');const copied=(await page.evaluate(()=>window.copied))[0];
+    assert.ok(copied.startsWith(text.split('\n\nSenlings を使っている')[0]),'the copy is the request text');assert.match(copied,/\n〔Senlings〕\S+$/,'ready to paste at home');assert.doesNotMatch(copied,/Senlings で開く/);
+    assert.equal(await page.locator('#homescreen-later').innerText(),'いまは置かずに、ここで見る');
+    await click(page,'#homescreen-later');await page.locator('#handoff-choices:not([hidden])').waitFor();
+    assert.equal(await page.evaluate(()=>rawStored()),null);await context.close();
+    const line=await setup(null,{ua:iosUA('26_0').replace('Safari/604.1','Safari Line/14.0.0')});
+    await line.page.goto(link);await line.page.locator('#homescreen-guide[open]').waitFor();
+    const href=await line.page.locator('#homescreen-safari').getAttribute('href');
+    assert.equal(href,link,'Safari で開く keeps the request');assert.deepEqual(line.page.errors,[]);await line.context.close();
+  });
+  await run('arrival: a facility link opens ●施設 with its name, even if the tab was put away; a cut request link says so', async () => {
+    const {page,context}=await setup(null);await page.locator('.site-welcome').waitFor();
+    await page.evaluate(()=>localStorage.setItem('senlings_shell_show_shisetsu','0'));
+    await page.goto(`${origin}/?openExternalBrowser=1#shisetsu=${encodeURIComponent('架空の施設')}`);
+    await page.locator('#screen-shisetsu.active').waitFor();
+    assert.equal(await page.locator('#shisetsu-name').innerText(),'架空の施設');
+    assert.equal(await page.locator('[data-tab="shisetsu"]').isVisible(),true);
+    await page.reload();await page.locator('.site-welcome').waitFor();assert.equal(await page.locator('#shisetsu-name').innerText(),'架空の施設','the name stays');
+    await page.goto(`${origin}/?openExternalBrowser=1#r=zAAAA`);await page.locator('#handoff-input').waitFor();
+    assert.match(await page.locator('#local-dialog [role=status]').first().innerText(),/途中で切れて/);
+    assert.equal(await page.evaluate(()=>rawStored()),null);assert.deepEqual(page.errors,[]);await context.close();
+  });
+  await run('arrival: the 元請け page makes a facility entrance link that opens ●施設', async () => {
+    const {page,context}=await setup(null);await page.goto(origin+'/irai/');await stubShare(page);
+    await page.locator('#shisetsu-name-in').fill('架空の施設');await click(page,'#shisetsu-make');
+    const out=await page.locator('#shisetsu-out').innerText();assert.match(out,/^【架空の施設】Senlings の施設の入口です。/);
+    const link=out.match(/https?:\S+/)[0];assert.equal(link,`${origin}/?openExternalBrowser=1#shisetsu=${encodeURIComponent('架空の施設')}`);
+    await click(page,'#shisetsu-share');assert.equal((await page.evaluate(()=>window.shared))[0],out);
+    await page.goto(link);await page.locator('#screen-shisetsu.active').waitFor();assert.deepEqual(page.errors,[]);await context.close();
+  });
   await run('request: the 元請け page makes the same envelope (kind 現場案内) and remembers only the sender name', async () => {
     const {page,context}=await setup(null);/* 本番(Vercel)は /irai/ で開く */ await page.goto(origin+'/irai/index.html');await stubShare(page);
     await page.locator('#req-from').fill('藤田建装 園原');await page.locator('#req-name').fill('M1070 架空の店');
@@ -400,7 +466,6 @@ async function inject(page, mode) {
     const w=await page.evaluate(()=>[document.documentElement.scrollWidth,innerWidth,[...document.querySelectorAll('*')].filter(e=>e.getBoundingClientRect().right>innerWidth+1).map(e=>e.tagName+'.'+e.className).slice(0,5)]);assert.ok(w[0]<=w[1],JSON.stringify(w));assert.deepEqual(page.errors,[]);await context.close();
   });
   // ホーム画面に置く(10-25):入口は LINE、家はホーム画面。案内は一回だけ、催促しない、記録には触れない
-  const iosUA = v => `Mozilla/5.0 (iPhone; CPU iPhone OS ${v} like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/${v.split('_')[0]}.0 Mobile/15E148 Safari/604.1`;
   await run('homescreen: iOS 26 guide on first open, あとで is remembered, reopen from Home settings, no record write', async () => {
     const {page,context}=await setup(null,{ua:iosUA('26_0')});
     await page.locator('#homescreen-guide[open]').waitFor();

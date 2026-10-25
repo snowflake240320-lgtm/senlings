@@ -57,8 +57,8 @@ export function writeLater() {
 }
 
 // LINE から Safari へ。LINE の決まり(openExternalBrowser=1)。LINE の中のブラウザから効くかは実機で確かめる
-export function safariLink(loc = location) {
-  return `${loc.origin}${loc.pathname}?openExternalBrowser=1`;
+export function safariLink(loc = location, hash = '') {
+  return `${loc.origin}${loc.pathname}?openExternalBrowser=1${hash ? `#${hash.replace(/^#/, '')}` : ''}`;
 }
 
 // ── 絵 ──────────────────────────────────────────────────
@@ -111,7 +111,10 @@ function picture(name) {
  * @param {object} [o.installPrompt]  Android の beforeinstallprompt
  * @param {boolean} [o.hasRecords]  この置き場所(Safari)に、もう記録があるか
  */
-export function openHomeScreenGuide(state, { installPrompt = null, hasRecords = false, onLater = () => {} } = {}) {
+/**
+ * @param {object} [o.arrival]  リンクで届いたもの。{ label: 見出し, text: 依頼の文(コピーする), hash: Safari へ渡す # の後ろ, later: 置かずに使うときの言葉 }
+ */
+export function openHomeScreenGuide(state, { installPrompt = null, hasRecords = false, onLater = () => {}, arrival = null } = {}) {
   const text = homeScreenSteps(state);
   if (!text) return null;
   document.getElementById('homescreen-guide')?.remove();
@@ -123,7 +126,23 @@ export function openHomeScreenGuide(state, { installPrompt = null, hasRecords = 
   const h2 = $('h2', 'ホーム画面に置く'); h2.tabIndex = -1; h2.autofocus = true; // 開いたとき、小さな「いまは置かずに使う」に目印が付かないように
   head.append(icon, h2);
   dialog.append(head);
+  if (arrival?.label) {
+    const card = $('div', '', { className: 'homescreen-arrival', id: 'homescreen-arrival' });
+    card.append($('small', '届いています'), $('strong', arrival.label));
+    dialog.append(card);
+  }
   dialog.append($('p', '置いておくと、記録が消えません。開くのも一回で済みます。', { className: 'homescreen-lead' }));
+  // ホーム画面の Senlings は、ここ(ブラウザ)とは別の置き場所。依頼は、置く前にコピーして持っていく
+  if (arrival?.text && !text.safari) {
+    dialog.append($('p', 'ホーム画面の Senlings は、ここ(ブラウザ)とは別の置き場所です。置く前に、この依頼をコピーしておきます。置いたら、ホーム画面の Senlings の「受け取る」で貼るだけ。', { className: 'homescreen-lead' }));
+    const msg = $('p', '', { className: 'request-msg', id: 'homescreen-copy-msg' }); msg.setAttribute('role', 'status');
+    const copy = $('button', 'まず、依頼をコピーする', { type: 'button', className: 'local-action request-send', id: 'homescreen-copy' });
+    copy.onclick = async () => {
+      try { await navigator.clipboard.writeText(arrival.text); msg.textContent = 'コピーしました。次は、ホーム画面に置きます。'; }
+      catch { msg.textContent = 'コピーできませんでした。LINE の文を、あとでまるごとコピーしてください。'; }
+    };
+    dialog.append(copy, msg);
+  }
   if (text.lead) dialog.append($('p', text.lead, { className: 'homescreen-lead' }));
   if (text.steps.length) {
     const ol = $('ol', '', { className: 'homescreen-steps' });
@@ -137,7 +156,7 @@ export function openHomeScreenGuide(state, { installPrompt = null, hasRecords = 
     dialog.append(ol);
   }
   if (text.safari) {
-    dialog.append($('a', 'Safari で開く', { href: safariLink(), className: 'local-action', id: 'homescreen-safari' }));
+    dialog.append($('a', 'Safari で開く', { href: safariLink(location, arrival?.hash ?? ''), className: 'local-action', id: 'homescreen-safari' }));
   }
   if (text.button) {
     const b = $('button', text.button, { type: 'button', className: 'local-action', id: 'homescreen-install' });
@@ -154,7 +173,7 @@ export function openHomeScreenGuide(state, { installPrompt = null, hasRecords = 
     dialog.append(done);
   }
   if (hasRecords && !text.safari) dialog.append($('p', 'ここ(ブラウザ)で入れた記録は、ホーム画面の Senlings には移りません。持っていくなら、▲ホームの「JSON」で持ち出してから。', { className: 'later-note' }));
-  const later = $('button', 'いまは置かずに使う', { className: 'homescreen-later', type: 'button', id: 'homescreen-later' });
+  const later = $('button', arrival?.later ?? 'いまは置かずに使う', { className: 'homescreen-later', type: 'button', id: 'homescreen-later' });
   later.onclick = () => { writeLater(); dialog.close(); dialog.remove(); onLater(); };
   dialog.append(later);
   dialog.addEventListener('cancel', e => { e.preventDefault(); later.onclick(); });

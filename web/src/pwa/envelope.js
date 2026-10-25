@@ -121,9 +121,59 @@ export function encodeToken(env) {
 /** 人が読む文。いちばん下の短い一行だけが Senlings 用。 */
 export function envelopeText(env, { link = '' } = {}) {
   const lines = [bodyText(env), '', FOOT];
-  if (link) lines.push(`まだの人は → ${link}`);
+  if (link) lines.push(`Senlings で開く → ${link}`);
   lines.push(`${TOKEN_MARK}${encodeToken(env)}`);
   return lines.join('\n');
+}
+
+// ── リンクで開く(10-25 夜 船長「開いて何もないのは避ける」) ──
+// 封筒そのものをリンクの # の後ろに入れる。# の後ろはサーバーへ送られない(Vercel にも残らない)。
+// 縮められるときは縮める(z)。縮められないブラウザは、そのまま(j)。
+const LINK_KEY = 'r';
+export const MAX_LINK_CODE = 6000;
+function bytesB64(bytes) {
+  let s = ''; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return b64url(s);
+}
+function b64Bytes(code) { const s = unb64url(code); return Uint8Array.from(s, c => c.charCodeAt(0)); }
+async function through(bytes, stream) {
+  return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer());
+}
+export async function linkCode(env) {
+  checkEnvelope(env);
+  const bytes = new TextEncoder().encode(JSON.stringify(env));
+  if (typeof CompressionStream === 'function') {
+    try { return `z${bytesB64(await through(bytes, new CompressionStream('deflate-raw')))}`; } catch { /* そのまま */ }
+  }
+  return `j${bytesB64(bytes)}`;
+}
+export async function fromLinkCode(code) {
+  if (typeof code !== 'string' || code.length < 2 || code.length > MAX_LINK_CODE || !/^[zj][A-Za-z0-9_-]+$/.test(code)) throw new Error(CUT);
+  let env;
+  try {
+    let bytes = b64Bytes(code.slice(1));
+    if (code[0] === 'z') bytes = await through(bytes, new DecompressionStream('deflate-raw'));
+    env = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
+  } catch { throw new Error(CUT); }
+  try { return checkEnvelope(env); } catch { throw new Error(CUT); }
+}
+/** 依頼の入ったリンク。長すぎるときは、ただの入口(文を貼ってもらう)。 */
+export async function envelopeLink(env, base) {
+  if (!base) return '';
+  let code = '';
+  try { code = await linkCode(env); } catch { return base; }
+  return code.length <= MAX_LINK_CODE ? `${base}#${LINK_KEY}=${code}` : base;
+}
+/** # の後ろを読む。依頼なら { request: code }、施設の入口なら { shisetsu: 名前 }。 */
+export function readArrival(hash) {
+  const h = (hash ?? '').replace(/^#/, '');
+  if (h.startsWith(`${LINK_KEY}=`)) return { request: h.slice(LINK_KEY.length + 1) };
+  if (h === 'shisetsu' || h.startsWith('shisetsu=')) {
+    let name = '';
+    try { name = decodeURIComponent(h.slice('shisetsu='.length)); } catch { name = ''; }
+    return { shisetsu: oneLine(name, 100) };
+  }
+  return null;
 }
 
 const CUT = '依頼の文が途中で切れているか、変わっています。届いた文をまるごとコピーして、もう一度貼ってください。';

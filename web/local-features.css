@@ -93,3 +93,18 @@ html[data-mieru="70"] .mayottara li span { font-size: 15px; color: #dedad2; }
 .kinkyu-fuku p { color: #e8e5df !important; font-size: 15px !important; }
 .request-form label.local-choice { display: flex; gap: 12px; align-items: center; font-size: 15px; color: #e8e5df; }
 .request-form input[type=checkbox] { display: inline-block; width: 22px; height: 22px; flex: none; margin: 0; padding: 0; accent-color: #c5a059; }
+/* リンクで届いた依頼(ホーム画面に置く案内の上) */
+.homescreen-arrival { display: flex; flex-direction: column; gap: 2px; margin: 0 0 12px; padding: 12px 14px; border: 1px solid #c5a059; border-radius: 10px; background: #1e1a10; }
+.homescreen-arrival small { color: #c5a059; font-size: 12px; }
+.homescreen-arrival strong { color: #e8e5df; font-size: 16px; font-weight: 500; white-space: pre-wrap; }
+/* ■現場、まだ何もないとき */
+.site-welcome { padding: 8px 0 0; }
+.site-welcome p { color: #c4c1b9; font-size: 15px; line-height: 1.8; margin: 0 0 14px; }
+.site-welcome-main { display: block; width: 100%; min-height: 64px; margin: 0 0 12px; padding: 14px 16px; border: 1px solid #c5a059; border-radius: 12px; background: #1e1a10; color: #ddbd7e; font: inherit; font-size: 18px; font-weight: 500; text-align: left; cursor: pointer; }
+.site-welcome-main small, .site-welcome-sub small { display: block; color: #a8a49c; font-size: 13px; font-weight: 400; margin-top: 2px; }
+.site-welcome-sub { display: block; width: 100%; min-height: 56px; margin: 0 0 10px; padding: 12px 16px; border: 1px solid #2a2a24; border-radius: 12px; background: #161614; color: #e8e5df; font: inherit; font-size: 16px; text-align: left; cursor: pointer; }
+html[data-mieru="70"] .site-welcome p { font-size: 17px; }
+html[data-mieru="70"] .site-welcome-main { font-size: 20px; }
+html[data-mieru="70"] .site-welcome-main small, html[data-mieru="70"] .site-welcome-sub small { font-size: 15px; color: #b8b4ac; }
+html[data-mieru="70"] .site-welcome-sub { font-size: 18px; }
+.shisetsu-name { color: #e8e5df; font-size: 17px; margin-top: 4px; } .shisetsu-name[hidden] { display: none; } html[data-mieru="70"] .shisetsu-name { font-size: 19px; }

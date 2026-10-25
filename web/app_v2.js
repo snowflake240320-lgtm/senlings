@@ -16,6 +16,7 @@ import { openPon, openKon, openKero, openHoo, ponDeductionFor } from './src/pwa/
 import { HOO_TRADES, readNakama, setTrades } from './src/pwa/nakama.js';
 import { homeScreenState, openHomeScreenGuide, readLater } from './src/pwa/homeScreen.js';
 import { openRequestDialog, siteFromProject } from './src/pwa/requestUI.js';
+import { readArrival, fromLinkCode, envelopeText, bodyText } from './src/pwa/envelope.js';
 import { openShirase, openKinkyu } from './src/pwa/shiraseUI.js';
 
 // ── データ読み込み ────────────────────────────────────────
@@ -24,6 +25,24 @@ function getAllData() {
 }
 
 // ── 画面1: 現場トップ ────────────────────────────────────
+
+// まだ現場が無いとき。開いて何もない、は避ける(10-25 夜 船長)。次に押すものを先に出す
+function renderWelcome(list) {
+  list.replaceChildren();
+  const box = document.createElement('div'); box.className = 'site-welcome site-empty';
+  const p = document.createElement('p');
+  p.textContent = 'まだ現場がありません。\nLINE で依頼が届いたら、文をまるごとコピーして、ここへ。';
+  p.style.whiteSpace = 'pre-line';
+  const btn = (cls, id, main, sub, onclick) => {
+    const b = Object.assign(document.createElement('button'), { type: 'button', className: cls, id, textContent: main });
+    const s = document.createElement('small'); s.textContent = sub; b.append(s); b.onclick = onclick; return b;
+  };
+  box.append(p,
+    btn('site-welcome-main', 'btn-welcome-receive', '受け取る', 'コピーした依頼の文を貼る', () => receiveProject(renderSiteTop)),
+    btn('site-welcome-sub', 'btn-welcome-add', '自分で現場を立てる', '名前ひとつで。あとから直せます', () => document.getElementById('btn-add-site').click()));
+  if (readShowShisetsu()) box.append(btn('site-welcome-sub', 'btn-welcome-shisetsu', '施設を見る', '施設の決まりと、仲間の四人', () => document.querySelector('[data-tab="shisetsu"]').click()));
+  list.append(box);
+}
 function renderSiteTop() {
   const projects = (getAllData().projects ?? [])
     .filter(p => !p.archive);
@@ -36,7 +55,7 @@ function renderSiteTop() {
   if (!list) return;
 
   if (projects.length === 0) {
-    list.innerHTML = '<p class="site-empty">現場が登録されていません。</p>';
+    renderWelcome(list);
     return;
   }
 
@@ -957,19 +976,55 @@ let installPrompt = null;
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; });
 window.addEventListener('appinstalled', () => { installPrompt = null; document.getElementById('homescreen-guide')?.remove(); });
 
-function offerHomeScreen(force = false) {
+function offerHomeScreen(force = false, arrival = null) {
   const state = homeScreenState({ installPrompt });
   if (!(state.kind === 'ios' || state.kind === 'android')) return false;
   if (!force && readLater()) return false;
   let data;
   try { data = load(); } catch { return false; } // 読めないときは、保存の画面に任せる
   const hasRecords = (data.projects ?? []).length > 0 || (data.work_sessions ?? []).length > 0;
-  openHomeScreenGuide(state, { installPrompt, hasRecords, onLater: () => { const b = document.getElementById('btn-homescreen'); if (b) b.hidden = false; } });
+  openHomeScreenGuide(state, { installPrompt, hasRecords, arrival, onLater: () => { const b = document.getElementById('btn-homescreen'); if (b) b.hidden = false; arrival?.onLater?.(); } });
+  return true;
+}
+
+// ── リンクで来たとき(10-25 夜 船長「施設紹介なら施設、職人からならその現場。開いて何もないのは避ける」) ──
+// 依頼のリンク:依頼が開く(受けるかは五択、選ぶまで何も残さない)。施設のリンク:●施設から始まる。
+const SHISETSU_NAME_KEY = 'senlings_shisetsu_name';
+function readShisetsuName() { try { return localStorage.getItem(SHISETSU_NAME_KEY) ?? ''; } catch { return ''; } }
+function applyShisetsuName() {
+  const name = readShisetsuName();
+  const sub = document.getElementById('shisetsu-name');
+  if (sub) { sub.textContent = name; sub.hidden = !name; }
+}
+async function arrive() {
+  const raw = location.hash;
+  const a = readArrival(raw);
+  if (!a) return false;
+  // 一度読んだら、アドレスから外す(開き直しで二度出さない)
+  try { history.replaceState(null, '', `${location.pathname}${location.search}`); } catch { /* そのまま */ }
+  if (a.shisetsu !== undefined) {
+    if (a.shisetsu) { try { localStorage.setItem(SHISETSU_NAME_KEY, a.shisetsu); } catch { /* 名前は出せなくても開ける */ } }
+    writeShowShisetsu(true);
+    const cb = document.getElementById('setting-show-shisetsu'); if (cb) cb.checked = true;
+    applyShisetsuTab(); applyShisetsuName();
+    document.querySelector('[data-tab="shisetsu"]').click();
+    offerHomeScreen(false, { label: a.shisetsu ? `${a.shisetsu}の入口` : '施設の入口', hash: raw, later: 'いまは置かずに、施設を見る' });
+    return true;
+  }
+  let env;
+  try { env = await fromLinkCode(a.request); }
+  catch (e) { receiveProject(renderSiteTop).querySelector('[role=status]').textContent = e.message; return true; }
+  const text = envelopeText(env);
+  const label = `${bodyText(env).split('\n').slice(0, 2).join('\n')}`;
+  const open = () => receiveProject(renderSiteTop, { text });
+  if (!offerHomeScreen(false, { label, text, hash: raw, later: 'いまは置かずに、ここで見る', onLater: open })) open();
   return true;
 }
 
 // ── 初期化 ───────────────────────────────────────────────
 document.querySelector('[data-tab="shisetsu"]').hidden = !readShowShisetsu();
+applyShisetsuName();
 renderSiteTop();
-openToday();
-offerHomeScreen();
+arrive().then(came => { if (!came) { openToday(); offerHomeScreen(); } });
+// 開いたままのところへ、次のリンクが来たとき(# だけが変わる)
+window.addEventListener('hashchange', () => { arrive(); });

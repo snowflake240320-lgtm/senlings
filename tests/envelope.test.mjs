@@ -14,7 +14,7 @@ test('round trip through text: the person reads it, Senlings reads the last line
   assert.match(text, /^【応援のお願い】園原より\n10\/27\(火\)、サイゼリヤ田原町 に来てもらえませんか。/);
   assert.match(text, /時間:8:00〜17:00/); assert.match(text, /担当:架空の担当\n電話:000-0000-0000/);
   assert.ok(lastLine.length < 220, `short line: ${lastLine.length}`); assert.match(lastLine, /^〔Senlings〕[A-Za-z0-9_-]+$/);
-  assert.match(text, /まだの人は → https:\/\/x\.example\/\?openExternalBrowser=1/);
+  assert.match(text, /Senlings で開く → https:\/\/x\.example\/\?openExternalBrowser=1/);
   assert.ok(lastLine.startsWith(TOKEN_MARK));
   // LINE は前後に文を足したり、改行を変えたりする。それでも読める
   const pasted = `[LINE] 園原\n${text.replace(/\n/g, '\r\n')}\n既読`;
@@ -72,4 +72,35 @@ test('孫請けを守る:依頼の文には、単価・請求・勤怠・メモ�
   assert.deepEqual(Object.keys(site).sort(), ['address', 'contact', 'end', 'name', 'parking', 'source_id', 'start']);
   const text = envelopeText(makeEnvelope({ kind: 'ouen', from: 'x', date: '2026-10-25', site }));
   for (const secret of ['25,000', '25000', 'K-001', '自分のメモ', '原文']) assert.equal(text.includes(secret), false, secret);
+});
+
+// リンクで開く(10-25 夜):依頼そのものが # の後ろに入る。縮める(z)・そのまま(j)の両方を読める。欠けたら止める
+import { linkCode, fromLinkCode, envelopeLink, readArrival, MAX_LINK_CODE } from '../web/src/pwa/envelope.js';
+test('link: the envelope rides in the # (compressed), reads back the same, and a cut link is refused', async () => {
+  const env = makeEnvelope({ kind: 'ouen', from: '架空の職人', date: '2026-12-01', work_date: '2026-12-02', note: 'ボードの手が足りません', site: { name: '架空の現場', start: '08:00', end: '17:00', address: '架空市1-1', contact: '架空の田中', contact_phone: '090-0000-0000' } });
+  const code = await linkCode(env);
+  assert.match(code, /^z[A-Za-z0-9_-]+$/);
+  assert.deepEqual(await fromLinkCode(code), env);
+  const plain = 'j' + Buffer.from(JSON.stringify(env)).toString('base64url');
+  assert.deepEqual(await fromLinkCode(plain), env, 'a browser without compression still works');
+  await assert.rejects(fromLinkCode(code.slice(0, -6)), /途中で切れて/);
+  await assert.rejects(fromLinkCode('j' + Buffer.from('{"format":"x"}').toString('base64url')), /途中で切れて/);
+  await assert.rejects(fromLinkCode('x123'), /途中で切れて/);
+  const link = await envelopeLink(env, 'https://example.test/?openExternalBrowser=1');
+  assert.ok(link.startsWith('https://example.test/?openExternalBrowser=1#r=z'));
+  assert.ok(link.length < 1200, `short enough for LINE (${link.length})`);
+  assert.deepEqual(readArrival(new URL(link).hash), { request: code });
+  const text = envelopeText(env, { link });
+  assert.match(text, /\nSenlings で開く → https:\/\/example\.test\/\?openExternalBrowser=1#r=z/);
+  assert.deepEqual(findEnvelope(text), env, 'the pasted text still reads with the link inside');
+});
+test('link: too long falls back to the plain entrance; facility entrance carries only a name', async () => {
+  const env = makeEnvelope({ kind: 'genba', from: '架空の元請け', date: '2026-12-01', site: { name: '架空の現場', delivery: Array.from({ length: 2000 }, (_, i) => String.fromCharCode(0x4e00 + (i * 7919) % 20000)).join('') } });
+  assert.ok((await linkCode(env)).length > MAX_LINK_CODE);
+  assert.equal(await envelopeLink(env, 'https://example.test/?openExternalBrowser=1'), 'https://example.test/?openExternalBrowser=1');
+  assert.deepEqual(readArrival('#shisetsu=' + encodeURIComponent('三井アウトレットパーク福岡')), { shisetsu: '三井アウトレットパーク福岡' });
+  assert.deepEqual(readArrival('#shisetsu'), { shisetsu: '' });
+  assert.deepEqual(readArrival('#shisetsu=%E0%A4%A'), { shisetsu: '' });
+  assert.equal(readArrival(''), null);
+  assert.equal(readArrival('#other'), null);
 });

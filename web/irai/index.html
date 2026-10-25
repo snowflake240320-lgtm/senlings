@@ -17,6 +17,7 @@
     .foot { margin-top: 20px; color: #8a8780; font-size: 12px; line-height: 1.8; }
     .rule { background: #1c1c18; border: 1px solid #55554c; border-radius: 10px; padding: 12px 14px; margin-bottom: 16px; font-size: 13px; line-height: 1.8; color: #dedad2; }
     .rule strong { color: #c5a059; font-weight: 500; }
+    h2.sub { font-size: 18px; font-weight: 400; margin: 36px 0 8px; letter-spacing: 0.05em; }
   </style>
 </head>
 <body>
@@ -26,6 +27,15 @@
     <p class="lead">職人に送る文を作ります。LINE などで、いつもどおり送ってください。<br>相手が Senlings を使っていれば、文を貼るだけで現場が入ります。使っていなくても、文だけで伝わります。</p>
     <p class="rule"><strong>送る相手は、契約している相手まで。</strong>自社と直接契約している会社か、直接契約の一人親方へ。その先の職人へは、その会社から頼んでもらいます(頼み方・時間・配置の指示は、雇っている会社の仕事です。越えて直接指示すると、偽装請負になり得ます)。<br>安全と連絡調整(駐車・搬入・停電・朝礼など)のお知らせは、別の話です。迷ったら、下の「迷ったら(一般論)」を。</p>
     <div class="card" id="composer"></div>
+    <h2 class="sub">施設の入口を配る</h2>
+    <p class="lead">施設に入る人へ配るリンクです。押すと Senlings が●施設から開きます(施設の決まりと、仲間の四人)。依頼ではありません。</p>
+    <div class="card request-form" id="shisetsu-link">
+      <label>施設の名前<input id="shisetsu-name-in" maxlength="100" placeholder="例:三井アウトレットパーク福岡"></label>
+      <button type="button" class="local-action" id="shisetsu-make">リンクを作る</button>
+      <pre class="request-preview" id="shisetsu-out" hidden></pre>
+      <button type="button" class="local-action request-send" id="shisetsu-share" hidden>LINE などで送る</button>
+      <p class="request-msg" id="shisetsu-msg" role="status"></p>
+    </div>
     <p class="foot">このページは何も保存しません(呼び名だけ、この端末に覚えます)。送った文の行き先も、既読も、Senlings は知りません。</p>
   </main>
   <script type="module" src="./irai.js"></script>
