@@ -6,16 +6,16 @@ import { homeScreenState, homeScreenSteps, safariLink } from '../web/src/pwa/hom
 const ios = v => `Mozilla/5.0 (iPhone; CPU iPhone OS ${v} like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/${v.split('_')[0]}.0 Mobile/15E148 Safari/604.1`;
 const st = (ua, extra = {}) => homeScreenState({ ua, standalone: false, ...extra });
 
-test('iOS 26 (compact tab bar): the first tap is 「…」, four taps', () => {
+test('iOS 26 (compact tab bar): the first tap is 「…」, five taps', () => {
   const s = st(ios('26_0'));
   assert.equal(s.kind, 'ios'); assert.equal(s.major, 26); assert.equal(s.compact, true); assert.equal(s.inLine, false);
   const t = homeScreenSteps(s);
-  assert.equal(t.steps.length, 4); assert.match(t.steps[0].text, /「…」/); assert.equal(t.steps[0].pic, 'safari26'); assert.match(t.steps[3].text, /追加/); assert.equal(t.steps[2].pic, 'sheet');
+  assert.equal(t.steps.length, 5); assert.match(t.steps[0].text, /「…」/); assert.equal(t.steps[0].pic, 'safari26'); assert.equal(t.steps[2].pic, 'more'); assert.match(t.steps[2].text, /表示を増やす/); assert.equal(t.steps[3].pic, 'sheet'); assert.match(t.steps[4].text, /追加/);
 });
 
-test('iOS 18 and earlier: share first, three taps', () => {
+test('iOS 18 and earlier: share first, then 表示を増やす, four taps', () => {
   const t = homeScreenSteps(st(ios('18_6')));
-  assert.equal(t.steps.length, 3); assert.match(t.steps[0].text, /共有/); assert.equal(t.steps[0].pic, 'safari18'); assert.doesNotMatch(t.steps[0].text, /…/);
+  assert.equal(t.steps.length, 4); assert.match(t.steps[0].text, /共有/); assert.equal(t.steps[0].pic, 'safari18'); assert.doesNotMatch(t.steps[0].text, /…/); assert.equal(t.steps[1].pic, 'more');
 });
 
 test('inside LINE: cannot add; send them to Safari with LINE\'s own switch', () => {
@@ -30,7 +30,7 @@ test('Chrome on iPhone: share is at the top right, with its own picture', () => 
   const s = st(ios('18_6').replace('Version/18.0', 'CriOS/130.0'));
   assert.equal(s.chrome, true); assert.equal(s.otherBrowser, true);
   const t = homeScreenSteps(s);
-  assert.equal(t.steps.length, 3); assert.match(t.steps[0].text, /右上/); assert.equal(t.steps[0].pic, 'chrome'); assert.match(t.lead, /Chrome/);
+  assert.equal(t.steps.length, 4); assert.match(t.steps[0].text, /右上/); assert.equal(t.steps[0].pic, 'chrome'); assert.match(t.lead, /Chrome/);
 });
 
 test('Android: one button when the browser offers it, otherwise the menu steps', () => {

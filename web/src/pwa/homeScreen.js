@@ -31,14 +31,16 @@ export function homeScreenState({ ua, standalone, installPrompt = null } = {}) {
 
 // 職人の言葉で、押すところだけ。pic は下の絵の名前。
 export function homeScreenSteps(state) {
-  const sheet = { text: '下へなぞって「ホーム画面に追加」を押す', pic: 'sheet' };
+  // 共有の一覧は長い。丸い印の右端「表示を増やす」を押さないと、「ホーム画面に追加」が出てこない(10-25 船長の iPhone で)
+  const more = { text: '丸い印の右端「表示を増やす」を押す', pic: 'more' };
+  const sheet = { text: '下のほうにある「ホーム画面に追加」を押す', pic: 'sheet' };
   const add = { text: '右上の「追加」を押す', pic: 'add' };
   if (state.kind === 'ios') {
     if (state.inLine) return { lead: 'LINE の中では置けません。先に Safari で開きます。', steps: [{ text: '右下の「…」(無ければ □↑)を押して、「Safari で開く」', pic: 'line' }, { text: 'Safari で開くと、この案内がもう一度出ます', pic: null }], safari: true };
-    if (state.chrome) return { lead: 'Chrome でも置けます。', steps: [{ text: '右上の 共有(□↑)を押す', pic: 'chrome' }, sheet, add] };
-    if (state.otherBrowser) return { lead: '', steps: [{ text: '共有(□↑)を押す(上の段か、下の段にあります)', pic: 'share' }, sheet, add] };
-    if (state.compact) return { lead: '', steps: [{ text: '下の「…」を押す(共有 □↑ が見えていれば、それでも)', pic: 'safari26' }, { text: '「共有」を押す', pic: 'menu' }, sheet, add] };
-    return { lead: '', steps: [{ text: 'いちばん下の 共有(□↑)を押す', pic: 'safari18' }, sheet, add] };
+    if (state.chrome) return { lead: 'Chrome でも置けます。', steps: [{ text: '右上の 共有(□↑)を押す', pic: 'chrome' }, more, sheet, add] };
+    if (state.otherBrowser) return { lead: '', steps: [{ text: '共有(□↑)を押す(上の段か、下の段にあります)', pic: 'share' }, more, sheet, add] };
+    if (state.compact) return { lead: '', steps: [{ text: '下の「…」を押す(共有 □↑ が見えていれば、それでも)', pic: 'safari26' }, { text: '「共有」を押す', pic: 'menu' }, more, sheet, add] };
+    return { lead: '', steps: [{ text: 'いちばん下の 共有(□↑)を押す', pic: 'safari18' }, more, sheet, add] };
   }
   if (state.kind === 'android') {
     if (state.prompt) return { lead: '', steps: [], button: 'ホーム画面に置く' };
@@ -72,6 +74,8 @@ const PICS = {
   safari26: `<svg viewBox="0 0 340 118" xmlns="http://www.w3.org/2000/svg"><rect width="340" height="118" fill="${PANEL}"/><path d="M30 46 l-8 10 l8 10" fill="none" stroke="${MUTE}" stroke-width="2.2" stroke-linecap="round"/><rect x="52" y="34" width="224" height="44" rx="22" fill="${PILL}"/><text x="164" y="61" font-size="13" fill="${TXT}" text-anchor="middle">senlings-git-… vercel.app</text><circle cx="308" cy="56" r="20" fill="${PILL}"/><text x="308" y="62" font-size="20" fill="${TXT}" text-anchor="middle" font-weight="700">…</text>${ring(282, 30, 52, 52)}</svg>`,
   // 「…」の中の 共有
   menu: `<svg viewBox="0 0 340 118" xmlns="http://www.w3.org/2000/svg"><rect width="340" height="118" fill="${PANEL}"/><rect x="40" y="8" width="260" height="102" rx="14" fill="${PILL}"/><rect x="52" y="22" width="120" height="10" rx="5" fill="#48484a"/><rect x="52" y="78" width="150" height="10" rx="5" fill="#48484a"/><text x="60" y="58" font-size="16" fill="${TXT}">共有</text>${shareGlyph(270, 54, 0.9, TXT)}${ring(46, 38, 248, 32)}</svg>`,
+  // 共有の一覧の、丸い印の列。右端の「表示を増やす」
+  more: `<svg viewBox="0 0 340 118" xmlns="http://www.w3.org/2000/svg"><rect width="340" height="118" fill="#2b2b2b"/><g fill="#4a4a4c"><circle cx="50" cy="40" r="28"/><circle cx="130" cy="40" r="28"/><circle cx="210" cy="40" r="28"/><circle cx="290" cy="40" r="28"/></g><g fill="none" stroke="${TXT}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="40" y="30" width="14" height="18" rx="2"/><path d="M46 30 v-4 h14 v18 h-4"/><rect x="117" y="33" width="20" height="13" rx="2"/><rect x="138" y="36" width="7" height="12" rx="1.5"/><circle cx="203" cy="42" r="6"/><circle cx="218" cy="42" r="6"/><path d="M209 42 h3"/><path d="M281 36 l9 9 l9 -9"/></g><g fill="${TXT}" font-size="11" text-anchor="middle"><text x="50" y="88">コピー</text><text x="130" y="88">デバイスに送信</text><text x="210" y="88">リーディング</text><text x="210" y="102">リストに追加</text><text x="290" y="88">表示を増やす</text></g>${ring(256, 6, 68, 68)}</svg>`,
   // 共有の一覧の中の「ホーム画面に追加」(写真)
   sheet: null,
   // 右上の「追加」
