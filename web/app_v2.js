@@ -14,6 +14,7 @@ import { receiveProject, giveProject, writeMemo, takePhoto, reviewRecords, editS
 import { saveLocalRecord, contactPhone } from './src/pwa/localRecords.js';
 import { openPon, openKon, openKero, openHoo, ponDeductionFor } from './src/pwa/nakamaUI.js';
 import { HOO_TRADES, readNakama, setTrades } from './src/pwa/nakama.js';
+import { homeScreenState, openHomeScreenGuide, readLater } from './src/pwa/homeScreen.js';
 
 // ── データ読み込み ────────────────────────────────────────
 function getAllData() {
@@ -614,6 +615,12 @@ function renderHome() {
     applyShisetsuTab();
   };
 
+  // ホーム画面に置く(置き方)。ホーム画面から開いているときは出さない
+  const hsBtn = document.getElementById('btn-homescreen');
+  const hs = homeScreenState({ installPrompt });
+  hsBtn.hidden = !(hs.kind === 'ios' || hs.kind === 'android');
+  hsBtn.onclick = () => offerHomeScreen(true);
+
   // 見やすさ・字の大きさ(この端末だけの好み。記録には入れない)
   const mieru = readMieru();
   document.querySelectorAll('#setting-mieru input[name=mieru]').forEach(r => {
@@ -901,7 +908,26 @@ function openToday() {
   return true;
 }
 
+// ── ホーム画面に置く(入口は LINE、家はホーム画面。10-25 船長) ──
+// 最初に開いた一回だけ案内を出す。何かを入れる前に(先に入れると、この置き場所に残る)。
+// 「あとで」のあとは出さない。▲ホームの設定から開ける。Android は一押し(ブラウザが置かせてくれるとき)。
+let installPrompt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; });
+window.addEventListener('appinstalled', () => { installPrompt = null; document.getElementById('homescreen-guide')?.remove(); });
+
+function offerHomeScreen(force = false) {
+  const state = homeScreenState({ installPrompt });
+  if (!(state.kind === 'ios' || state.kind === 'android')) return false;
+  if (!force && readLater()) return false;
+  let data;
+  try { data = load(); } catch { return false; } // 読めないときは、保存の画面に任せる
+  const hasRecords = (data.projects ?? []).length > 0 || (data.work_sessions ?? []).length > 0;
+  openHomeScreenGuide(state, { installPrompt, hasRecords, onLater: () => { const b = document.getElementById('btn-homescreen'); if (b) b.hidden = false; } });
+  return true;
+}
+
 // ── 初期化 ───────────────────────────────────────────────
 document.querySelector('[data-tab="shisetsu"]').hidden = !readShowShisetsu();
 renderSiteTop();
 openToday();
+offerHomeScreen();

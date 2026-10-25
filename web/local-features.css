@@ -29,3 +29,10 @@
 .add-site-more[open] summary::before { transform: rotate(90deg); }
 /* 申し送り画面の控えめな導線(入館ボタンと競わない) */
 .handover-fallback { margin: 8px 20px 12px; }
+
+/* ホーム画面に置く(案内の一枚)。10-25 */
+.homescreen-steps { margin: 12px 0 4px; padding-left: 1.6em; color: #e8e5df; font-size: 15px; line-height: 1.9; }
+.homescreen-steps li { padding-left: 4px; }
+.homescreen-steps li::marker { color: #c5a059; }
+.homescreen-guide .later-note { margin-top: 12px; }
+a.local-action { display: block; text-align: center; text-decoration: none; box-sizing: border-box; }

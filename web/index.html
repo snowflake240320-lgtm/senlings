@@ -12,7 +12,10 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="favicon.ico">
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Senlings">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
   <meta name="theme-color" content="#0d0d0b">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500&family=Noto+Serif+JP:wght@300;400&display=swap" rel="stylesheet">
@@ -470,7 +473,7 @@
       gap: 12px;
       padding: 14px 20px 0 52px;
     }
-    .working-zangyo[hidden], .junbi[hidden] { display: none; }
+    .working-zangyo[hidden], .junbi[hidden], .shimai-action-btn[hidden] { display: none; }
     .zangyo-btn {
       padding: 10px 16px;
       background: #1c1c18;
@@ -1855,6 +1858,10 @@
         <div style="display:flex; flex-direction:column; gap:8px;">
           <button class="shimai-action-btn" id="btn-shimai-settings">
             <span>名前・単価・税率</span>
+            <span class="shimai-action-arrow">›</span>
+          </button>
+          <button class="shimai-action-btn" id="btn-homescreen" hidden>
+            <span>ホーム画面に置く</span>
             <span class="shimai-action-arrow">›</span>
           </button>
           <fieldset class="setting-mieru" id="setting-mieru">

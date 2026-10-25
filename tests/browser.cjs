@@ -24,8 +24,9 @@ const server = http.createServer(async (req, res) => {
 let browser, origin;
 let passed = 0;
 async function run(name, fn) { if (process.env.TEST_FILTER && !name.includes(process.env.TEST_FILTER)) return; await fn(); console.log('PASS', name); passed++; }
-async function setup(raw = JSON.stringify(fixture()), { old = false, readError = false, realFirebase = false } = {}) {
-  const context = await browser.newContext({ serviceWorkers: 'block' });
+async function setup(raw = JSON.stringify(fixture()), { old = false, readError = false, realFirebase = false, ua = undefined, standalone = false } = {}) {
+  const context = await browser.newContext({ serviceWorkers: 'block', ...(ua ? { userAgent: ua } : {}) });
+  if (standalone) await context.addInitScript(() => { Object.defineProperty(navigator, 'standalone', { value: true }); });
   await context.route('**/*', async route => {
     const url = route.request().url();
     if (old && !realFirebase && url === origin + '/src/pwa/firebase.js') {
@@ -253,6 +254,37 @@ async function inject(page, mode) {
     await click(page,'#btn-shimai-invoice');await click(page,'#btn-invoice-skip-expense');await page.locator('.invoice-card-title').waitFor();
     assert.match(await page.locator('#invoice-display').innerText(),/稼働日数\s*1日/);
     assert.match(await page.locator('#invoice-zangyo-row').innerText(),/1時間\(3,906円\)/);
+    assert.deepEqual(page.errors,[]);await context.close();
+  });
+  // ホーム画面に置く(10-25):入口は LINE、家はホーム画面。案内は一回だけ、催促しない、記録には触れない
+  const iosUA = v => `Mozilla/5.0 (iPhone; CPU iPhone OS ${v} like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/${v.split('_')[0]}.0 Mobile/15E148 Safari/604.1`;
+  await run('homescreen: iOS 26 guide on first open, あとで is remembered, reopen from Home settings, no record write', async () => {
+    const {page,context}=await setup(null,{ua:iosUA('26_0')});
+    await page.locator('#homescreen-guide[open]').waitFor();
+    const text=await page.locator('#homescreen-guide').innerText();
+    assert.match(text,/「…」/);assert.match(text,/ホーム画面に追加/);assert.doesNotMatch(text,/JSON/,'no records here, so no moving note');
+    assert.equal((await stats(page)).writes,0);
+    await click(page,'#homescreen-later');assert.equal(await page.locator('#homescreen-guide').count(),0);
+    assert.equal(await page.evaluate(()=>localStorage.getItem('senlings_homescreen_later')),'1');
+    await page.reload();await page.locator('.site-empty').waitFor();assert.equal(await page.locator('#homescreen-guide').count(),0,'not nagged');
+    await click(page,'[data-tab="home"]');assert.equal(await page.locator('#btn-homescreen').isVisible(),true);
+    await click(page,'#btn-homescreen');await page.locator('#homescreen-guide[open]').waitFor();
+    assert.equal((await stats(page)).writes,0);assert.deepEqual(page.errors,[]);await context.close();
+  });
+  await run('homescreen: iOS 18 shows share first; LINE shows the Safari switch; with records the moving note appears', async () => {
+    let r=await setup(null,{ua:iosUA('18_6')});await r.page.locator('#homescreen-guide[open]').waitFor();
+    const steps=await r.page.locator('#homescreen-guide li').allInnerTexts();assert.equal(steps.length,3);assert.match(steps[0],/共有/);await r.context.close();
+    r=await setup(JSON.stringify(fixture()),{ua:iosUA('26_0')+' Line/15.2.0'});await r.page.locator('#homescreen-guide[open]').waitFor();
+    assert.match(await r.page.locator('#homescreen-safari').getAttribute('href'),/\?openExternalBrowser=1$/);
+    assert.doesNotMatch(await r.page.locator('#homescreen-guide').innerText(),/JSON/);await r.context.close();
+    r=await setup(JSON.stringify(fixture()),{ua:iosUA('26_0')});await r.page.locator('#homescreen-guide[open]').waitFor();
+    assert.match(await r.page.locator('#homescreen-guide').innerText(),/JSON/,'records already in this Safari: say they do not move');
+    assert.equal((await stats(r.page)).writes,0);await r.context.close();
+  });
+  await run('homescreen: from the home screen itself, nothing is shown and the settings row is hidden', async () => {
+    const {page,context}=await setup(JSON.stringify(fixture()),{ua:iosUA('26_0'),standalone:true});await ready(page);
+    assert.equal(await page.locator('#homescreen-guide').count(),0);
+    await click(page,'[data-tab="home"]');assert.equal(await page.locator('#btn-homescreen').isVisible(),false);
     assert.deepEqual(page.errors,[]);await context.close();
   });
   // 見やすさ(10-25):▲ホームで選ぶ。この端末だけの好みで、記録(senlings_v0)には書かない
