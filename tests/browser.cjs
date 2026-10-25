@@ -336,6 +336,58 @@ async function inject(page, mode) {
     assert.equal(await page.locator('#handoff-accept').isDisabled(),true);assert.deepEqual(await stats(page),before);
     assert.deepEqual(page.errors,[]);await context.close();
   });
+  // 知らせ・いざというとき(10-25):宛先はこの現場の担当。送るのは本人。何を送ったかは残さない
+  const withContact = () => { const d = fixture(); d.projects[0].site_info = { contact: '架空の田中', contact_phone: '090-0000-0000' }; d.projects[0].address = '架空市1-1'; return d; };
+  await run('shirase: 遅れます with the Google Maps arrival (+10, by 5) and 事故渋滞; writes nothing; SMS and tel go to the site contact', async () => {
+    const {page,context}=await setup(JSON.stringify(withContact()));await ready(page);await stubShare(page);await working(page);
+    const before=await stats(page);
+    await click(page,'#btn-shirase');await click(page,'#shirase-okure');
+    assert.match(await page.locator('#okure-maps').getAttribute('href'),/^https:\/\/www\.google\.com\/maps\/dir\/\?api=1&destination=/);
+    await page.locator('#okure-at').fill('09:12');assert.equal(await page.locator('#okure-yoyuu').innerText(),'余裕をみて 9:25 ごろ、と書きます。');
+    await page.locator('#okure-jiko').check();await click(page,'#okure-make');
+    const text=await page.locator('#okure-preview').innerText();
+    assert.equal(text,'架空の田中さん\nTEST、事故渋滞で遅れます。すみません。\nGoogleマップでは 9:12 着、余裕をみて 9:25 ごろ着きます。');
+    assert.equal(await page.locator('#okure-sms').getAttribute('href'),`sms:09000000000?&body=${encodeURIComponent(text)}`.replace('09000000000','09000000000'));
+    assert.equal(await page.locator('#shirase-tel').getAttribute('href'),'tel:09000000000');
+    await click(page,'#okure-share');assert.equal((await page.evaluate(()=>window.shared))[0],text);
+    await page.locator('#okure-at').fill('09:40');assert.equal(await page.locator('#okure-preview').isHidden(),true,'changing the form hides the old text');
+    assert.deepEqual(await stats(page),before,'a notice writes nothing');assert.deepEqual(page.errors,[]);await context.close();
+  });
+  await run('shirase: 休みます today — text to the contact, then 休みにする removes only that day, 取り消す puts it back, 代わりを頼む opens 応援を呼ぶ for that day', async () => {
+    const {page,context}=await setup(JSON.stringify(withContact()));await ready(page);await stubShare(page);await working(page);
+    await click(page,'#btn-shirase');await click(page,'#shirase-yasumi');
+    assert.equal(await page.locator('#yasumi-date').inputValue(),await page.evaluate(()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}));
+    assert.equal(await page.locator('#yasumi-off').isVisible(),false,'nothing to press before the text');
+    await click(page,'#yasumi-make');
+    assert.match(await page.locator('#yasumi-preview').innerText(),/^架空の田中さん\n今日のTEST、休ませてください。申し訳ありません。\n代わりに入れる人を、こちらで当たっています。/);
+    const count=async()=>JSON.parse((await stats(page)).raw).work_sessions.filter(s=>s.kind==='teiji').length;
+    assert.equal(await count(),1,'sending the text alone does not change the day');
+    assert.match(await page.locator('#yasumi-off').innerText(),/^今日を休みにする/);
+    await click(page,'#yasumi-off');assert.equal(await count(),0);assert.match(await page.locator('#yasumi-off-msg').innerText(),/休みにしました/);
+    assert.equal(JSON.parse((await stats(page)).raw).work_sessions.length,1,'the old in/out record stays');
+    await click(page,'#yasumi-off');assert.equal(await count(),1,'取り消す puts the day back');
+    await click(page,'#yasumi-off');assert.equal(await count(),0);
+    await click(page,'#yasumi-kawari-btn');await page.locator('#req-name').waitFor();
+    assert.equal(await page.locator('#req-name').inputValue(),'TEST');assert.equal(await page.locator('#req-date').inputValue(),await page.locator('#req-date').inputValue());
+    assert.equal(await page.locator('#req-contact').inputValue(),'架空の田中');
+    assert.deepEqual(page.errors,[]);await context.close();
+  });
+  await run('kinkyu: 人が倒れた and 火事 open at once from 迷ったら押す, 119 first, the 速報 has the place, nothing is kept', async () => {
+    const {page,context}=await setup(JSON.stringify(withContact()));await ready(page);await stubShare(page);await working(page);
+    const before=await stats(page);
+    await click(page,'#btn-sos');await click(page,'#btn-kinkyu-taore');
+    assert.equal(await page.locator('#kinkyu-119').getAttribute('href'),'tel:119');
+    assert.match(await page.locator('.kinkyu-steps').innerText(),/あなたは 119/);
+    await page.locator('#kinkyu-place').fill('HB棟 2階');await click(page,'#kinkyu-make');
+    assert.match(await page.locator('#kinkyu-preview').innerText(),/^【速報】人が倒れました\(\d+:\d\d\)\n現場:TEST\n場所:HB棟 2階\nAED を持ってきてください。119 をお願いします。$/);
+    assert.equal(await page.locator('#kinkyu-tel').getAttribute('href'),'tel:09000000000');
+    await click(page,'#local-dialog .local-close');
+    await click(page,'#btn-kinkyu-kaji');
+    assert.match(await page.locator('.kinkyu-steps li').first().innerText(),/^まず逃げる。/);
+    assert.match(await page.locator('.kinkyu-fuku').innerText(),/水はかけない/);
+    await click(page,'#kinkyu-make');assert.match(await page.locator('#kinkyu-preview').innerText(),/^【速報】火事です/);
+    assert.deepEqual(await stats(page),before,'emergencies keep no record');assert.deepEqual(page.errors,[]);await context.close();
+  });
   await run('request: the 元請け page makes the same envelope (kind 現場案内) and remembers only the sender name', async () => {
     const {page,context}=await setup(null);/* 本番(Vercel)は /irai/ で開く */ await page.goto(origin+'/irai/index.html');await stubShare(page);
     await page.locator('#req-from').fill('藤田建装 園原');await page.locator('#req-name').fill('M1070 架空の店');

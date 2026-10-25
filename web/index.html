@@ -672,6 +672,22 @@
       color: #e8e5df;
     }
     .btn-rest:active { background: #1e1e1a; }
+    /* 知らせる:静かな一行。押すのは遅れる日・休む日だけ */
+    .shirase-btn {
+      display: flex; align-items: baseline; justify-content: center; gap: 10px;
+      width: 100%; min-height: 48px; padding: 12px 16px;
+      background: #161614; border: 1px solid #2a2a24; border-radius: 12px;
+      color: #e8e5df; font-family: 'Noto Sans JP', sans-serif; font-size: 16px; letter-spacing: 0.05em; cursor: pointer;
+    }
+    .shirase-btn small { color: #8a8780; font-size: 12px; }
+    .shirase-btn:active { background: #1e1e1a; }
+    /* いざというとき */
+    .kinkyu-row { display: flex; gap: 10px; padding: 16px 20px 0; }
+    .kinkyu-btn {
+      flex: 1; min-height: 64px; border: 2px solid #d95b29; border-radius: 12px;
+      background: #2a1205; color: #f0ede8; font-family: 'Noto Sans JP', sans-serif; font-size: 18px; font-weight: 700; cursor: pointer;
+    }
+    .kinkyu-btn:active { background: #3a1a08; }
     .btn-rest .btn-sub { color: #777; }
     .btn-icon {
       width: 22px;
@@ -1355,6 +1371,11 @@
     html[data-mieru="70"] .btn-main-text { font-size: 20px; }
     html[data-mieru="50"] .btn-sub { font-size: 11px; }
     html[data-mieru="70"] .btn-sub { font-size: 12px; }
+    html[data-mieru="50"] .shirase-btn { font-size: 17px; }
+    html[data-mieru="70"] .shirase-btn { font-size: 19px; }
+    html[data-mieru="50"] .shirase-btn small { font-size: 13px; }
+    html[data-mieru="70"] .shirase-btn small { font-size: 15px; color: #b8b4ac; }
+    html[data-mieru="70"] .kinkyu-btn { font-size: 21px; min-height: 72px; }
     html[data-mieru="50"] .later-list li { font-size: 15px; }
     html[data-mieru="70"] .later-list li { font-size: 17px; }
     html[data-mieru="50"] .later-list li span { font-size: 13px; }
@@ -1532,6 +1553,9 @@
         <span class="btn-sub">救助信号 / SIGNAL</span>
       </button>
 
+      <!-- 知らせる:遅れます・休みます(担当へ。送るのは本人) -->
+      <button class="shirase-btn" id="btn-shirase" type="button">知らせる<small>遅れます・休みます</small></button>
+
       <!-- 実務：撮影・メモ（2列） -->
       <div class="action-row">
         <button class="action-btn btn-photo" id="btn-photo">
@@ -1642,6 +1666,11 @@
 
     <!-- スクロールエリア -->
     <div class="handover-scroll-area">
+      <!-- いざというとき:記録は残さない。すぐ開く -->
+      <div class="kinkyu-row">
+        <button class="kinkyu-btn" id="btn-kinkyu-taore" type="button">人が倒れた</button>
+        <button class="kinkyu-btn" id="btn-kinkyu-kaji" type="button">火事</button>
+      </div>
       <div class="sos-options-list" id="sos-options-list"></div>
 
       <div style="padding: 20px 20px 0;">

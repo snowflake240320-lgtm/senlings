@@ -80,3 +80,16 @@ a.local-action { display: block; text-align: center; text-decoration: none; box-
 .mayottara-note { color: #8a8780 !important; font-size: 12px !important; }
 html[data-mieru="70"] .mayottara li strong { font-size: 16px; }
 html[data-mieru="70"] .mayottara li span { font-size: 15px; color: #dedad2; }
+/* 知らせる・いざというとき */
+.shirase-pick[hidden], .yasumi-next[hidden], .shirase-dialog a.local-action[hidden] { display: none; }
+.kinkyu-dialog { border-color: #d95b29; }
+.kinkyu-steps { margin: 4px 0 8px; padding-left: 1.4em; }
+.kinkyu-steps li { margin: 0 0 10px; color: #e8e5df; font-size: 16px; line-height: 1.6; }
+.kinkyu-steps li strong { display: block; font-weight: 700; }
+.kinkyu-steps li span { display: block; color: #c4c1b9; font-size: 14px; }
+.local-action.kinkyu-119 { background: #2a1205; border: 2px solid #d95b29; color: #f0ede8; font-size: 18px; font-weight: 700; }
+.kinkyu-fuku { border-top: 1px solid #3a2a20; padding-top: 6px; }
+.kinkyu-fuku h3 { color: #e89a6e !important; }
+.kinkyu-fuku p { color: #e8e5df !important; font-size: 15px !important; }
+.request-form label.local-choice { display: flex; gap: 12px; align-items: center; font-size: 15px; color: #e8e5df; }
+.request-form input[type=checkbox] { display: inline-block; width: 22px; height: 22px; flex: none; margin: 0; padding: 0; accent-color: #c5a059; }

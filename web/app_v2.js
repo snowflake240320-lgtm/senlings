@@ -16,6 +16,7 @@ import { openPon, openKon, openKero, openHoo, ponDeductionFor } from './src/pwa/
 import { HOO_TRADES, readNakama, setTrades } from './src/pwa/nakama.js';
 import { homeScreenState, openHomeScreenGuide, readLater } from './src/pwa/homeScreen.js';
 import { openRequestDialog, siteFromProject } from './src/pwa/requestUI.js';
+import { openShirase, openKinkyu } from './src/pwa/shiraseUI.js';
 
 // ── データ読み込み ────────────────────────────────────────
 function getAllData() {
@@ -301,6 +302,7 @@ function goToWorking(project) {
   document.getElementById('btn-sos').onclick = () => {
     goToSos(project);
   };
+  document.getElementById('btn-shirase').onclick = () => openShiraseFor(project);
   document.getElementById('btn-photo').onclick = () => {
     takePhoto(project);
   };
@@ -313,6 +315,25 @@ function goToWorking(project) {
   };
 
   showScreen('screen-working');
+}
+
+// ── 知らせる(遅れます・休みます)。宛先はこの現場の担当。越えない。送るのは本人 ──
+function openShiraseFor(project) {
+  const fresh = (load().projects ?? []).find(p => p.project_id === project.project_id) ?? project;
+  const placedOn = date => teijiOn(load(), date)?.project_id === project.project_id;
+  openShirase(fresh, {
+    me: getSetting(SETTINGS_KEYS.USER_NAME) ?? '',
+    today: todayStr(),
+    tomorrow: addDays(todayStr(), 1),
+    phone: contactPhone(fresh),
+    placedOn,
+    onYasumi: date => { if (placedOn(date)) removeTeiji(date); renderWorkingTime(project); },
+    onUndoYasumi: date => { placeTeiji(project.project_id, date); renderWorkingTime(project); },
+    onKawari: date => {
+      const f = (load().projects ?? []).find(p => p.project_id === project.project_id) ?? fresh;
+      openRequestDialog({ kind: 'ouen', from: getSetting(SETTINGS_KEYS.USER_NAME) ?? '', site: siteFromProject(f, teijiOf(f)), workDate: date });
+    },
+  });
 }
 
 // ── 画面4: SOS ──────────────────────────────────────────
@@ -372,6 +393,10 @@ function goToSos(project) {
   document.getElementById('sos-memo').value = '';
   document.getElementById('btn-sos-send').disabled = true;
   renderSosOptions();
+  // いざというとき:記録は残さない。すぐ開く
+  const kinkyu = kind => openKinkyu(kind, project, { me: getSetting(SETTINGS_KEYS.USER_NAME) ?? '', phone: contactPhone(project) });
+  document.getElementById('btn-kinkyu-taore').onclick = () => kinkyu('taore');
+  document.getElementById('btn-kinkyu-kaji').onclick = () => kinkyu('kaji');
 
   document.getElementById('btn-back-sos').onclick = () => {
     showScreen('screen-working');
