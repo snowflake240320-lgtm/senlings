@@ -426,6 +426,103 @@
       background: #2a2210;
     }
 
+    /* ── 今日の現場と定時(2026-10-25) ── */
+    .site-card-today {
+      background: #1e1a10;
+      border-color: #c5a059;
+    }
+    .handover-teiji {
+      flex-shrink: 0;
+      padding: 10px 20px 0;
+    }
+    .handover-teiji-line {
+      font-size: 12px;
+      color: #a0a0a0;
+      font-family: 'Noto Serif JP', serif;
+      letter-spacing: 0.06em;
+    }
+    .teiji-form {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      margin-top: 8px;
+      color: #a0a0a0;
+      font-size: 12px;
+    }
+    .teiji-form input {
+      background: #161614;
+      color: #e8e5df;
+      border: 1px solid #2a2a24;
+      border-radius: 8px;
+      padding: 6px 8px;
+      font-size: 14px;
+    }
+    .working-zangyo {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 20px 0 52px;
+    }
+    .working-zangyo[hidden], .junbi[hidden] { display: none; }
+    .zangyo-btn {
+      padding: 8px 14px;
+      background: transparent;
+      border: 1px solid #3a3a32;
+      border-radius: 999px;
+      color: #c5a059;
+      font-size: 13px;
+      font-family: 'Noto Serif JP', serif;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+    }
+    .zangyo-said {
+      font-size: 12px;
+      color: #a0a0a0;
+      font-family: 'Noto Serif JP', serif;
+    }
+    .zangyo-undo {
+      background: none;
+      border: none;
+      color: #777;
+      font-size: 11px;
+      text-decoration: underline;
+      cursor: pointer;
+      padding: 4px 0;
+    }
+    .junbi { display: flex; flex-direction: column; gap: 6px; }
+    .junbi .zangyo-undo { align-self: flex-start; }
+    .junbi-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      border: 1px solid #1e1e1a;
+      font-family: 'Noto Serif JP', serif;
+      font-size: 13px;
+      color: #e8e5df;
+    }
+    .junbi-row select {
+      flex: 1;
+      min-width: 0;
+      max-width: 60%;
+      background: #161614;
+      color: #e8e5df;
+      border: 1px solid #2a2a24;
+      border-radius: 8px;
+      padding: 8px;
+      font-size: 14px;
+    }
+    .junbi-now {
+      font-size: 12px;
+      color: #a0a0a0;
+      font-family: 'Noto Serif JP', serif;
+      letter-spacing: 0.05em;
+    }
+    .junbi-now:empty { display: none; }
+
     /* ── 画面3: 作業中 ── */
     #screen-working {
       flex: none;
@@ -1233,8 +1330,9 @@
         <button class="site-fallback-link" id="btn-give-property">この物件の情報を渡す</button>
       </div>
     </div>
+    <div id="handover-teiji" class="handover-teiji"></div>
     <div class="checkin-area">
-      <button class="checkin-btn" id="btn-checkin">入館・作業開始</button>
+      <button class="checkin-btn" id="btn-today">今日はここ</button>
     </div>
   </div>
 
@@ -1246,6 +1344,11 @@
         <span class="screen-title" id="working-site-name"></span>
       </div>
       <div class="working-checkin-time" id="working-checkin-time"></div>
+      <div class="working-zangyo" id="working-zangyo" hidden>
+        <button class="zangyo-btn" id="btn-zangyo" type="button">残業おつかれさま</button>
+        <span class="zangyo-said" id="zangyo-said" role="status"></span>
+        <button class="zangyo-undo" id="btn-zangyo-undo" type="button" hidden>取り消す</button>
+      </div>
     </div>
     <div class="working-actions">
 
@@ -1535,9 +1638,15 @@
 
       <div class="shimai-section">
         <p class="shimai-section-label">準備</p>
-        <ul class="later-list">
-          <li>明日の現場を選ぶ<span>前の晩に選べば、朝はもう現場の上（これから）</span></li>
-        </ul>
+        <div class="junbi" id="junbi" hidden>
+          <label class="junbi-row" for="junbi-project">
+            <span id="junbi-date">明日</span>
+            <select id="junbi-project"></select>
+          </label>
+          <p class="junbi-now" id="junbi-now"></p>
+          <button class="zangyo-undo" id="btn-junbi-clear" type="button" hidden>外す</button>
+          <p class="later-note" id="junbi-status" role="status"></p>
+        </div>
       </div>
 
       <!-- 請求書のたたき台 -->

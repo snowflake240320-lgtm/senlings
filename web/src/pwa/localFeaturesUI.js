@@ -192,7 +192,7 @@ export function reviewRecords() {
   const box = panel('自分の記録を見返す'), data = load();
   paragraph(box, '記録はこの端末にあります。渡したいものだけ、個別に書き出せます。');
   const records = [
-    ...(data.local_records ?? []).map(r => ({ ...r, time: r.created_at })),
+    ...(data.local_records ?? []).map(r => ({ ...r, kind: r.personal_note ? 'return' : r.kind, time: r.created_at })), // 帰りの一言も帰還の記録
     ...data.photos.filter(p => !p.deleted).map(p => ({ ...p, kind: 'photo', time: p.taken_at })),
     ...data.work_sessions.filter(s => s.personal_note).map(s => ({ ...s, kind: 'return', time: s.check_out_at, text: s.personal_note.text })),
   ].sort((a, b) => (b.time ?? 0) - (a.time ?? 0));

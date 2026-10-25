@@ -4,6 +4,7 @@ import { load } from './storage.js';
 
 import { getSetting, SETTINGS_KEYS } from './settings.js';
 import { ponRows, ponLedgerRows } from './nakama.js';
+import { sessionDate, isTeiji, overtimePay, formatMinutes } from './work.js';
 
 // 勘定科目マッピング
 const ACCOUNT_MAP = {
@@ -63,7 +64,8 @@ function downloadCSV(rows, filename) {
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  // すぐに消すと、端末によっては名前のない「download」になったり、書き出しが途中で切れたりする
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 /**
@@ -90,27 +92,31 @@ function expensesToRows(expenses, projects) {
 }
 
 /**
- * work_sessions を労務費CSV行に変換する（1セッション = 1人工）
+ * work_sessions を労務費CSV行に変換する（1日・1現場 = 1人工）。
+ * 同じ日・同じ現場に記録が二つあっても一人工。日付は端末の暦。
+ * 残業(「残業おつかれさま」を押した分)は、別の行で足す。
  */
 function sessionsToRows(sessions, projects) {
   const unitPrice = getUnitPrice();
   const taxRate   = getTaxRate();
-  return sessions.map(s => {
-    const date    = s.check_in_at
-      ? new Date(s.check_in_at).toISOString().slice(0, 10)
-      : '';
-    const tax     = Math.floor(unitPrice * taxRate);
+  const seen = new Set();
+  const rows = [];
+  for (const s of [...sessions].sort((a, b) => a.check_in_at - b.check_in_at)) {
+    const date    = sessionDate(s);
     const project = projects.find(p => p.project_id === s.project_id);
-    return [
-      date,
-      '完成工事高',
-      unitPrice,
-      tax,
-      '労務費（1人工）',
-      project?.address ?? project?.project_slug ?? '',
-      project?.project_code ?? '',
-    ];
-  });
+    const place   = project?.address ?? project?.project_slug ?? '';
+    const code    = project?.project_code ?? '';
+    const key = `${date}|${s.project_id}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      rows.push([date, '完成工事高', unitPrice, Math.floor(unitPrice * taxRate), '労務費（1人工）', place, code]);
+    }
+    if (isTeiji(s) && s.overtime_minutes > 0) {
+      const pay = overtimePay(s.overtime_minutes, unitPrice);
+      rows.push([date, '完成工事高', pay, Math.floor(pay * taxRate), `残業 ${formatMinutes(s.overtime_minutes)}`, place, code]);
+    }
+  }
+  return rows;
 }
 
 /**
@@ -138,12 +144,7 @@ function ponToRows(data, billingMonth, projects) {
 export function exportMonthlyCSV(billingMonth) {
   const data     = getAllData();
   const projects = data.projects       ?? [];
-  const sessions = (data.work_sessions ?? []).filter(s => {
-    const month = s.check_in_at
-      ? new Date(s.check_in_at).toISOString().slice(0, 7)
-      : null;
-    return month === billingMonth;
-  });
+  const sessions = (data.work_sessions ?? []).filter(s => sessionDate(s).slice(0, 7) === billingMonth);
   const expenses = (data.expenses ?? []).filter(e =>
     (e.expense_date ?? '').slice(0, 7) === billingMonth
   );

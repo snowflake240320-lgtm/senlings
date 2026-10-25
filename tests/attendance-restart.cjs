@@ -28,7 +28,11 @@ const server = http.createServer(async (req, res) => {
   } catch { res.writeHead(404).end(); }
 });
 async function close() { await context?.close(); context = null; }
+// この作業場所の Chromium は、前の回の書き出し履歴(History)を残したまま開き直すと、次の書き出しで落ちる(SIGSEGV)。
+// 開き直しの試験が確かめたいのは localStorage が残ることなので、ブラウザ自身の閲覧・書き出し履歴だけを消してから開く。
+function forgetBrowserHistory(dir) { for (const f of ['History', 'History-journal']) require('node:fs').rmSync(path.join(dir, 'Default', f), { force: true }); }
 async function open(profile) {
+  forgetBrowserHistory(path.join(profiles, profile));
   context = await chromium.launchPersistentContext(path.join(profiles, profile), {
     executablePath: process.env.CHROMIUM_PATH, headless: true, args: ['--no-sandbox'],
     viewport: { width: 390, height: 844 }, timezoneId: 'Asia/Tokyo', serviceWorkers: 'block',
@@ -126,7 +130,8 @@ async function run(name, fn) {
     await record('rich-legacy-before', before); await record('rich-legacy-after', saved);
     return { attendance_before: 2, attendance_after: 2, all_other_data_preserved: true };
   });
-  await run('normal register > raw text > checkin > restart > single-write checkout > invoice > restart > JSON', async () => {
+  // 出勤は押さない(2026-10-25)。今日の現場を選べば定時の一日が置かれ、次に開けばもう現場の上。帰りは閉じなくていい。
+  await run('normal register > raw text > today here > restart opens on site > return note once > invoice > restart > JSON', async () => {
     const before = richLegacy(); before.current_session = null;
     let p = await seed('normal', before);
     await p.locator('#btn-add-site').click(); await p.locator('#add-site-name').fill('修正版・架空現場C');
@@ -134,32 +139,37 @@ async function run(name, fn) {
     await p.locator('.site-card').filter({ hasText: '修正版・架空現場C' }).click();
     await p.getByText('届いた連絡', { exact: true }).click();
     assert.equal(await p.locator('.handover-text').innerText(), '架空の原文\n二行目も保持');
-    await p.locator('#btn-checkin').click(); const entered = await data(p);
-    p = await restart('normal', p); await goReturn(p); await fault(p, 'second-write'); await send(p);
-    assert.equal(await p.evaluate(() => testWrites), 1); // The old second-write fault is no longer reached.
-    const completed = await data(p); assert.equal(completed.work_sessions.length, before.work_sessions.length + 1);
-    assert.equal(completed.current_session, null);
-    const newSession = completed.work_sessions.at(-1);
-    assert.equal(newSession.check_in_at, entered.current_session.check_in_at);
-    assert.equal(newSession.project_id, entered.current_session.project_id);
-    assert.deepEqual(completed, { ...entered, current_session: null, work_sessions: [...before.work_sessions, newSession] });
+    assert.match(await p.locator('#handover-teiji').innerText(), /定時 8:00〜17:00/);
+    await p.locator('#btn-today').click(); await p.locator('#screen-working.active').waitFor();
+    const placed = await data(p); const teiji = placed.work_sessions.at(-1);
+    assert.equal(teiji.kind, 'teiji'); assert.equal(teiji.overtime_minutes, 0);
+    assert.equal(placed.current_session, null, 'nothing is pressed to start work');
+    assert.deepEqual(placed.work_sessions.slice(0, -1), before.work_sessions);
+    p = await restart('normal', p); await p.locator('#screen-working.active').waitFor(); // 朝は■現場を開くだけ
+    assert.match(await p.locator('#working-checkin-time').innerText(), /^定時 8:00〜17:00/);
+    await p.locator('#btn-return').click(); await p.locator('#return-memo').fill('架空の一言');
+    await fault(p, 'second-write'); await send(p);
+    assert.equal(await p.evaluate(() => testWrites), 1); // 一言を一回だけ書く
+    const completed = await data(p);
+    assert.deepEqual(completed.work_sessions, placed.work_sessions, 'the day is not closed or changed on the way home');
+    assert.equal(completed.local_records.at(-1).personal_note.text, '架空の一言');
+    const { local_records: _, ...rest } = completed; const { local_records: __, ...placedRest } = placed; assert.deepEqual(rest, placedRest);
     // Repeat the same submission event while still on the return screen: no extra write.
     await p.locator('#btn-return-send').dispatchEvent('click');
     assert.equal(await p.evaluate(() => testWrites), 1); assert.deepEqual(await data(p), completed);
-    // Reset only test instrumentation before unrelated invoice writes.
     p = await restart('normal', p); await p.locator('[data-tab="home"]').click();
     await p.locator('#btn-shimai-invoice').click(); await p.locator('#btn-invoice-skip-expense').click();
     await p.locator('.invoice-card-title').waitFor(); const saved = await data(p);
     assert.equal(saved.invoice_snapshots.length, before.invoice_snapshots.length + 1);
     const invoice = saved.invoice_snapshots.at(-1);
-    assert.equal(invoice.project_id, newSession.project_id); assert.equal(invoice.total_work_days, 1);
+    assert.equal(invoice.project_id, teiji.project_id); assert.equal(invoice.total_work_days, 1);
     assert.equal(invoice.daily_breakdown.length, 1); assert.equal(invoice.daily_breakdown[0].session_count, 1);
     assert.deepEqual({ ...saved, invoice_snapshots: before.invoice_snapshots, event_log: before.event_log }, completed);
     assert.deepEqual(saved.invoice_snapshots.slice(0, -1), before.invoice_snapshots);
     assert.deepEqual(saved.event_log.slice(0, before.event_log.length), before.event_log);
     p = await restart('normal', p); assert.deepEqual(await exported(p), saved);
     await record('normal-before', before); await record('normal-readback', saved);
-    return { new_attendance: 1, new_invoice: 1, invoice_attendance_count: 1, checkout_write_count: 1, all_other_data_preserved: true };
+    return { new_teiji_day: 1, new_invoice: 1, invoice_day_count: 1, return_write_count: 1, all_other_data_preserved: true };
   });
   for (const mode of ['write', 'read']) await run(`normal checkout ${mode} failure > restart > retry without duplicate`, async () => {
     const before = richLegacy(); before.work_sessions.shift();

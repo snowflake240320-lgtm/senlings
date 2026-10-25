@@ -19,7 +19,7 @@ import { monthlyExpenseSummary } from "./expenseQuery.js";
  */
 function buildSourceHash(sessions) {
   const payload = sessions
-    .map((s) => `${s.id}:${s.check_in_at}:${s.check_out_at}:${s.break_minutes}`)
+    .map((s) => `${s.id}:${s.check_in_at}:${s.check_out_at}:${s.break_minutes}${s.overtime_minutes ? `:${s.overtime_minutes}` : ""}`)
     .sort()
     .join("|");
 
@@ -71,6 +71,7 @@ export function generateSnapshot({ snapshot_id, project_id, project_code, year, 
     total_work_days:       work.total_days,
     total_work_minutes:    work.total_work_minutes,
     total_overtime_hours:  work.total_overtime_hours,
+    overtime_minutes:      work.overtime_minutes,   // 「残業おつかれさま」を押した分(請求に載せる)
     total_expense_amount:  expSummary.claim_status === ClaimStatus.SKIPPED ? 0 : expSummary.total,
     expense_claim_status:  expSummary.claim_status,
     daily_breakdown,

@@ -2,7 +2,8 @@
 import { load } from './storage.js';
 import { getSetting, SETTINGS_KEYS } from './settings.js';
 import { PON_KINDS, HOO_TRADES, ponRows, ponTotal, ponText, ponLabel, setPonRate, addPonExtra, togglePonRow, addPonTickets, editPonAmount,
-  hooText, keroText, recordSent, markReturned, konReminderText, readNakama, localDate } from './nakama.js';
+  hooText, keroText, recordSent, markReturned, konReminderText, readNakama, localDate, ponOvertimeWithoutRate } from './nakama.js';
+import { teijiOn } from './work.js';
 
 const $ = (tag, text = '', attrs = {}) => Object.assign(document.createElement(tag), { textContent: text, ...attrs });
 const yen = n => `${Math.round(n).toLocaleString('ja-JP')}円`;
@@ -34,7 +35,8 @@ function guard(msg, fn) { try { fn(); return true; } catch (e) { msg.textContent
 function projects() { return (load().projects ?? []).filter(pr => !pr.archive); }
 function projectSelect(parent, label, id) {
   const select = field(parent, label, 'select', { id });
-  const current = load().current_session?.project_id;
+  const data = load();
+  const current = teijiOn(data, today())?.project_id ?? data.current_session?.project_id;
   for (const pr of projects()) select.append($('option', pr.project_slug, { value: pr.project_id, selected: pr.project_id === current }));
   return select;
 }
@@ -88,11 +90,12 @@ export function openPon(onChange = () => {}) {
   const rateSec = $('section'); more.append(rateSec);
   rateSec.append($('h3', 'この現場の単価'));
   const rate = field(rateSec, 'チケット1枚の単価(円)', 'input', { type: 'number', inputMode: 'numeric', min: 0, id: 'pon-rate' });
+  const otRate = field(rateSec, '時間外の負担金 1時間の単価(円)', 'input', { type: 'number', inputMode: 'numeric', min: 0, id: 'pon-overtime-rate' });
   const payer = field(rateSec, '立て替える人(会社)', 'input', { id: 'pon-payer', maxLength: 100 });
-  const fill = () => guard(msg, () => { const r = readNakama().pon.rates[select.value]; rate.value = r?.parking_per_day || ''; payer.value = r?.payer || ''; });
+  const fill = () => guard(msg, () => { const r = readNakama().pon.rates[select.value]; rate.value = r?.parking_per_day || ''; otRate.value = r?.overtime_per_hour || ''; payer.value = r?.payer || ''; });
   select.addEventListener('change', fill); fill();
   button(rateSec, '単価を残す', () => {
-    if (guard(msg, () => setPonRate(select.value, { parking_per_day: rate.value, payer: payer.value }))) { msg.textContent = '残しました。'; render(); onChange(); }
+    if (guard(msg, () => setPonRate(select.value, { parking_per_day: rate.value, overtime_per_hour: otRate.value, payer: payer.value }))) { msg.textContent = '残しました。'; render(); onChange(); }
   }, 'pon-save-rate');
   p(rateSec, '単価は施設の決まりを見て、自分で入れます。受け取った日の単価で残ります。', 'later-note');
 
@@ -131,6 +134,8 @@ export function openPon(onChange = () => {}) {
     let rows;
     if (!guard(msg, () => { rows = ponRows(load(), ym); })) return;
     if (!rows.length) p(listSec, 'まだありません。');
+    let noRate = false; guard(msg, () => { noRate = ponOvertimeWithoutRate(load(), ym); });
+    if (noRate) p(listSec, '残業の日の時間外は、単価を入れると下書きになります。', 'later-note');
     const ul = $('ul', '', { className: 'nakama-rows' }); listSec.append(ul);
     for (const r of rows) {
       const li = $('li', `${r.date}　${r.project}　${ponLabel(r)}　${yen(r.amount)}`, { className: r.skipped ? 'nakama-row nakama-row--skipped' : 'nakama-row' });

@@ -1,7 +1,8 @@
 // app_v2.js
 // Senlings 新UI メインJS
 
-import { completeSession } from './src/pwa/work.js';
+import { completeSession, saveReturnNote, placeTeiji, removeTeiji, markOvertime, setOvertime, setProjectTeiji, teijiOn, teijiOf, formatTeiji, formatMinutes, localDate, addDays, sessionDate, overtimePay } from './src/pwa/work.js';
+import { getSetting, SETTINGS_KEYS } from './src/pwa/settings.js';
 import { load, update } from './src/pwa/storage.js';
 import { exportAllDataAsJSON } from './src/pwa/export.js';
 import { exportMonthlyCSV, exportProjectCSV } from './src/pwa/csvExport.js';
@@ -23,17 +24,28 @@ function getAllData() {
 function renderSiteTop() {
   const projects = (getAllData().projects ?? [])
     .filter(p => !p.archive);
-  const cs = load().current_session ?? null;
+  const data0 = load();
+  const cs = data0.current_session ?? null;
+  const today = teijiOn(data0, localDate(Date.now()));
+  const todayProject = today && projects.find(p => p.project_id === today.project_id);
 
   const list = document.getElementById('site-list');
   if (!list) return;
+  document.querySelector('.site-top-heading').textContent = todayProject ? '今日の現場' : '今日はどこへ入りますか？';
 
   if (projects.length === 0) {
     list.innerHTML = '<p class="site-empty">現場が登録されていません。</p>';
     return;
   }
 
-  list.innerHTML = projects.map(p => {
+  // 今日の現場がいちばん上。押せば、もう舞台の上。
+  const todayCard = todayProject ? `
+      <button class="site-card site-card-today" id="site-card-today" data-project-id="${esc(todayProject.project_id)}">
+        <span class="site-slug">${esc(todayProject.project_slug)}</span>
+        <span class="site-address">${esc(teijiLabel(today))}</span>
+      </button>` : '';
+
+  list.innerHTML = todayCard + projects.filter(p => p !== todayProject || (cs && cs.project_id === p.project_id)).map(p => {
     if (cs && cs.project_id === p.project_id) {
       const label = formatCheckinLabel(cs.check_in_at);
       return `
@@ -58,7 +70,8 @@ function renderSiteTop() {
   list.querySelectorAll('.site-card').forEach(card => {
     card.addEventListener('click', () => {
       const project = projects.find(p => p.project_id === card.dataset.projectId);
-      if (project) goToHandover(project);
+      if (!project) return;
+      if (card.id === 'site-card-today') goToWorking(project); else goToHandover(project);
     });
   });
 
@@ -66,7 +79,7 @@ function renderSiteTop() {
     btn.addEventListener('click', () => {
       const project = projects.find(p => p.project_id === btn.dataset.projectId);
       if (!project || !cs) return;
-      goToWorking(project, new Date(cs.check_in_at));
+      goToWorking(project);
     });
   });
 
@@ -107,6 +120,17 @@ function formatCheckinLabel(tsMs) {
     ? `入場 ${timeStr}`
     : `${d.getMonth() + 1}/${d.getDate()} 入場 ${timeStr}`;
 }
+
+// 定時の一日の見え方。「定時 8:00〜17:00」+ 押した日だけ残業。
+function teijiLabel(s) {
+  const t = { start: hm(s.check_in_at), end: hm(s.check_out_at) };
+  return `定時 ${formatTeiji(t)}${s.overtime_minutes ? `・残業 ${formatMinutes(s.overtime_minutes)}` : ''}`;
+}
+function hm(ts) {
+  const d = new Date(ts);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+const todayStr = () => localDate(Date.now());
 
 // ── 画面2: 申し送り ──────────────────────────────────────
 
@@ -168,23 +192,47 @@ function goToHandover(project) {
   renderHandover(project);
   document.getElementById('btn-give-property').onclick = () => giveProject(project);
   document.getElementById('btn-project-contact').onclick = () => showContact(project);
-  document.getElementById('btn-checkin').onclick = () => {
-    const cs = load().current_session ?? null;
-    if (cs && cs.project_id !== project.project_id) {
-      renderSiteTop();
-      showScreen('screen-site-top');
-      return;
-    }
-    const checkInAt = cs ? cs.check_in_at : Date.now();
-    if (!cs) {
-      update(data => {
-        data.current_session = { project_id: project.project_id, check_in_at: checkInAt };
-        return data;
-      });
-    }
-    goToWorking(project, new Date(checkInAt));
+  renderHandoverTeiji(project);
+  const todayBtn = document.getElementById('btn-today');
+  const placed = teijiOn(load(), todayStr());
+  todayBtn.textContent = placed?.project_id === project.project_id ? '現場へ' : placed ? '今日はここに変える' : '今日はここ';
+  // 出勤は押さない。今日の現場を選んだ時点で、定時の一日が端末に置かれる。
+  todayBtn.onclick = () => {
+    const now = teijiOn(load(), todayStr());
+    if (now?.project_id !== project.project_id) placeTeiji(project.project_id, todayStr());
+    goToWorking(project);
   };
   showScreen('screen-handover');
+}
+
+// 現場の定時(現場の決まり。無ければ 8:00〜17:00)。直すのは、決まりが違うときだけ。
+function renderHandoverTeiji(project) {
+  const box = document.getElementById('handover-teiji');
+  const fresh = (load().projects ?? []).find(p => p.project_id === project.project_id) ?? project;
+  const t = teijiOf(fresh);
+  box.replaceChildren();
+  const line = document.createElement('p');
+  line.className = 'handover-teiji-line';
+  line.textContent = `定時 ${formatTeiji(t)}${t.rule ? '' : '(現場の決まりが無いとき)'}`;
+  const fix = Object.assign(document.createElement('button'), { type: 'button', className: 'nakama-mini', id: 'btn-teiji-fix', textContent: '直す' });
+  line.append(' ', fix);
+  box.append(line);
+  fix.onclick = () => {
+    if (box.querySelector('.teiji-form')) return;
+    const form = document.createElement('div');
+    form.className = 'teiji-form';
+    const start = Object.assign(document.createElement('input'), { type: 'time', value: t.start, id: 'teiji-start', step: 900 });
+    const end = Object.assign(document.createElement('input'), { type: 'time', value: t.end, id: 'teiji-end', step: 900 });
+    start.setAttribute('aria-label', '始業'); end.setAttribute('aria-label', '終業');
+    const save = Object.assign(document.createElement('button'), { type: 'button', className: 'nakama-mini', id: 'btn-teiji-save', textContent: '残す' });
+    const msg = document.createElement('span'); msg.setAttribute('role', 'status');
+    save.onclick = () => {
+      try { setProjectTeiji(project.project_id, start.value, end.value, todayStr()); renderHandoverTeiji(project); }
+      catch (e) { msg.textContent = e.message; }
+    };
+    form.append(start, '〜', end, save, msg);
+    box.append(form); start.focus();
+  };
 }
 
 document.getElementById('btn-back-handover')?.addEventListener('click', () => {
@@ -200,11 +248,57 @@ document.getElementById('btn-back-working')?.addEventListener('click', () => {
 
 let currentProject = null;
 
-function goToWorking(project, checkinTime) {
+// 以前の入った/出たの途中(更新の前に入場していた分)は、そのまま続きから帰れる。
+function legacyEntry(project) {
+  const cs = load().current_session ?? null;
+  return cs && cs.project_id === project.project_id ? cs : null;
+}
+
+function renderWorkingTime(project) {
+  const el = document.getElementById('working-checkin-time');
+  const legacy = legacyEntry(project);
+  const today = teijiOn(load(), todayStr());
+  const zangyo = document.getElementById('working-zangyo');
+  if (legacy) {
+    const timeStr = new Date(legacy.check_in_at).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+    el.textContent = `入場 ${timeStr}`;
+    zangyo.hidden = true;
+    return;
+  }
+  el.textContent = today?.project_id === project.project_id ? teijiLabel(today) : '';
+  renderZangyo(project, today);
+}
+
+// 残業おつかれさま:終業を過ぎてから、静かに一つだけ出る。押さなければ残業は無し。
+let zangyoTimer = null;
+function renderZangyo(project, today) {
+  const box = document.getElementById('working-zangyo');
+  const btn = document.getElementById('btn-zangyo');
+  const said = document.getElementById('zangyo-said');
+  const undo = document.getElementById('btn-zangyo-undo');
+  const mine = today?.project_id === project.project_id;
+  box.hidden = !(mine && Date.now() > today.check_out_at);
+  if (box.hidden) {
+    clearTimeout(zangyoTimer);
+    if (mine) zangyoTimer = setTimeout(() => { if (activeScreenId() === 'screen-working') renderWorkingTime(project); }, Math.min(today.check_out_at - Date.now() + 1000, 2 ** 31 - 1));
+    return;
+  }
+  said.textContent = today.overtime_minutes ? 'おつかれさまでした。' : '';
+  undo.hidden = !today.overtime_minutes;
+  btn.onclick = () => {
+    try { markOvertime(today.date); } catch (e) { said.textContent = e.message; return; }
+    renderWorkingTime(project);
+  };
+  undo.onclick = () => {
+    try { setOvertime(today.date, 0); } catch (e) { said.textContent = e.message; return; }
+    renderWorkingTime(project);
+  };
+}
+
+function goToWorking(project) {
   currentProject = project;
   document.getElementById('working-site-name').textContent = project.project_slug;
-  const timeStr = checkinTime.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
-  document.getElementById('working-checkin-time').textContent = `入場 ${timeStr}`;
+  renderWorkingTime(project);
 
   document.getElementById('btn-sos').onclick = () => {
     goToSos(project);
@@ -217,7 +311,7 @@ function goToWorking(project, checkinTime) {
     goToRest(project);
   };
   document.getElementById('btn-return').onclick = () => {
-    goToReturn(project, checkinTime.getTime());
+    goToReturn(project);
   };
 
   showScreen('screen-working');
@@ -339,7 +433,10 @@ const RETURN_CATEGORIES = [
 let selectedMood = null;
 let selectedCategories = new Set();
 
-function goToReturn(project, checkInAt) {
+function goToReturn(project) {
+  const noteId = `return:${project.project_id}:${uid()}`;
+  // 入った時刻は画面を開いたときのものを使う。あとから入れ替わっていたら、閉じずに止める(completeSession が照合する)
+  const legacy = legacyEntry(project);
   selectedMood = null;
   selectedCategories = new Set();
   document.getElementById('return-site-name').textContent = project.project_slug;
@@ -373,14 +470,23 @@ function goToReturn(project, checkInAt) {
 
   document.getElementById('btn-return-send').onclick = () => {
     const memo = document.getElementById('return-memo').value;
-    completeSession({
-      id:            uid(),
-      project_id:    project.project_id,
-      check_in_at:   checkInAt,
-      check_out_at:  Date.now(),
-      break_minutes: 0,
-      ...((memo.trim() || selectedMood || selectedCategories.size) ? { personal_note: { text: memo, mood: selectedMood, categories: [...selectedCategories], visibility: 'private' } } : {}),
-    });
+    const note = (memo.trim() || selectedMood || selectedCategories.size) ? { text: memo, mood: selectedMood, categories: [...selectedCategories], visibility: 'private' } : null;
+    if (legacy) {
+      // 更新の前に入場していた分は、これまでどおり出た時刻で閉じる
+      completeSession({
+        id:            uid(),
+        project_id:    project.project_id,
+        check_in_at:   legacy.check_in_at,
+        check_out_at:  Date.now(),
+        break_minutes: 0,
+        ...(note ? { personal_note: note } : {}),
+      });
+    } else if (note) {
+      // 定時の一日は帰りに閉じなくていい。残すのは自分だけの一言だけ
+      saveReturnNote({ id: noteId, project_id: project.project_id, note, at: Date.now() });
+    } else {
+      load(); // 読めないときは、帰ったことにしない
+    }
     showReturnComplete();
   };
 
@@ -432,6 +538,10 @@ function renderSnapshotCard(snapshot, projectSlug) {
       <span class="invoice-card-label">稼働時間</span>
       <span>${timeStr}</span>
     </div>
+    ${snapshot.overtime_minutes ? `<div class="invoice-card-row" id="invoice-zangyo-row">
+      <span class="invoice-card-label">残業</span>
+      <span>${formatMinutes(snapshot.overtime_minutes)}(${overtimePay(snapshot.overtime_minutes, unitPrice()).toLocaleString()}円)</span>
+    </div>` : ''}
     <div class="invoice-card-row${isSkipped ? ' invoice-card-row--note' : ''}">
       <span class="invoice-card-label">経費</span>
       <span class="invoice-card-value">${expStr}</span>
@@ -439,18 +549,18 @@ function renderSnapshotCard(snapshot, projectSlug) {
   `;
 }
 
+function unitPrice() {
+  const v = Number(getSetting(SETTINGS_KEYS.WORK_UNIT_PRICE));
+  return Number.isFinite(v) && v > 0 ? v : 25000;
+}
+
 // ── ◆ 仕舞 ───────────────────────────────────────────────
 
 function renderShimai() {
   const data = getAllData();
   const sessions = data.work_sessions ?? [];
-  const today = new Date().toISOString().slice(0, 10);
-  const todaySession = sessions.find(s => {
-    const d = s.check_in_at
-      ? new Date(s.check_in_at).toISOString().slice(0, 10)
-      : null;
-    return d === today;
-  });
+  const today = todayStr();
+  const todaySession = teijiOn(data, today) ?? sessions.find(s => sessionDate(s) === today);
 
   const recordEl = document.getElementById('shimai-today-record');
   if (todaySession) {
@@ -469,7 +579,38 @@ function renderShimai() {
 // ── ▲ ホーム ─────────────────────────────────────────────
 // 請求書のたたき台・持ち出し・設定は、仕舞からここへ載せ替えた(中身は同じ)
 
+// 準備:前の晩に明日の現場を選ぶ。選べば、朝はもう現場の上。
+function renderJunbi() {
+  const box = document.getElementById('junbi');
+  const msg = document.getElementById('junbi-status');
+  const tomorrow = addDays(todayStr(), 1);
+  const data = load();
+  const projects = (data.projects ?? []).filter(p => !p.archive);
+  const placed = teijiOn(data, tomorrow);
+  const select = document.getElementById('junbi-project');
+  select.replaceChildren(...[{ project_id: '', project_slug: '(選ぶ)' }, ...projects].map(p =>
+    Object.assign(document.createElement('option'), { value: p.project_id, textContent: p.project_slug, selected: placed?.project_id === p.project_id })));
+  const [, m, d] = tomorrow.split('-').map(Number);
+  document.getElementById('junbi-date').textContent = `明日 ${m}/${d}`;
+  const now = document.getElementById('junbi-now');
+  const placedProject = placed && projects.find(p => p.project_id === placed.project_id);
+  now.textContent = placedProject ? `${placedProject.project_slug}　${teijiLabel(placed)}` : '';
+  document.getElementById('btn-junbi-clear').hidden = !placed;
+  select.onchange = () => {
+    try {
+      if (select.value) placeTeiji(select.value, tomorrow); else removeTeiji(tomorrow);
+      renderJunbi();
+      msg.textContent = select.value ? '置きました。朝は、もう現場の上です。' : '';
+    } catch (e) { msg.textContent = e.message; }
+  };
+  document.getElementById('btn-junbi-clear').onclick = () => {
+    try { removeTeiji(tomorrow); renderJunbi(); msg.textContent = '外しました。'; } catch (e) { msg.textContent = e.message; }
+  };
+  box.hidden = false;
+}
+
 function renderHome() {
+  renderJunbi();
   const facilityToggle = document.getElementById('setting-show-shisetsu');
   facilityToggle.checked = readShowShisetsu();
   facilityToggle.onchange = () => {
@@ -566,7 +707,7 @@ function renderHome() {
     const month = now.getMonth() + 1;
     const ym = `${year}-${String(month).padStart(2, '0')}`;
     const sessions = (data.work_sessions ?? [])
-      .filter(s => s.check_in_at && new Date(s.check_in_at).toISOString().slice(0, 7) === ym)
+      .filter(s => s.check_in_at && sessionDate(s).slice(0, 7) === ym)
       .sort((a, b) => b.check_in_at - a.check_in_at);
     if (sessions.length === 0) {
       resultArea.style.display = 'flex';
@@ -733,6 +874,18 @@ function openProjectExport() {
   dialog.showModal();
 }
 
+// 朝は■現場を開くだけ。今日の現場が置いてあれば、もう現場の上。
+function openToday() {
+  let data;
+  try { data = load(); } catch { return false; }
+  const today = teijiOn(data, todayStr());
+  const project = today && (data.projects ?? []).find(p => p.project_id === today.project_id && !p.archive);
+  if (!project || (data.current_session && data.current_session.project_id !== project.project_id)) return false;
+  goToWorking(project);
+  return true;
+}
+
 // ── 初期化 ───────────────────────────────────────────────
 document.querySelector('[data-tab="shisetsu"]').hidden = !readShowShisetsu();
 renderSiteTop();
+openToday();

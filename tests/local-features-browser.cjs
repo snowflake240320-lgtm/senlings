@@ -24,11 +24,15 @@ const click = selector => page.locator(selector).click();
 const raw = () => page.evaluate(() => localStorage.getItem('senlings_v0'));
 const saved = async () => JSON.parse(await raw());
 async function run(name, fn) { await fn(); report.results.push({ name, pass: true }); console.log('PASS', name); }
+// この作業場所の Chromium は、前の回の書き出し履歴(History)を残したまま開き直すと、次の書き出しで落ちる(SIGSEGV)。
+// 開き直しの試験が確かめたいのは localStorage が残ることなので、ブラウザ自身の閲覧・書き出し履歴だけを消してから開く。
+function forgetBrowserHistory(dir) { for (const f of ['History', 'History-journal']) require('node:fs').rmSync(path.join(dir, 'Default', f), { force: true }); }
 async function open() {
+  forgetBrowserHistory(profile);
   context = await chromium.launchPersistentContext(profile, { executablePath: process.env.CHROMIUM_PATH, headless: true, args: ['--no-sandbox'], viewport: { width: 390, height: 844 }, timezoneId: 'Asia/Tokyo', serviceWorkers: 'block' });
   report.chromium = context.browser().version();
   await context.route('**/*', route => route.request().url().startsWith(origin + '/') ? route.continue() : route.abort());
-  page = context.pages()[0] || await context.newPage(); page.setDefaultTimeout(8000); page.errors = []; page.on('pageerror', e => page.errors.push(e.message));
+  page = context.pages()[0] || await context.newPage(); page.setDefaultTimeout(8000); page.errors = []; page.on('pageerror', e => page.errors.push(e.message)); if (process.env.DBG) { page.on('crash', () => console.log('CRASH')); page.on('close', () => console.log('CLOSE', new Error().stack.split('\n').slice(0,6).join('|'))); page.on('console', m => console.log('CONSOLE', m.text())); }
   await page.goto(origin); await page.waitForFunction(() => typeof document.getElementById('btn-receive-property')?.onclick === 'function');
 }
 async function restart() { const before = await raw(); assert.deepEqual(page.errors, []); await context.close(); await open(); assert.equal(await raw(), before); }
@@ -84,8 +88,8 @@ async function preparePhoto() {
     assert.equal(data.handoff_receipts.length, 2); assert.equal(data.handoff_receipts[0].packet.project.name, packet.project.name);
     await screenshot('property-revision'); await closeDialog();
   });
-  await run('received project checks in and a private memo survives failed save and retry', async () => {
-    await page.locator('.site-card').filter({ hasText: '受取現場' }).click(); await click('#btn-checkin'); await click('#btn-memo');
+  await run('received project becomes today\'s site and a private memo survives failed save and retry', async () => {
+    await page.locator('.site-card').filter({ hasText: '受取現場' }).click(); await click('#btn-today'); await click('#btn-memo');
     await page.locator('#private-memo').fill('自分の工夫。採点しない。'); const before = await raw(); await inject(); await click('#memo-save'); await page.locator('#storage-error[open]').waitFor(); assert.equal(await raw(), before);
     await retry(); await click('#memo-save'); assert.equal((await saved()).local_records.length, 1); await closeDialog();
   });
@@ -105,11 +109,12 @@ async function preparePhoto() {
     assert.equal((await saved()).local_records.find(r => r.kind === 'sos').delivery_status, 'not_sent');
     await screenshot('sos-unsent'); await click('#btn-sos-wait');
   });
-  await run('full restart retains photos/memo/SOS; Shimai and back keeps the working screen; return uses original entry and saves personal note once', async () => {
-    const entry = (await saved()).current_session; await restart(); await click('.site-card-resume-btn'); await click('[data-tab=shimai]'); await page.locator('#screen-shimai.active').waitFor();
+  await run('full restart opens on today\'s site and retains photos/memo/SOS; Shimai and back keeps the working screen; return keeps the day and saves personal note once', async () => {
+    const day = (await saved()).work_sessions[0]; await restart(); await page.locator('#screen-working.active').waitFor(); await click('[data-tab=shimai]'); await page.locator('#screen-shimai.active').waitFor();
     await click('[data-tab=genba]'); await page.locator('#screen-working.active').waitFor(); await click('#btn-return');
     await page.locator('#return-memo').fill('また使いたい工夫'); await click('#btn-return-send'); await page.locator('#return-complete-modal:not([hidden])').waitFor();
-    const data = await saved(); assert.equal(data.work_sessions.length, 1); assert.equal(data.work_sessions[0].check_in_at, entry.check_in_at); assert.equal(data.work_sessions[0].personal_note.text, 'また使いたい工夫'); assert.equal(data.current_session, null);
+    const data = await saved(); assert.equal(data.work_sessions.length, 1); assert.deepEqual(data.work_sessions[0], day); assert.equal(day.kind, 'teiji');
+    assert.equal(data.local_records.filter(r => r.personal_note?.text === 'また使いたい工夫').length, 1); assert.equal(data.current_session ?? null, null);
     await restart(); assert.equal((await saved()).work_sessions.length, 1); await click('[data-tab=shimai]'); await click('#btn-review-records');
     assert.equal(await page.locator('.local-record').count(), 4); assert.equal(await page.locator('.local-record img').count(), 1); await screenshot('personal-records'); await closeDialog();
   });
@@ -118,7 +123,7 @@ async function preparePhoto() {
     await page.locator('#export-project').selectOption(localId); assert.match(await downloads('#btn-project-csv'), /労務費/); await click('#project-export-dialog form button');
     await click('[data-tab=shimai]'); await click('#btn-review-records'); const download = page.waitForEvent('download'); await page.locator('.local-record').filter({ hasText: 'また使いたい工夫' }).locator('button').click();
     assert.match(await fs.readFile(await (await download).path(), 'utf8'), /また使いたい工夫/); await closeDialog(); await click('[data-tab=home]');
-    const data = JSON.parse(await downloads('#btn-export-json-shimai')); assert.equal(data.local_records.length, 2); assert.equal(data.photos.length, 1); assert.equal(data.handoff_receipts.length, 2);
+    const data = JSON.parse(await downloads('#btn-export-json-shimai')); assert.equal(data.local_records.length, 3); /* メモ・SOS・帰りの一言 */ assert.equal(data.photos.length, 1); assert.equal(data.handoff_receipts.length, 2);
     for (const key of ['contacts', 'invoice_snapshots', 'expenses', 'future']) assert.deepEqual(data[key], fixture[key]);
     assert.deepEqual(data.projects[0], fixture.projects[0]); assert.equal(await page.evaluate(() => localStorage.getItem('unrelated')), 'KEEP');
   });
@@ -132,6 +137,7 @@ async function preparePhoto() {
   await run('320px and 390px screens and receive dialog fit without horizontal overflow', async () => {
     for (const width of [320, 390]) {
       await page.setViewportSize({ width, height: 844 }); await click('[data-tab=genba]');
+      if (await page.locator('#screen-working.active').count()) await click('[data-tab=genba]'); // 今日の現場の上からは、もう一度押すと現場の一覧
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       await click('#btn-receive-property'); assert.ok(await page.locator('#local-dialog').evaluate(el => el.scrollWidth <= el.clientWidth)); await closeDialog();
     }

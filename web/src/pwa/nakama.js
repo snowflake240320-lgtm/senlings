@@ -44,7 +44,7 @@ export function nakamaOf(data) {
   const pon = record(n) ? (n.pon ?? {}) : null;
   const kon = record(n) ? (n.kon ?? {}) : null;
   const ok = record(n) && record(pon) && record(kon)
-    && (pon.rates == null || (record(pon.rates) && Object.values(pon.rates).every(r => record(r) && money(r.parking_per_day) && str(r.payer ?? '', 100))))
+    && (pon.rates == null || (record(pon.rates) && Object.values(pon.rates).every(r => record(r) && money(r.parking_per_day) && (r.overtime_per_hour == null || money(r.overtime_per_hour)) && str(r.payer ?? '', 100))))
     && list(pon.extra, r => record(r) && str(r.id, 100) && dateStr(r.date) && str(r.project_id, 200)
         && Object.hasOwn(PON_KINDS, r.kind) && money(r.amount) && str(r.memo ?? '', 200))
     && list(pon.tickets, t => record(t) && str(t.id, 100) && dateStr(t.date) && str(t.project_id, 200)
@@ -81,10 +81,12 @@ const amount = v => {
 // ── ポン:元請けが立て替えた分の内訳(請求から差し引く) ─────────────
 // いまの経費(職人が払って請求に足す)とは向きが逆。混ぜない。
 
-export function setPonRate(projectId, { parking_per_day, payer }) {
+export function setPonRate(projectId, { parking_per_day, overtime_per_hour, payer }) {
   return writeNakama((n, data) => {
     if (!data.projects.some(p => p.project_id === projectId)) throw new Error('現場が見つかりません。');
-    n.pon.rates = { ...n.pon.rates, [projectId]: { parking_per_day: amount(parking_per_day), payer: String(payer ?? '').trim().slice(0, 100) } };
+    const prev = n.pon.rates[projectId] ?? {};
+    const ot = overtime_per_hour === undefined ? prev.overtime_per_hour ?? 0 : amount(overtime_per_hour);
+    n.pon.rates = { ...n.pon.rates, [projectId]: { parking_per_day: amount(parking_per_day), overtime_per_hour: ot, payer: String(payer ?? '').trim().slice(0, 100) } };
   });
 }
 
@@ -141,6 +143,17 @@ export function ponRows(data, ym) {
       original: t.count * t.unit_price, count: t.count, unit_price: t.unit_price, payer: n.pon.rates[t.project_id]?.payer || '',
       source: `受け取ったチケット ${t.count}枚 × ${yen(t.unit_price)}`, memo: t.memo ?? '' });
   }
+  // 時間外の負担金は「残業おつかれさま」を押した日から。職人が新しく押すものは無い。
+  // 金額は残業の時間 × この現場の時間外の単価(職人が入れる)。複数人で割る場合は行を直す。
+  for (const s of data.work_sessions ?? []) {
+    if (s.kind !== 'teiji' || !(s.overtime_minutes > 0) || !s.date.startsWith(ym)) continue;
+    const per = n.pon.rates[s.project_id]?.overtime_per_hour;
+    if (!(per > 0)) continue;
+    const h = s.overtime_minutes / 60;
+    rows.push({ key: `zangyo:${s.id}`, date: s.date, project_id: s.project_id, project: names[s.project_id] ?? s.project_id, kind: 'overtime',
+      original: Math.round(h * per), hours: h, unit_price: per, payer: n.pon.rates[s.project_id]?.payer || '',
+      source: `残業おつかれさま ${h}時間 × ${yen(per)}`, memo: '' });
+  }
   for (const r of n.pon.extra) {
     if (!r.date.startsWith(ym)) continue;
     rows.push({ key: `extra:${r.id}`, date: r.date, project_id: r.project_id, project: names[r.project_id] ?? r.project_id, kind: r.kind,
@@ -153,12 +166,18 @@ export function ponRows(data, ym) {
   });
 }
 
+/** 残業を押した日のうち、時間外の単価が無くて下書きにならない現場があるか(画面の一言にだけ使う。数えない) */
+export function ponOvertimeWithoutRate(data, ym) {
+  const n = nakamaOf(data);
+  return (data.work_sessions ?? []).some(s => s.kind === 'teiji' && s.overtime_minutes > 0 && s.date.startsWith(ym) && !(n.pon.rates[s.project_id]?.overtime_per_hour > 0));
+}
+
 export function ponTotal(rows, projectId) {
   return rows.filter(r => !r.skipped && (!projectId || r.project_id === projectId)).reduce((t, r) => t + r.amount, 0);
 }
 
 export function ponLabel(r) {
-  return `${PON_KINDS[r.kind]}${r.count ? `(チケット${r.count}枚)` : ''}`;
+  return `${PON_KINDS[r.kind]}${r.count ? `(チケット${r.count}枚)` : ''}${r.hours ? `(${r.hours}時間)` : ''}`;
 }
 
 // 別紙と取り込みファイル(CSV)に渡す行。外した行は入れない。

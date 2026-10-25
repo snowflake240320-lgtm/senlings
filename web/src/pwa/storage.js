@@ -73,6 +73,17 @@ function safeShape(data) {
   for (const s of data.work_sessions ?? []) {
     if (['travel_start_at', 'travel_end_at'].some(field => s[field] != null && !timestamp(s[field]))) return false;
   }
+  // 定時の一日(kind: 'teiji')。kind は無いか 'teiji' だけ。一日は一つ。
+  const teijiDates = new Set();
+  for (const s of data.work_sessions ?? []) {
+    if (s.kind == null) continue;
+    if (s.kind !== 'teiji' || typeof s.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(s.date) || teijiDates.has(s.date) ||
+        !Number.isSafeInteger(s.overtime_minutes ?? 0) || (s.overtime_minutes ?? 0) < 0 || (s.overtime_minutes ?? 0) > 720) return false;
+    teijiDates.add(s.date);
+  }
+  for (const p of data.projects ?? []) {
+    if (p.teiji != null && (!record(p.teiji) || ['start', 'end'].some(k => typeof p.teiji[k] !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(p.teiji[k])))) return false;
+  }
   for (const e of data.expenses ?? []) {
     if (typeof e.project_id !== "string" || typeof e.expense_date !== "string" ||
         typeof e.amount !== "number" || !Number.isFinite(e.amount)) return false;

@@ -14,7 +14,7 @@
  */
 
 import { load } from "./storage.js";
-import { monthlySummary } from "./work.js";
+import { monthlySummary, overtimePay, formatMinutes } from "./work.js";
 import { monthlyExpenseSummary } from "./expenseQuery.js";
 import { getSetting, SETTINGS_KEYS } from './settings.js';
 import { ClaimStatus } from "./expense.js";
@@ -75,9 +75,13 @@ export function fillInvoiceWorkbook(XLSX, wb, ctx) {
   };
   line(FIRST_ROW, '明細書1参照', ctx.amountExTax);
   let rows = 1;
+  if (ctx.overtime?.amount > 0) {
+    line(FIRST_ROW + rows, ctx.overtime.label, ctx.overtime.amount);
+    rows += 1;
+  }
   if (ctx.deduction > 0) {
-    line(FIRST_ROW + 1, `立替の差し引き(内訳は別紙「${LEDGER_SHEET}」)`, -ctx.deduction);
-    rows = 2;
+    line(FIRST_ROW + rows, `立替の差し引き(内訳は別紙「${LEDGER_SHEET}」)`, -ctx.deduction);
+    rows += 1;
   }
 
   // 別紙:立替内訳
@@ -98,7 +102,7 @@ export function fillInvoiceWorkbook(XLSX, wb, ctx) {
   const range = ws['!ref'] ? XLSX.utils.decode_range(ws['!ref']) : { s: { r: 0, c: 0 }, e: { r: 0, c: 0 } };
   range.e.r = Math.max(range.e.r, LAST_ROW - 1); range.e.c = Math.max(range.e.c, COL.gross);
   ws['!ref'] = XLSX.utils.encode_range(range);
-  return { rows, net: ctx.amountExTax - (ctx.deduction || 0), deduction: ctx.deduction || 0 };
+  return { rows, net: ctx.amountExTax + (ctx.overtime?.amount || 0) - (ctx.deduction || 0), deduction: ctx.deduction || 0 };
 }
 
 /**
@@ -151,7 +155,8 @@ export async function exportInvoiceToExcel({ project_id, year, month }) {
     contactName: contact?.name ?? "",
     projectCode: project.project_code ?? "",
     projectName: project.title ?? project.project_slug ?? "",
-    amountExTax: work.sessions.length * unitPrice + subtotalExpense,
+    amountExTax: work.total_days * unitPrice + subtotalExpense, // 日数で数える(同じ日は一日)
+    overtime: work.overtime_minutes > 0 ? { label: `残業 ${formatMinutes(work.overtime_minutes)}(30分刻み)`, amount: overtimePay(work.overtime_minutes, unitPrice) } : null,
     taxRate: getTaxRate(),
     deduction: ponTotal(pon),
     ledger: ponLedgerRows(pon),

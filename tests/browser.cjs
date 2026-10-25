@@ -8,6 +8,10 @@ const web = path.resolve(__dirname, '../web');
 const fixture = () => ({ projects: [{ project_id: 'p', project_slug: 'TEST', future: 'keep' }],
   work_sessions: [{ id: 'w', project_id: 'p', check_in_at: Date.now() - 3600000, check_out_at: Date.now(), break_minutes: 0 }],
   expenses: [], future: { keep: true } });
+// 今日の現場が置いてあって、もう終業を過ぎている日(残業おつかれさまが出る)
+const ymd = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const endedTeiji = (projectId = 'p') => { const now = Date.now(); return { id: `teiji:${ymd(new Date())}`, kind: 'teiji', date: ymd(new Date()), project_id: projectId,
+  check_in_at: now - 10 * 3600000, check_out_at: now - 3600000 + 60000, break_minutes: 60, overtime_minutes: 0, placed_at: now - 11 * 3600000 }; };
 const server = http.createServer(async (req, res) => {
   const file = path.resolve(web, '.' + (req.url === '/' ? '/index.html' : req.url.split('?')[0]));
   if (!file.startsWith(web + path.sep)) return res.writeHead(403).end();
@@ -64,7 +68,11 @@ async function click(page, selector) { await page.locator(selector).click(); }
 async function ready(page) { await page.locator('.site-card').waitFor(); }
 // 請求書のたたき台・持ち出しは▲ホームへ載せ替えた(維新)
 async function shimai(page) { await click(page, '[data-tab="home"]'); }
-async function working(page) { await click(page, '.site-card'); await click(page, '#btn-checkin'); }
+// 出勤は押さない。今日の現場を選ぶと、定時の一日が置かれて現場の上へ(2026-10-25)
+async function working(page) { await click(page, '.site-card'); await click(page, '#btn-today'); await page.locator('#screen-working.active').waitFor(); }
+// 更新の前に入場していた途中の記録(入った/出た)
+const legacyEntry = () => { const d = fixture(); d.current_session = { project_id: 'p', check_in_at: Date.now() - 1000 }; return d; };
+async function legacyWorking(page) { await click(page, '.site-card-resume-btn'); await page.locator('#screen-working.active').waitFor(); }
 async function stats(page) { return page.evaluate(() => ({ raw: rawStored(), writes: fault.writes })); }
 async function inject(page, mode) {
   await page.evaluate(mode => {
@@ -94,9 +102,12 @@ async function inject(page, mode) {
   }
   const actions = {
     add: { prepare: async p => { await click(p,'#btn-add-site'); await p.locator('#add-site-name').fill('TEST NEW'); }, selector: '#btn-add-site-save', success: '#add-site-modal[hidden]' },
-    start: { prepare: p => click(p,'.site-card'), selector: '#btn-checkin', success: '#screen-working.active' },
-    cancel: { prepare: async p => { await working(p); await click(p,'[data-tab="genba"]'); await click(p,'.site-card-cancel-btn'); }, selector: '.site-card-cancel-btn', success: '.site-card' },
-    return: { prepare: async p => { await working(p); await click(p,'#btn-return'); }, selector: '#btn-return-send', success: '#return-complete-modal:not([hidden])' },
+    start: { prepare: p => click(p,'.site-card'), selector: '#btn-today', success: '#screen-working.active' },
+    cancel: { legacy: true, prepare: p => click(p,'.site-card-cancel-btn'), selector: '.site-card-cancel-btn', success: '.site-card:not(.site-card-today)' },
+    return: { legacy: true, prepare: async p => { await legacyWorking(p); await click(p,'#btn-return'); }, selector: '#btn-return-send', success: '#return-complete-modal:not([hidden])' },
+    returnNote: { prepare: async p => { await working(p); await click(p,'#btn-return'); await p.locator('#return-memo').fill('架空の一言'); }, selector: '#btn-return-send', success: '#return-complete-modal:not([hidden])' },
+    zangyo: { teijiEnded: true, prepare: p => p.locator('#working-zangyo:not([hidden])').waitFor(), selector: '#btn-zangyo', success: '.zangyo-said:has-text("おつかれさま")' },
+    junbi: { prepare: shimai, selector: '#junbi-project', select: 'p', success: '#junbi-now:not(:empty)' },
     invoice: { prepare: shimai, selector: '#btn-shimai-invoice', success: '.invoice-card-title' },
     skip: { prepare: async p => { await shimai(p); await click(p,'#btn-shimai-invoice'); }, selector: '#btn-invoice-skip-expense', success: '.invoice-card-title' },
     json: { prepare: shimai, selector: '#btn-export-json-shimai' },
@@ -106,13 +117,14 @@ async function inject(page, mode) {
     for (const mode of ['corrupt', 'readError', 'writeError']) {
       if (mode === 'writeError' && ['json','csv'].includes(name)) continue;
       await run(`new UI ${name} ${mode}: no false success`, async () => {
-        const data = fixture();
+        const data = action.legacy ? legacyEntry() : fixture();
+        if (action.teijiEnded) data.work_sessions.push(endedTeiji());
         if (name === 'invoice') data.expenses = [{ project_id: 'p', expense_date: new Date().toISOString().slice(0,10), amount: 10 }];
         const {page,context} = await setup(JSON.stringify(data));
-        await ready(page); await action.prepare(page);
+        await (action.teijiEnded ? page.locator('#screen-working.active').waitFor() : action.legacy ? page.locator('.site-card-pending').waitFor() : ready(page)); await action.prepare(page);
         let downloads = 0; page.on('download', () => downloads++);
         const before = await inject(page,mode);
-        await click(page,action.selector);
+        if (action.select) await page.locator(action.selector).selectOption(action.select); else await click(page,action.selector);
         await page.locator('#storage-error[open]').waitFor();
         const after = await stats(page);
         assert.equal(after.raw,before.raw);
@@ -139,7 +151,8 @@ async function inject(page, mode) {
       assert.ok(content.includes(selector.includes('json') ? '"future"' : '労務費'));
     }
     const saved=JSON.parse((await stats(page)).raw);
-    assert.equal(saved.current_session,null);assert.equal(saved.work_sessions.length,1);assert.equal(saved.invoice_snapshots.length,1);
+    assert.equal(saved.current_session ?? null,null);assert.equal(saved.work_sessions.length,1);assert.equal(saved.invoice_snapshots.length,1);
+    assert.equal(saved.work_sessions[0].kind,'teiji');assert.equal(saved.invoice_snapshots[0].total_work_days,1);
     assert.deepEqual(saved.future,{keep:true});assert.equal(saved.projects[0].future,'keep');assert.deepEqual(page.errors,[]);
     await context.close();
   });
@@ -152,7 +165,7 @@ async function inject(page, mode) {
     await context.close();
   });
   for (const faultType of ['write', 'read']) await run(`Return atomic ${faultType} failure: unchanged data, no completion, same-screen retry no duplicate`, async () => {
-    const {page,context}=await setup(); await ready(page);await working(page);await click(page,'#btn-return');
+    const {page,context}=await setup(JSON.stringify(legacyEntry())); await page.locator('.site-card-pending').waitFor();await legacyWorking(page);await click(page,'#btn-return');
     const original=(await stats(page)).raw;
     // Reads: shared click guard, completion load, final storage save recheck.
     await page.evaluate(type=>{fault.writes=0;if(type==='write')fault.failWrite=1;else fault.failRead=fault.reads+3;},faultType);await click(page,'#btn-return-send');
@@ -167,7 +180,7 @@ async function inject(page, mode) {
   });
   await run('new UI unreadable at final prewrite recheck: zero writes', async()=>{
     const {page,context}=await setup();await ready(page);await click(page,'.site-card');
-    const before=await stats(page);await page.evaluate(()=>{fault.failRead=fault.reads+4;});await click(page,'#btn-checkin');
+    const before=await stats(page);await page.evaluate(()=>{fault.failRead=fault.reads+4;});await click(page,'#btn-today');
     await page.locator('#storage-error[open]').waitFor();assert.deepEqual(await stats(page),before);
     assert.equal(await page.locator('#screen-working.active').count(),0);await context.close();
   });
@@ -205,7 +218,52 @@ async function inject(page, mode) {
     assert.equal(await page.locator('#shimai-confirm-modal').count(),0);
     await click(page,'[data-tab="home"]');await click(page,'[data-tab="genba"]');
     await page.locator('#screen-working.active').waitFor();
-    assert.ok(JSON.parse((await stats(page)).raw).current_session);assert.deepEqual(page.errors,[]);await context.close();
+    assert.equal(JSON.parse((await stats(page)).raw).work_sessions.filter(s=>s.kind==='teiji').length,1);assert.deepEqual(page.errors,[]);await context.close();
+  });
+  // ── 今日の現場と定時(2026-10-25) ──
+  await run('teiji: today here, opens on site next time, site rule fix, overtime only when pressed, 準備 for tomorrow, invoice shows overtime', async () => {
+    // 開き直しを試すので、起動のたびに元へ戻す仕掛け(初期データの書き込み)は使わない
+    const {page,context}=await setup(null);await page.evaluate(raw=>replaceStored(raw),JSON.stringify(fixture()));await page.reload();await ready(page);
+    await click(page,'.site-card');
+    assert.match(await page.locator('#handover-teiji').innerText(),/定時 8:00〜17:00/);
+    await click(page,'#btn-teiji-fix');await page.locator('#teiji-start').fill('08:30');await page.locator('#teiji-end').fill('17:30');await click(page,'#btn-teiji-save');
+    assert.equal(await page.locator('#handover-teiji').innerText(),'定時 8:30〜17:30 直す');
+    assert.equal(await page.locator('#btn-today').innerText(),'今日はここ');
+    await click(page,'#btn-today');await page.locator('#screen-working.active').waitFor();
+    assert.match(await page.locator('#working-checkin-time').innerText(),/^定時 8:30〜17:30/);
+    let d=JSON.parse((await stats(page)).raw);const day=d.work_sessions.find(s=>s.kind==='teiji');
+    assert.equal(d.current_session ?? null,null);assert.equal(day.overtime_minutes,0);assert.deepEqual(d.projects[0].teiji,{start:'08:30',end:'17:30'});
+    await page.reload();await page.locator('#screen-working.active').waitFor(); // 朝は■現場を開くだけ
+    assert.equal(await page.locator('#site-list').count(),1);
+    // 終業のあとにだけ、残業おつかれさまが出る
+    const ended=await page.locator('#working-zangyo').isHidden();
+    await page.evaluate(()=>{const d=JSON.parse(rawStored());const s=d.work_sessions.find(x=>x.kind==='teiji');s.check_out_at=Date.now()-40*60000;replaceStored(JSON.stringify(d));});
+    await page.reload();await page.locator('#working-zangyo:not([hidden])').waitFor();
+    assert.ok(ended || new Date().getHours()>=17,'hidden before the end of the day');
+    await click(page,'#btn-zangyo');assert.equal(await page.locator('#zangyo-said').innerText(),'おつかれさまでした。');
+    assert.match(await page.locator('#working-checkin-time').innerText(),/残業 1時間$/);
+    d=JSON.parse((await stats(page)).raw);assert.equal(d.work_sessions.find(s=>s.kind==='teiji').overtime_minutes,60);
+    await click(page,'#btn-zangyo-undo');d=JSON.parse((await stats(page)).raw);assert.equal(d.work_sessions.find(s=>s.kind==='teiji').overtime_minutes,0);
+    await click(page,'#btn-zangyo');
+    // 準備:明日の現場
+    await click(page,'[data-tab="home"]');await page.locator('#junbi-project').selectOption('p');
+    assert.match(await page.locator('#junbi-now').innerText(),/^TEST　定時 8:30〜17:30$/);
+    d=JSON.parse((await stats(page)).raw);assert.equal(d.work_sessions.filter(s=>s.kind==='teiji').length,2);
+    await click(page,'#btn-junbi-clear');assert.equal(await page.locator('#junbi-now').innerText(),'');
+    // たたき台:同じ日の古い記録と定時は一日。残業は押した分だけ
+    await click(page,'#btn-shimai-invoice');await click(page,'#btn-invoice-skip-expense');await page.locator('.invoice-card-title').waitFor();
+    assert.match(await page.locator('#invoice-display').innerText(),/稼働日数\s*1日/);
+    assert.match(await page.locator('#invoice-zangyo-row').innerText(),/1時間\(3,906円\)/);
+    assert.deepEqual(page.errors,[]);await context.close();
+  });
+  for (const width of [320,390]) await run(`teiji: working screen with overtime fits at ${width}px`, async () => {
+    const data=fixture();data.work_sessions.push(endedTeiji());
+    const {page,context}=await setup(JSON.stringify(data));await page.setViewportSize({width,height:844});
+    await page.locator('#working-zangyo:not([hidden])').waitFor();
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+    await click(page,'[data-tab="home"]');assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+    if (process.env.EVIDENCE_DIR) await page.screenshot({path: path.join(process.env.EVIDENCE_DIR,`teiji-${width}.png`)});
+    await context.close();
   });
   for (const width of [320,390]) {
     await run(`shell: five tabs fit at ${width}px without horizontal overflow`, async () => {
