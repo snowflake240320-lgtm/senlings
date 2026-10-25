@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>Senlings 現場の依頼</title>
+  <link rel="stylesheet" href="../local-features.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { background: #0d0d0b; color: #e8e5df; font-family: 'Noto Sans JP', sans-serif; font-size: 15px; }
+    main { max-width: 560px; margin: 0 auto; padding: 32px 16px 64px; }
+    .brand { font-family: 'Noto Serif JP', serif; font-size: 12px; letter-spacing: 0.35em; color: #c5a059; }
+    h1 { font-size: 22px; font-weight: 400; margin: 6px 0 8px; letter-spacing: 0.05em; }
+    .lead { color: #c0bcb4; font-size: 14px; line-height: 1.8; margin-bottom: 20px; }
+    .card { background: #161614; border: 1px solid #2a2a24; border-radius: 14px; padding: 20px 16px; }
+    .foot { margin-top: 20px; color: #8a8780; font-size: 12px; line-height: 1.8; }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="brand">SENLINGS</p>
+    <h1>現場の依頼</h1>
+    <p class="lead">職人に送る文を作ります。LINE などで、いつもどおり送ってください。<br>相手が Senlings を使っていれば、文を貼るだけで現場が入ります。使っていなくても、文だけで伝わります。</p>
+    <div class="card" id="composer"></div>
+    <p class="foot">このページは何も保存しません(呼び名だけ、この端末に覚えます)。送った文の行き先も、既読も、Senlings は知りません。</p>
+  </main>
+  <script type="module" src="./irai.js"></script>
+</body>
+</html>

@@ -16,5 +16,5 @@ async function check(dir) {
   }
 }
 for (const dir of ['web', 'src', 'api', 'tests']) await check(dir);
-run(['--test', 'tests/storage.test.mjs', 'tests/attendance.test.mjs', 'tests/local-features.test.mjs', 'tests/nakama.test.mjs', 'tests/invoice-export.test.mjs', 'tests/teiji.test.mjs', 'tests/homescreen.test.mjs']);
+run(['--test', 'tests/storage.test.mjs', 'tests/attendance.test.mjs', 'tests/local-features.test.mjs', 'tests/nakama.test.mjs', 'tests/invoice-export.test.mjs', 'tests/teiji.test.mjs', 'tests/homescreen.test.mjs', 'tests/envelope.test.mjs']);
 console.log('PASS syntax checks and storage regression tests');

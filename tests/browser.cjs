@@ -17,7 +17,7 @@ const server = http.createServer(async (req, res) => {
   if (!file.startsWith(web + path.sep)) return res.writeHead(403).end();
   try {
     const data = await fs.readFile(file);
-    res.setHeader('Content-Type', file.endsWith('.js') ? 'text/javascript' : file.endsWith('.html') ? 'text/html' : 'application/octet-stream');
+    res.setHeader('Content-Type', file.endsWith('.js') ? 'text/javascript' : file.endsWith('.html') ? 'text/html' : file.endsWith('.css') ? 'text/css' : file.endsWith('.jpg') ? 'image/jpeg' : 'application/octet-stream'); // 本番と同じく、見た目(CSS)と写真も正しく渡す
     res.end(data);
   } catch { res.writeHead(404).end(); }
 });
@@ -255,6 +255,60 @@ async function inject(page, mode) {
     assert.match(await page.locator('#invoice-display').innerText(),/稼働日数\s*1日/);
     assert.match(await page.locator('#invoice-zangyo-row').innerText(),/1時間\(3,906円\)/);
     assert.deepEqual(page.errors,[]);await context.close();
+  });
+  // 依頼(10-25):応援も元請けの依頼も、同じ封筒一通。送るのは人(共有の画面)。受けるかは受けた人
+  async function stubShare(page){await page.evaluate(()=>{window.shared=[];Object.defineProperty(navigator,'share',{value:async d=>{window.shared.push(d.text);},configurable:true});});}
+  async function receive(page,text){if(await page.locator('#local-dialog[open]').count())await click(page,'#local-dialog .local-close');await click(page,'[data-tab="genba"]');if(await page.locator('#screen-working.active').count())await click(page,'[data-tab="genba"]');
+    await click(page,'#btn-receive-property');await page.locator('#handoff-input').fill(text);await click(page,'#handoff-inspect');}
+  await run('request: ask for help from Home, the other phone pastes it, the site, its hours and the day arrive only when chosen', async () => {
+    const {page,context}=await setup();await ready(page);await stubShare(page);
+    await click(page,'.site-card');await click(page,'#btn-teiji-fix');await page.locator('#teiji-start').fill('08:30');await page.locator('#teiji-end').fill('17:30');await click(page,'#btn-teiji-save');
+    await click(page,'#btn-back-handover');await click(page,'[data-tab="home"]');await page.locator('#junbi-project').selectOption('p');
+    const before=await stats(page);
+    await click(page,'#btn-ouen');await page.locator('#req-name').waitFor();
+    assert.equal(await page.locator('#req-name').inputValue(),'TEST');assert.equal(await page.locator('#req-start').inputValue(),'08:30');
+    await page.locator('#req-from').fill('架空の職人');await page.locator('#req-note').fill('ボードの手が足りません');
+    await click(page,'#req-make');await click(page,'#req-share');
+    const text=(await page.evaluate(()=>window.shared))[0];
+    assert.match(text,/【応援のお願い】架空の職人より/);assert.match(text,/時間:8:30〜17:30/);assert.match(text,/〔Senlings〕/);
+    assert.deepEqual(await stats(page),before,'asking writes nothing');await context.close();
+    const other=await setup(null);await other.page.locator('.site-empty').waitFor();
+    await other.page.evaluate(()=>localStorage.setItem('senlings_homescreen_later','1'));
+    await receive(other.page,`[LINE]\n${text}\n既読`);
+    assert.match(await other.page.locator('#handoff-preview').innerText(),/応援のお願い\(架空の職人より\)/);
+    await click(other.page,'#handoff-accept');await other.page.locator('#handoff-place-day').waitFor();
+    let d=JSON.parse((await stats(other.page)).raw);
+    assert.equal(d.projects.length,1);assert.equal(d.projects[0].project_slug,'TEST');assert.deepEqual(d.projects[0].teiji,{start:'08:30',end:'17:30'});
+    assert.match(d.projects[0].site_info.raw,/ボードの手が足りません/);assert.doesNotMatch(d.projects[0].site_info.raw,/〔Senlings〕/);
+    assert.equal(d.work_sessions.length,0,'the day is not placed until they choose');
+    await click(other.page,'#handoff-place-day');d=JSON.parse((await stats(other.page)).raw);
+    assert.equal(d.work_sessions.filter(s=>s.kind==='teiji').length,1);assert.equal(d.work_sessions[0].check_in_at,new Date(d.work_sessions[0].date+'T08:30:00+09:00').getTime());
+    // 同じ文をもう一度:増えない
+    await receive(other.page,text);assert.match(await other.page.locator('#local-dialog [role=status]').innerText(),/受取済み/);
+    assert.equal(JSON.parse((await stats(other.page)).raw).projects.length,1);
+    assert.deepEqual(other.page.errors,[]);await other.context.close();
+  });
+  await run('request: a plain LINE text without the Senlings line still becomes a site; a cut-off line is refused without writing', async () => {
+    const {page,context}=await setup(null);await page.locator('.site-empty').waitFor();await page.evaluate(()=>localStorage.setItem('senlings_homescreen_later','1'));
+    await receive(page,'【応援】明日 田原町の現場 来れる?\n朝礼 8:20');
+    assert.match(await page.locator('#handoff-preview').innerText(),/Senlings 用の行がない文/);
+    assert.equal(await page.locator('#handoff-slug').inputValue(),'明日 田原町の現場 来れる?');
+    await page.locator('#handoff-slug').fill('田原町');await click(page,'#handoff-accept');
+    const d=JSON.parse((await stats(page)).raw);assert.equal(d.projects[0].project_slug,'田原町');assert.match(d.projects[0].site_info.raw,/朝礼 8:20/);
+    const before=await stats(page);
+    await receive(page,'【応援のお願い】x\n〔Senlings〕eyJmb3JtYXQiOiJzZW5saW5ncy5lbnZlbG9wZS');
+    assert.match(await page.locator('#local-dialog [role=status]').last().innerText(),/まるごとコピー/);
+    assert.equal(await page.locator('#handoff-accept').isDisabled(),true);assert.deepEqual(await stats(page),before);
+    assert.deepEqual(page.errors,[]);await context.close();
+  });
+  await run('request: the 元請け page makes the same envelope (kind 現場案内) and remembers only the sender name', async () => {
+    const {page,context}=await setup(null);/* 本番(Vercel)は /irai/ で開く */ await page.goto(origin+'/irai/index.html');await stubShare(page);
+    await page.locator('#req-from').fill('藤田建装 園原');await page.locator('#req-name').fill('M1070 架空の店');
+    await click(page,'#req-make');await click(page,'#req-share');
+    const text=(await page.evaluate(()=>window.shared))[0];assert.match(text,/^【現場のご案内】藤田建装 園原より/);
+    assert.equal(await page.evaluate(()=>localStorage.getItem('senlings_irai_from')),'藤田建装 園原');
+    assert.equal(await page.evaluate(()=>localStorage.getItem('senlings_v0')),null,'the page keeps no records');
+    const w=await page.evaluate(()=>[document.documentElement.scrollWidth,innerWidth,[...document.querySelectorAll('*')].filter(e=>e.getBoundingClientRect().right>innerWidth+1).map(e=>e.tagName+'.'+e.className).slice(0,5)]);assert.ok(w[0]<=w[1],JSON.stringify(w));assert.deepEqual(page.errors,[]);await context.close();
   });
   // ホーム画面に置く(10-25):入口は LINE、家はホーム画面。案内は一回だけ、催促しない、記録には触れない
   const iosUA = v => `Mozilla/5.0 (iPhone; CPU iPhone OS ${v} like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/${v.split('_')[0]}.0 Mobile/15E148 Safari/604.1`;

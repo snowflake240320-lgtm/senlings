@@ -47,3 +47,16 @@
 .homescreen-done svg { width: 28px; height: 28px; flex-shrink: 0; }
 .local-dialog .homescreen-later { display: block; width: auto; min-height: 0; margin: 20px auto 0; background: none; border: 0; border-radius: 0; color: #777; font: inherit; font-size: 12px; text-decoration: underline; padding: 8px; }
 a.local-action { display: block; text-align: center; text-decoration: none; box-sizing: border-box; }
+
+/* 依頼の一枚(応援を呼ぶ・現場の依頼)。10-25 */
+.request-form label { display: block; margin: 12px 0; color: #c4c1b9; font-size: 13px; }
+.request-form input, .request-form textarea { display: block; width: 100%; padding: 10px; margin-top: 6px; border: 1px solid #55554c; border-radius: 8px; background: #0d0d0b; color: #e8e5df; font: inherit; font-size: 16px; }
+.request-times { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.request-times input { margin-top: 0; flex: 1; min-width: 0; }
+.request-times span { color: #8a8780; }
+.request-more { margin: 8px 0; }
+.request-more summary { cursor: pointer; padding: 10px 0; color: #c5a059; font-size: 14px; }
+.request-preview { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; font-size: 13px; line-height: 1.7; color: #e8e5df; background: #0d0d0b; border: 1px solid #2a2a24; border-radius: 10px; padding: 12px; margin-top: 12px; }
+.request-preview[hidden], .request-send[hidden], #req-copy[hidden] { display: none; }
+.request-send { background: #1e1a10; border-color: #c5a059; color: #c5a059; font-weight: 500; }
+.request-msg { color: #c4c1b9; font-size: 13px; margin-top: 10px; min-height: 1em; }

@@ -72,7 +72,7 @@ async function preparePhoto() {
     await screenshot('property-receive'); await closeDialog();
   });
   await run('same received file after full restart adds no duplicate; changed same-version content is refused', async () => {
-    await restart(); const before = await raw(); await receive(JSON.stringify(packet)); await click('#handoff-accept'); assert.equal(await raw(), before); await closeDialog();
+    await restart(); const before = await raw(); await receive(JSON.stringify(packet)); assert.equal(await page.locator('#handoff-accept').isDisabled(), true); /* 受取済みの版は押すものが無い */ assert.match(await page.locator('#local-dialog [role=status]').innerText(), /受取済み/); assert.equal(await raw(), before); await closeDialog();
     await receive(JSON.stringify({ ...packet, project: { ...packet.project, name: '内容が違う' } })); assert.equal(await page.locator('#handoff-accept').isDisabled(), true);
     assert.match(await page.locator('#local-dialog [role=status]').innerText(), /同じ物件ID・版/); assert.equal(await raw(), before); await closeDialog();
   });

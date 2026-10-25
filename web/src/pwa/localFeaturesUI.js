@@ -1,5 +1,7 @@
 import { load } from './storage.js';
 import { TRANSFER_FIELDS, makeTransfer, inspectTransfer, acceptTransfer } from './projectTransfer.js';
+import { findEnvelope, envelopeToTransfer, dayLabel, KINDS } from './envelope.js';
+import { placeTeiji, teijiOn, setProjectTeiji } from './work.js';
 import { saveLocalRecord, contactPhone, SOS_LABELS } from './localRecords.js';
 import { savePhotoMeta, buildPhotoFilename } from './photo.js';
 import { SETTINGS_KEYS, getAllSettings, saveSettingsFromForm } from './settings.js';
@@ -30,52 +32,96 @@ function download(name, content, type = 'application/json') {
   const a = $('a', '', { href: url, download: name }); document.body.append(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-function values(parent, packet, { showName = true, idLabel = '送り手の物件ID' } = {}) {
+function values(parent, packet, { showName = true, idLabel = '送り手の物件ID', showId = true } = {}) {
   if (showName) paragraph(parent, `現場：${packet.project.name}`);
-  paragraph(parent, `${idLabel}：${packet.source_project_id} ／ 版：${packet.revision}`);
+  if (showId) paragraph(parent, `${idLabel}：${packet.source_project_id} ／ 版：${packet.revision}`);
   for (const [key, label] of TRANSFER_FIELDS) if (Object.hasOwn(packet.project, key)) {
     const block = $('section'); block.append($('h3', label), $('p', packet.project[key] || '（空欄）')); parent.append(block);
   }
 }
 
+// 受け取る(郵便受け)。LINE などで届いた依頼の文を、まるごと貼る。いちばん下の〔Senlings〕の行から封筒を読む。
+// 封筒が無い文でも、現場名を決めれば、その文を「届いた連絡」として現場を立てられる。物件情報ファイル(JSON)も、そのまま受け取れる。
+// 受けるかどうか、その日に置くかどうかは、受けた人が決める。返事は LINE で、いつもどおりに。
 export function receiveProject(onSaved) {
-  const box = panel('物件情報を受け取る');
-  paragraph(box, '受け取った内容を確認してから、自分の現場に加えます。連絡文だけの場合は「現場を追加する」から貼り付けられます。');
-  const file = field(box, '物件情報ファイル（JSON）', 'input', { type: 'file', accept: '.json,application/json', id: 'handoff-file' });
-  const input = field(box, '物件情報を貼り付ける', 'textarea', { rows: 5, id: 'handoff-input', maxLength: 128000 });
+  const box = panel('受け取る');
+  paragraph(box, 'LINE などで届いた依頼の文を、まるごとコピーして貼ります。確かめてから、自分の現場に加えます。');
+  const pasteBtn = action(box, '貼り付ける', async () => {
+    try { const text = await navigator.clipboard.readText(); if (text) { input.value = text; input.oninput(); inspect.onclick(); } else message.textContent = 'コピーされた文がありません。'; }
+    catch { message.textContent = '貼り付けられませんでした。下の欄を長押しして「ペースト」を押してください。'; input.focus(); }
+  }, 'handoff-paste');
+  const input = field(box, '届いた文', 'textarea', { rows: 5, id: 'handoff-input', maxLength: 128000 });
+  const fileBox = $('details', '', { className: 'nakama-more' }); fileBox.append($('summary', 'ファイルで受け取る(物件情報 JSON)'));
+  const file = field(fileBox, '物件情報ファイル（JSON）', 'input', { type: 'file', accept: '.json,application/json', id: 'handoff-file' });
+  box.append(fileBox);
   const message = status(box), preview = $('div', '', { id: 'handoff-preview' });
   box.append(preview);
-  let confirmed = null, fileGeneration = 0, slugInput = null;
+  const after = $('div', '', { id: 'handoff-after' });
+  let confirmed = null, packetJson = null, envelope = null, fileGeneration = 0, slugInput = null;
   const accept = action(box, '確認して受け取る', () => {
-    if (!confirmed || confirmed !== input.value) return;
+    if (!confirmed || confirmed !== input.value || !packetJson) return;
     try {
-      const result = acceptTransfer(confirmed, undefined, undefined, { slug: slugInput?.value });
-      message.textContent = result.action === 'received' ? 'この版は受取済みです。現場は増やしていません。' : 'この端末の現場に保存しました。';
-      accept.disabled = true; onSaved();
+      const result = acceptTransfer(packetJson, undefined, undefined, { slug: slugInput?.value });
+      message.textContent = result.action === 'received' ? 'この版は受取済みです。現場は増やしていません。' : 'この端末の現場に保存しました。返事は、いつもの相手とのやりとりで。';
+      accept.disabled = true;
+      if (envelope && result.action !== 'received') {
+        if (envelope.site.start && envelope.site.end) setProjectTeiji(result.project_id, envelope.site.start, envelope.site.end);
+      }
+      if (envelope?.work_date) offerDay(result.project_id, envelope.work_date);
+      onSaved();
     } catch (error) { message.textContent = error.message; }
   }, 'handoff-accept');
   accept.disabled = true;
+  box.append(after);
+  // その日に置くかは、受けた人が決める(押したときだけ)
+  function offerDay(projectId, date) {
+    after.replaceChildren();
+    const other = teijiOn(load(), date);
+    if (other?.project_id === projectId) { paragraph(after, `${dayLabel(date)} は、もうこの現場です。`); return; }
+    const put = action(after, `${dayLabel(date)} を、この現場の日に${other ? '置き直す' : 'する'}`, () => {
+      try { placeTeiji(projectId, date); put.disabled = true; message.textContent = `${dayLabel(date)} に置きました。前の晩の準備にも出ます。`; onSaved(); }
+      catch (error) { message.textContent = error.message; }
+    }, 'handoff-place-day');
+  }
   const inspect = action(box, '内容を確認する', () => {
-    confirmed = null; accept.disabled = true; preview.replaceChildren(); slugInput = null;
+    confirmed = null; packetJson = null; envelope = null; accept.disabled = true; preview.replaceChildren(); after.replaceChildren(); slugInput = null;
     try {
-      const plan = inspectTransfer(input.value);
+      const text = input.value;
+      let plain = false;
+      envelope = findEnvelope(text);
+      if (envelope) packetJson = JSON.stringify(envelopeToTransfer(envelope, text));
+      else if (text.trim().startsWith('{')) packetJson = text;
+      else if (text.trim()) {
+        // 封筒の行が無い文。現場名を決めれば、その文を届いた連絡として現場を立てる
+        plain = true;
+        const first = text.trim().split('\n')[0].replace(/^[【\[].*?[】\]]\s*/, '').slice(0, 200) || '届いた現場';
+        packetJson = JSON.stringify({ format: 'senlings.project-handoff', schema_version: 1, source_project_id: `text:${crypto.randomUUID()}`, revision: 1, project: { name: first, raw: text.slice(0, 20000) } });
+      } else throw new Error('届いた文を貼ってください。');
+      const plan = inspectTransfer(packetJson);
+      if (envelope) {
+        paragraph(preview, `${KINDS[envelope.kind]}${envelope.from ? `(${envelope.from}より)` : ''}`);
+        if (envelope.work_date) paragraph(preview, `日にち：${dayLabel(envelope.work_date)}`);
+        if (envelope.site.start) paragraph(preview, `時間：${envelope.site.start.replace(/^0/, '')}〜${envelope.site.end.replace(/^0/, '')}`);
+        if (envelope.note) paragraph(preview, envelope.note);
+      }
+      if (plain) paragraph(preview, 'Senlings 用の行がない文です。この文を「届いた連絡」として残して、現場を立てます。');
       if (plan.action === 'add') {
-        // 表札は職人のもの。最初の受取時に決められる。そのままなら送り手の現場名。
         slugInput = field(preview, 'この端末での現場名（そのままでも、自分の呼び名でも）', 'input', { value: plan.packet.project.name, maxLength: 200, id: 'handoff-slug' });
-        values(preview, plan.packet, { showName: false });
+        values(preview, plan.packet, { showName: false, showId: !envelope && !plain });
       } else if (plan.action === 'update') {
         paragraph(preview, `現場名はそのまま：${plan.current_slug}` + (plan.current_slug !== plan.packet.project.name ? `（送り手の現場名：${plan.packet.project.name}）` : ''));
-        values(preview, plan.packet, { showName: false });
-      } else values(preview, plan.packet);
+        values(preview, plan.packet, { showName: false, showId: !envelope });
+      } else values(preview, plan.packet, { showId: !envelope });
       message.textContent = plan.action === 'received' ? '同じ版を受取済みです。'
-        : plan.action === 'update' ? '新しい版です。表示した項目を現場へ反映します。現場名・以前の原本・自分の記録はそのまま残ります。'
+        : plan.action === 'update' ? '知っている現場の、新しい知らせです。表示した項目を現場へ反映します。現場名・以前の原本・自分の記録はそのまま残ります。'
         : '新しい現場として加えます。この端末に置くだけで、相手には何も送られません。';
       accept.textContent = plan.action === 'update' ? '確認してこの版を反映する' : '確認して受け取る';
-      confirmed = input.value; accept.disabled = false;
+      confirmed = input.value; accept.disabled = plan.action === 'received';
+      if (plan.action === 'received' && envelope?.work_date) offerDay(plan.project_id, envelope.work_date);
     } catch (error) { message.textContent = error.message; }
   }, 'handoff-inspect');
-  box.insertBefore(inspect, preview);
-  input.oninput = () => { fileGeneration++; confirmed = null; slugInput = null; accept.disabled = true; preview.replaceChildren(); message.textContent = ''; };
+  box.insertBefore(inspect, message);
+  input.oninput = () => { fileGeneration++; confirmed = null; packetJson = null; envelope = null; slugInput = null; accept.disabled = true; preview.replaceChildren(); after.replaceChildren(); message.textContent = ''; };
   file.onchange = async () => {
     const ticket = ++fileGeneration;
     confirmed = null; slugInput = null; accept.disabled = true; preview.replaceChildren();
@@ -87,6 +133,7 @@ export function receiveProject(onSaved) {
       input.value = text; message.textContent = '読み込みました。「内容を確認する」で確認してください。';
     } catch (error) { if (ticket === fileGeneration) message.textContent = error.message; }
   };
+  void pasteBtn;
 }
 
 export function giveProject(project) {

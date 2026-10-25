@@ -15,6 +15,7 @@ import { saveLocalRecord, contactPhone } from './src/pwa/localRecords.js';
 import { openPon, openKon, openKero, openHoo, ponDeductionFor } from './src/pwa/nakamaUI.js';
 import { HOO_TRADES, readNakama, setTrades } from './src/pwa/nakama.js';
 import { homeScreenState, openHomeScreenGuide, readLater } from './src/pwa/homeScreen.js';
+import { openRequestDialog, siteFromProject } from './src/pwa/requestUI.js';
 
 // ── データ読み込み ────────────────────────────────────────
 function getAllData() {
@@ -191,6 +192,7 @@ function goToHandover(project) {
   document.getElementById('handover-site-name').textContent = project.project_slug;
   renderHandover(project);
   document.getElementById('btn-give-property').onclick = () => giveProject(project);
+  document.getElementById('btn-request-help').onclick = () => openOuen(project);
   document.getElementById('btn-project-contact').onclick = () => showContact(project);
   renderHandoverTeiji(project);
   const todayBtn = document.getElementById('btn-today');
@@ -606,8 +608,19 @@ function renderJunbi() {
   box.hidden = false;
 }
 
+// 応援を呼ぶ:明日の現場(無ければ今日の現場)を入れて開く。送るのは職人。
+function openOuen(project) {
+  const data = load();
+  const placed = teijiOn(data, addDays(todayStr(), 1)) ?? teijiOn(data, todayStr());
+  const p = project ?? (placed && (data.projects ?? []).find(x => x.project_id === placed.project_id)) ?? null;
+  const fresh = p && (data.projects ?? []).find(x => x.project_id === p.project_id);
+  const day = placed && (!project || placed.project_id === project.project_id) ? placed.date : undefined;
+  openRequestDialog({ kind: 'ouen', from: getSetting(SETTINGS_KEYS.USER_NAME) ?? '', site: siteFromProject(fresh, fresh ? teijiOf(fresh) : null), workDate: day });
+}
+
 function renderHome() {
   renderJunbi();
+  document.getElementById('btn-ouen').onclick = () => openOuen(null);
   const facilityToggle = document.getElementById('setting-show-shisetsu');
   facilityToggle.checked = readShowShisetsu();
   facilityToggle.onchange = () => {
