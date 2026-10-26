@@ -434,6 +434,33 @@ async function inject(page, mode) {
     const href=await line.page.locator('#homescreen-safari').getAttribute('href');
     assert.equal(href,link,'Safari で開く keeps the request');assert.deepEqual(line.page.errors,[]);await line.context.close();
   });
+  await run('arrival: while the guide is open the address and the home-screen icon carry the request; 置かずに見る puts them back', async () => {
+    const {link}=await makeLink();const code=link.split('#')[1];
+    const {page,context}=await setup(null,{ua:iosUA('26_0')});await page.locator('#homescreen-guide[open]').waitFor();
+    await page.goto(link);await page.locator('#homescreen-arrival').waitFor();
+    assert.equal(await page.evaluate(()=>location.hash),'#'+code,'the address keeps the request until they choose');
+    await page.waitForFunction(()=>document.querySelector('link[rel=manifest]').href.startsWith('blob:'));
+    const m=await page.evaluate(async()=>(await fetch(document.querySelector('link[rel=manifest]').href)).json());
+    assert.equal(m.start_url,`${origin}/index.html#${code}`);assert.equal(m.scope,`${origin}/`);assert.equal(m.display,'standalone');assert.match(m.icons[0].src,/^http.*icon-192\.png$/);
+    await click(page,'#homescreen-later');await page.locator('#handoff-choices:not([hidden])').waitFor();
+    assert.equal(await page.evaluate(()=>location.hash),'');assert.match(await page.evaluate(()=>document.querySelector('link[rel=manifest]').getAttribute('href')),/^manifest\.json$/);
+    assert.deepEqual(page.errors,[]);await context.close();
+  });
+  await run('arrival: opened from the home-screen icon, the request shows once; next launches start the usual way; the empty home-screen app opens the copied request in one tap', async () => {
+    const {text,link}=await makeLink();const code=link.split('#')[1];
+    const {page,context}=await setup(null,{ua:iosUA('26_0'),standalone:true});await page.locator('.site-welcome').waitFor();
+    assert.equal(await page.locator('#homescreen-guide').count(),0,'no guide inside the home-screen app');
+    await page.goto(`${origin}/index.html#${code}`);await page.locator('#handoff-choices:not([hidden])').waitFor();
+    await click(page,'#local-dialog .local-close');
+    await page.goto(`${origin}/`);await page.goto(`${origin}/index.html#${code}`);await page.locator('.site-welcome').waitFor();
+    assert.equal(await page.locator('#handoff-choices').count(),0,'the same request does not come back at every launch');
+    assert.equal(await page.evaluate(()=>location.hash),'');
+    assert.match(await page.locator('#btn-welcome-receive').innerText(),/^コピーした依頼を開く/);
+    await page.evaluate(t=>{navigator.clipboard.readText=async()=>t;},text);
+    await click(page,'#btn-welcome-receive');await page.locator('#handoff-choices:not([hidden])').waitFor();
+    assert.match(await page.locator('#handoff-preview').innerText(),/応援のお願い\(架空の職人より\)/);
+    assert.equal(await page.evaluate(()=>rawStored()),null);assert.deepEqual(page.errors,[]);await context.close();
+  });
   await run('arrival: a facility link opens ●施設 with its name, even if the tab was put away; a cut request link says so', async () => {
     const {page,context}=await setup(null);await page.locator('.site-welcome').waitFor();
     await page.evaluate(()=>localStorage.setItem('senlings_shell_show_shisetsu','0'));

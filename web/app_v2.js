@@ -16,7 +16,7 @@ import { openPon, openKon, openKero, openHoo, ponDeductionFor } from './src/pwa/
 import { HOO_TRADES, readNakama, setTrades } from './src/pwa/nakama.js';
 import { homeScreenState, openHomeScreenGuide, readLater } from './src/pwa/homeScreen.js';
 import { openRequestDialog, siteFromProject } from './src/pwa/requestUI.js';
-import { readArrival, fromLinkCode, envelopeText, bodyText, dayLabel } from './src/pwa/envelope.js';
+import { readArrival, fromLinkCode, envelopeText, bodyText, dayLabel, fnv } from './src/pwa/envelope.js';
 import { openShirase, openKinkyu } from './src/pwa/shiraseUI.js';
 
 // ── データ読み込み ────────────────────────────────────────
@@ -38,7 +38,9 @@ function renderWelcome(list) {
     const s = document.createElement('small'); s.textContent = sub; b.append(s); b.onclick = onclick; return b;
   };
   box.append(p,
-    btn('site-welcome-main', 'btn-welcome-receive', '受け取る', 'コピーした依頼の文を貼る', () => receiveProject(renderSiteTop)),
+    homeScreenState({ installPrompt }).kind === 'home'
+      ? btn('site-welcome-main', 'btn-welcome-receive', 'コピーした依頼を開く', '置く前にコピーした依頼が、ここで開きます', () => receiveProject(renderSiteTop, { paste: true }))
+      : btn('site-welcome-main', 'btn-welcome-receive', '受け取る', 'コピーした依頼の文を貼る', () => receiveProject(renderSiteTop)),
     btn('site-welcome-sub', 'btn-welcome-add', '自分で現場を立てる', '名前ひとつで。あとから直せます', () => document.getElementById('btn-add-site').click()));
   if (readShowShisetsu()) box.append(btn('site-welcome-sub', 'btn-welcome-shisetsu', '施設を見る', '施設の決まりと、仲間の四人', () => document.querySelector('[data-tab="shisetsu"]').click()));
   list.append(box);
@@ -996,12 +998,42 @@ function applyShisetsuName() {
   const sub = document.getElementById('shisetsu-name');
   if (sub) { sub.textContent = name; sub.hidden = !name; }
 }
+// 一度開いた依頼のリンクは覚えておく(ホーム画面の印が依頼を持っていても、開くたびには出さない)
+const SEEN_KEY = 'senlings_links_seen';
+function seenLinks() { try { const v = JSON.parse(localStorage.getItem(SEEN_KEY) ?? '[]'); return Array.isArray(v) ? v : []; } catch { return []; } }
+function markSeen(id) { try { const v = seenLinks().filter(x => x !== id); v.push(id); localStorage.setItem(SEEN_KEY, JSON.stringify(v.slice(-50))); } catch { /* 覚えられなくても開ける */ } }
+function clearHash() { try { history.replaceState(null, '', `${location.pathname}${location.search}`); } catch { /* そのまま */ } }
+
+// ホーム画面の印に、この依頼を持たせる(10-26 船長「ホーム画面に置いてもらってから、依頼が見られれば」)。
+// iPhone はブラウザの側から「もう置いたか」を知らせてくれない。置いた印から開いたときだけ分かる。
+// そこで、置く前のあいだだけ、印の行き先(start_url)を依頼の入ったアドレスにしておく。効くかは iPhone の実物で確かめる。
+// 効かなくても、コピーした依頼を「受け取る」で貼れば開ける(二の矢)。
+let carryUrl = null;
+async function carryInIcon(hash) {
+  const link = document.querySelector('link[rel="manifest"]');
+  if (!link) return;
+  try {
+    const m = await (await fetch('manifest.json')).json();
+    const base = `${location.origin}/`;
+    m.start_url = `${base}index.html${hash}`; m.scope = base; m.id = `${base}index.html`;
+    m.icons = (m.icons ?? []).map(i => ({ ...i, src: new URL(i.src, base).href }));
+    const next = URL.createObjectURL(new Blob([JSON.stringify(m)], { type: 'application/manifest+json' }));
+    if (carryUrl) URL.revokeObjectURL(carryUrl);
+    carryUrl = next; link.href = next;
+  } catch { /* 持たせられなくても、コピーで渡せる */ }
+}
+function dropFromIcon() {
+  const link = document.querySelector('link[rel="manifest"]');
+  if (link && carryUrl) { link.href = 'manifest.json'; URL.revokeObjectURL(carryUrl); carryUrl = null; }
+}
+
 async function arrive() {
   const raw = location.hash;
   const a = readArrival(raw);
   if (!a) return false;
+  if (a.request !== undefined) return arriveRequest(a.request, raw);
   // 一度読んだら、アドレスから外す(開き直しで二度出さない)
-  try { history.replaceState(null, '', `${location.pathname}${location.search}`); } catch { /* そのまま */ }
+  clearHash();
   if (a.shisetsu !== undefined) {
     if (a.shisetsu) { try { localStorage.setItem(SHISETSU_NAME_KEY, a.shisetsu); } catch { /* 名前は出せなくても開ける */ } }
     writeShowShisetsu(true);
@@ -1011,13 +1043,23 @@ async function arrive() {
     offerHomeScreen(false, { label: a.shisetsu ? `${a.shisetsu}の入口` : '施設の入口', hash: raw, later: 'いまは置かずに、施設を見る' });
     return true;
   }
+  return false;
+}
+
+async function arriveRequest(code, raw) {
+  const id = fnv(code);
+  const home = homeScreenState({ installPrompt }).kind === 'home';
+  // ホーム画面の印から開いて、もう見た依頼なら、いつもの朝へ
+  if (home && seenLinks().includes(id)) { clearHash(); return false; }
   let env;
-  try { env = await fromLinkCode(a.request); }
-  catch (e) { receiveProject(renderSiteTop).querySelector('[role=status]').textContent = e.message; return true; }
+  try { env = await fromLinkCode(code); }
+  catch (e) { clearHash(); receiveProject(renderSiteTop).querySelector('[role=status]').textContent = e.message; return true; }
   const text = envelopeText(env);
   const label = `${bodyText(env).split('\n')[0]}\n${env.work_date ? `${dayLabel(env.work_date)} ` : ''}${env.site.name}`;
-  const open = () => receiveProject(renderSiteTop, { text });
-  if (!offerHomeScreen(false, { label, text, hash: raw, later: 'いまは置かずに、ここで見る', onLater: open })) open();
+  const open = () => { clearHash(); dropFromIcon(); markSeen(id); receiveProject(renderSiteTop, { text }); };
+  // 先にホーム画面へ。置くあいだは、アドレスと印に依頼を持たせておく
+  if (offerHomeScreen(false, { label, text, hash: raw, later: 'いまは置かずに、ここで見る', onLater: open })) { await carryInIcon(raw); return true; }
+  open();
   return true;
 }
 
