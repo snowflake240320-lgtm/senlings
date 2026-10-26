@@ -38,9 +38,7 @@ function renderWelcome(list) {
     const s = document.createElement('small'); s.textContent = sub; b.append(s); b.onclick = onclick; return b;
   };
   box.append(p,
-    homeScreenState({ installPrompt }).kind === 'home'
-      ? btn('site-welcome-main', 'btn-welcome-receive', 'コピーした依頼を開く', '置く前にコピーした依頼が、ここで開きます', () => receiveProject(renderSiteTop, { paste: true }))
-      : btn('site-welcome-main', 'btn-welcome-receive', '受け取る', 'コピーした依頼の文を貼る', () => receiveProject(renderSiteTop)),
+    btn('site-welcome-main', 'btn-welcome-receive', '受け取る', 'コピーした依頼の文を貼る', () => receiveProject(renderSiteTop)),
     btn('site-welcome-sub', 'btn-welcome-add', '自分で現場を立てる', '名前ひとつで。あとから直せます', () => document.getElementById('btn-add-site').click()));
   if (readShowShisetsu()) box.append(btn('site-welcome-sub', 'btn-welcome-shisetsu', '施設を見る', '施設の決まりと、仲間の四人', () => document.querySelector('[data-tab="shisetsu"]').click()));
   list.append(box);
@@ -1031,26 +1029,26 @@ async function arrive() {
   const raw = location.hash;
   const a = readArrival(raw);
   if (!a) return false;
-  if (a.request !== undefined) return arriveRequest(a.request, raw);
-  // 一度読んだら、アドレスから外す(開き直しで二度出さない)
-  clearHash();
+  const home = homeScreenState({ installPrompt }).kind === 'home';
+  const id = a.request !== undefined ? `r:${fnv(a.request)}` : `s:${a.shisetsu}`;
+  // ホーム画面の印から開いて、もう見たものなら、いつもの朝へ(印がリンクを持ったままでも、毎回は出さない)
+  if (home && seenLinks().includes(id)) { clearHash(); return false; }
   if (a.shisetsu !== undefined) {
     if (a.shisetsu) { try { localStorage.setItem(SHISETSU_NAME_KEY, a.shisetsu); } catch { /* 名前は出せなくても開ける */ } }
     writeShowShisetsu(true);
     const cb = document.getElementById('setting-show-shisetsu'); if (cb) cb.checked = true;
     applyShisetsuTab(); applyShisetsuName();
     document.querySelector('[data-tab="shisetsu"]').click();
-    offerHomeScreen(false, { label: a.shisetsu ? `${a.shisetsu}の入口` : '施設の入口', hash: raw, later: 'いまは置かずに、施設を見る' });
+    const settle = () => { clearHash(); dropFromIcon(); markSeen(id); };
+    // 先にホーム画面へ。置くあいだは、アドレスと印に入口を持たせておく
+    if (offerHomeScreen(false, { label: a.shisetsu ? `${a.shisetsu}の入口` : '施設の入口', hash: raw, later: 'いまは置かずに、施設を見る', onLater: settle })) { await carryInIcon(raw); return true; }
+    settle();
     return true;
   }
-  return false;
+  return arriveRequest(a.request, raw, id);
 }
 
-async function arriveRequest(code, raw) {
-  const id = fnv(code);
-  const home = homeScreenState({ installPrompt }).kind === 'home';
-  // ホーム画面の印から開いて、もう見た依頼なら、いつもの朝へ
-  if (home && seenLinks().includes(id)) { clearHash(); return false; }
+async function arriveRequest(code, raw, id) {
   let env;
   try { env = await fromLinkCode(code); }
   catch (e) { clearHash(); receiveProject(renderSiteTop).querySelector('[role=status]').textContent = e.message; return true; }

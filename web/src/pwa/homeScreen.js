@@ -33,7 +33,7 @@ export function homeScreenState({ ua, standalone, installPrompt = null } = {}) {
 export function homeScreenSteps(state) {
   // 共有の一覧は長い。丸い印の右端「表示を増やす」を押さないと、「ホーム画面に追加」が出てこない(10-25 船長の iPhone で)
   const more = { text: '丸い印の右端「表示を増やす」を押す', pic: 'more' };
-  const sheet = { text: '下のほうにある「ホーム画面に追加」を押す', pic: 'sheet' };
+  const sheet = { text: '下の「ホーム画面に追加」を押す', pic: 'sheet' };
   const add = { text: '右上の「追加」を押す', pic: 'add' };
   if (state.kind === 'ios') {
     if (state.inLine) return { lead: '', steps: [{ text: '右下の「…」(無ければ □↑)→「Safari で開く」', pic: 'line' }], safari: true };
@@ -126,20 +126,13 @@ export function openHomeScreenGuide(state, { installPrompt = null, hasRecords = 
   const h2 = $('h2', 'ホーム画面に置いてください'); h2.tabIndex = -1; h2.autofocus = true; // 開いたとき、小さな「いまは置かずに使う」に目印が付かないように
   head.append(icon, h2);
   dialog.append(head);
+  // 届いたものは、何が・いつ・どこ、の二行だけ。押すものではないので、枠は付けない
   if (arrival?.label) {
     const card = $('div', '', { className: 'homescreen-arrival', id: 'homescreen-arrival' });
     card.append($('small', '届いています'), $('strong', arrival.label));
     dialog.append(card);
-  }
-  // ホーム画面の Senlings は、ここ(ブラウザ)とは別の置き場所。依頼は、置く前にコピーして持っていく(説明は押したあとに一言だけ)
-  if (arrival?.text && !text.safari) {
-    const msg = $('p', '', { className: 'request-msg', id: 'homescreen-copy-msg' }); msg.setAttribute('role', 'status');
-    const copy = $('button', '依頼をコピーしておく', { type: 'button', className: 'local-action request-send', id: 'homescreen-copy' });
-    copy.onclick = async () => {
-      try { await navigator.clipboard.writeText(arrival.text); msg.textContent = 'コピーしました。置いたら「受け取る」で貼ります。'; }
-      catch { msg.textContent = 'コピーできませんでした。LINE の文を、あとでまるごとコピーしてください。'; }
-    };
-    dialog.append(copy, msg);
+    // 置く理由は、この一言だけ(10-26 船長「わかりやすく」)
+    dialog.append($('p', `置いて、ホーム画面から開くと、${arrival.text ? 'この依頼' : '施設'}が出ます。`, { className: 'homescreen-lead', id: 'homescreen-why' }));
   }
   if (text.lead) dialog.append($('p', text.lead, { className: 'homescreen-lead' }));
   if (text.steps.length) {
@@ -150,6 +143,17 @@ export function openHomeScreenGuide(state, { installPrompt = null, hasRecords = 
       li.append($('span', s.text, { className: 'homescreen-step-text' }));
       const fig = picture(s.pic);
       if (fig) li.append(fig);
+      ol.append(li);
+    }
+    // 最後の一歩:置いた印を開く。届いたものがあれば、それが出る
+    if (!text.safari) {
+      const li = $('li', '', { id: 'homescreen-open-step' });
+      const span = $('span', 'ホーム画面の ', { className: 'homescreen-step-text' });
+      const ic = $('span', '', { className: 'homescreen-step-icon' });
+      ic.innerHTML = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">${sIcon(0, 0, 24)}</svg>`;
+      span.append(ic, ' を開く');
+      if (arrival?.label) span.append($('small', `→ ${arrival.text ? 'この依頼' : '施設'}が出ます`, { className: 'homescreen-step-note' }));
+      li.append(span);
       ol.append(li);
     }
     dialog.append(ol);
@@ -165,13 +169,21 @@ export function openHomeScreenGuide(state, { installPrompt = null, hasRecords = 
     };
     dialog.append(b);
   }
-  if (!text.safari) {
-    const done = $('p', '', { className: 'homescreen-done' });
-    done.innerHTML = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">${sIcon(0, 0, 24)}</svg>`;
-    done.append($('span', '次から、この印で開く'));
-    dialog.append(done);
-  }
   if (hasRecords && !text.safari) dialog.append($('p', 'ここ(ブラウザ)で入れた記録は、ホーム画面の Senlings には移りません。持っていくなら、▲ホームの「JSON」で持ち出してから。', { className: 'later-note' }));
+  // もう置いてある人:ホーム画面の Senlings は別の置き場所なので、依頼はコピーして持っていく(畳んでおく)
+  if (arrival?.text && !text.safari) {
+    const d = $('details', '', { className: 'homescreen-already', id: 'homescreen-already' });
+    d.append($('summary', 'もう置いてある人は'));
+    d.append($('p', '依頼をコピーして、ホーム画面の Senlings の「受け取る」で貼ります。'));
+    const msg = $('p', '', { className: 'request-msg', id: 'homescreen-copy-msg' }); msg.setAttribute('role', 'status');
+    const copy = $('button', '依頼をコピーする', { type: 'button', className: 'local-action', id: 'homescreen-copy' });
+    copy.onclick = async () => {
+      try { await navigator.clipboard.writeText(arrival.text); msg.textContent = 'コピーしました。ホーム画面の Senlings を開いて、「受け取る」→「貼り付ける」。'; }
+      catch { msg.textContent = 'コピーできませんでした。LINE の文を長押しして、まるごとコピーしてください。'; }
+    };
+    d.append(copy, msg);
+    dialog.append(d);
+  }
   const later = $('button', arrival?.later ?? 'いまは置かずに使う', { className: 'homescreen-later', type: 'button', id: 'homescreen-later' });
   later.onclick = () => { writeLater(); dialog.close(); dialog.remove(); onLater(); };
   dialog.append(later);

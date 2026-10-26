@@ -45,7 +45,7 @@ function values(parent, packet, { showName = true, idLabel = '送り手の物件
 // 受け取る(郵便受け)。LINE などで届いた依頼の文を、まるごと貼る。いちばん下の〔Senlings〕の行から封筒を読む。
 // 封筒が無い文でも、現場名を決めれば、その文を「届いた連絡」として現場を立てられる。物件情報ファイル(JSON)も、そのまま受け取れる。
 // 受けるかどうか、その日に置くかどうかは、受けた人が決める。返事は LINE で、いつもどおりに。
-export function receiveProject(onSaved, { text: arrived = '', paste = false } = {}) {
+export function receiveProject(onSaved, { text: arrived = '' } = {}) {
   const box = panel('受け取る');
   paragraph(box, arrived ? 'リンクで届いた依頼です。受けるかどうかを選んでください。選ぶまで、何も残しません。' : 'LINE などで届いた依頼の文を、まるごとコピーして貼ります。確かめてから、自分の現場に加えます。');
   const pasteBtn = action(box, '貼り付ける', async () => {
@@ -211,8 +211,6 @@ export function receiveProject(onSaved, { text: arrived = '', paste = false } = 
   void pasteBtn;
   // リンクで届いたときは、貼る手間なしで中身と五択まで
   if (arrived) { input.value = arrived; input.oninput(); inspect.onclick(); }
-  // ホーム画面の Senlings を初めて開いたとき:押したその手で、コピーしておいた依頼を貼る
-  else if (paste) pasteBtn.click();
   return box;
 }
 

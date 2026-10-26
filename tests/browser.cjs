@@ -423,6 +423,10 @@ async function inject(page, mode) {
     await page.evaluate(()=>localStorage.removeItem('senlings_homescreen_later'));
     await page.goto(link);await page.locator('#homescreen-guide[open]').waitFor();
     assert.match(await page.locator('#homescreen-arrival').innerText(),/届いています\n【応援のお願い】架空の職人より/);
+    assert.equal(await page.locator('#homescreen-why').innerText(),'置いて、ホーム画面から開くと、この依頼が出ます。');
+    assert.match(await page.locator('#homescreen-open-step').innerText(),/ホーム画面の\s*を開く\s*→ この依頼が出ます/);
+    assert.equal(await page.locator('#homescreen-copy').isVisible(),false,'copying is folded away for people who already placed it');
+    await page.locator('#homescreen-already summary').click();
     await page.evaluate(()=>{window.copied=[];navigator.clipboard.writeText=async t=>{window.copied.push(t);};});
     await click(page,'#homescreen-copy');const copied=(await page.evaluate(()=>window.copied))[0];
     assert.ok(copied.startsWith(text.split('\n\nSenlings を使っている')[0]),'the copy is the request text');assert.match(copied,/\n〔Senlings〕\S+$/,'ready to paste at home');assert.doesNotMatch(copied,/Senlings で開く/);
@@ -455,20 +459,32 @@ async function inject(page, mode) {
     await page.goto(`${origin}/`);await page.goto(`${origin}/index.html#${code}`);await page.locator('.site-welcome').waitFor();
     assert.equal(await page.locator('#handoff-choices').count(),0,'the same request does not come back at every launch');
     assert.equal(await page.evaluate(()=>location.hash),'');
-    assert.match(await page.locator('#btn-welcome-receive').innerText(),/^コピーした依頼を開く/);
+    assert.match(await page.locator('#btn-welcome-receive').innerText(),/^受け取る/);
     await page.evaluate(t=>{navigator.clipboard.readText=async()=>t;},text);
-    await click(page,'#btn-welcome-receive');await page.locator('#handoff-choices:not([hidden])').waitFor();
+    await click(page,'#btn-welcome-receive');await click(page,'#handoff-paste');await page.locator('#handoff-choices:not([hidden])').waitFor();
     assert.match(await page.locator('#handoff-preview').innerText(),/応援のお願い\(架空の職人より\)/);
     assert.equal(await page.evaluate(()=>rawStored()),null);assert.deepEqual(page.errors,[]);await context.close();
   });
   await run('arrival: a facility link opens ●施設 with its name, even if the tab was put away; a cut request link says so', async () => {
-    const {page,context}=await setup(null);await page.locator('.site-welcome').waitFor();
+    let {page,context}=await setup(null);await page.locator('.site-welcome').waitFor();
     await page.evaluate(()=>localStorage.setItem('senlings_shell_show_shisetsu','0'));
     await page.goto(`${origin}/?openExternalBrowser=1#shisetsu=${encodeURIComponent('架空の施設')}`);
     await page.locator('#screen-shisetsu.active').waitFor();
     assert.equal(await page.locator('#shisetsu-name').innerText(),'架空の施設');
     assert.equal(await page.locator('[data-tab="shisetsu"]').isVisible(),true);
     await page.reload();await page.locator('.site-welcome').waitFor();assert.equal(await page.locator('#shisetsu-name').innerText(),'架空の施設','the name stays');
+    await context.close();
+    const ios=await setup(null,{ua:iosUA('26_0')});await ios.page.locator('#homescreen-guide[open]').waitFor();
+    const fh=`#shisetsu=${encodeURIComponent('架空の施設')}`;await ios.page.goto(`${origin}/?openExternalBrowser=1${fh}`);await ios.page.locator('#homescreen-arrival').waitFor();
+    assert.match(await ios.page.locator('#homescreen-arrival').innerText(),/架空の施設の入口/);assert.equal(await ios.page.locator('#homescreen-why').innerText(),'置いて、ホーム画面から開くと、施設が出ます。');
+    await ios.page.waitForFunction(()=>document.querySelector('link[rel=manifest]').href.startsWith('blob:'));
+    const fm=await ios.page.evaluate(async()=>(await fetch(document.querySelector('link[rel=manifest]').href)).json());assert.equal(fm.start_url,`${origin}/index.html${fh}`);
+    await click(ios.page,'#homescreen-later');assert.equal(await ios.page.evaluate(()=>location.hash),'');await ios.context.close();
+    const home=await setup(null,{ua:iosUA('26_0'),standalone:true});await home.page.goto(`${origin}/index.html${fh}`);await home.page.locator('#screen-shisetsu.active').waitFor();
+    assert.equal(await home.page.evaluate(()=>location.hash),'');
+    await home.page.goto(`${origin}/`);await home.page.goto(`${origin}/index.html${fh}`);await home.page.locator('.site-welcome').waitFor();assert.equal(await home.page.locator('#screen-shisetsu.active').count(),0,'the icon still carries the entrance, but mornings start as usual');
+    assert.equal(await home.page.locator('#shisetsu-name').innerText(),'架空の施設');await home.context.close();
+    ({page,context}=await setup(null));await page.locator('.site-welcome').waitFor();
     await page.goto(`${origin}/?openExternalBrowser=1#r=zAAAA`);await page.locator('#handoff-input').waitFor();
     assert.match(await page.locator('#local-dialog [role=status]').first().innerText(),/途中で切れて/);
     assert.equal(await page.evaluate(()=>rawStored()),null);assert.deepEqual(page.errors,[]);await context.close();
@@ -508,7 +524,7 @@ async function inject(page, mode) {
   });
   await run('homescreen: iOS 18 shows share first; LINE shows the Safari switch; with records the moving note appears', async () => {
     let r=await setup(null,{ua:iosUA('18_6')});await r.page.locator('#homescreen-guide[open]').waitFor();
-    const steps=await r.page.locator('#homescreen-guide li').allInnerTexts();assert.equal(steps.length,4);assert.match(steps[0],/共有/);assert.match(steps[1],/表示を増やす/);
+    const steps=await r.page.locator('#homescreen-guide li').allInnerTexts();assert.equal(steps.length,5,'four taps, then open the icon');assert.match(steps[0],/共有/);assert.match(steps[1],/表示を増やす/);assert.match(steps[4],/ホーム画面の\s*を開く/);
     assert.equal(await r.page.locator('#homescreen-guide figure svg').count(),3,'three drawn pictures');assert.equal(await r.page.locator('#homescreen-guide figure img').count(),1,'one photo');
     assert.ok(await r.page.locator('#homescreen-guide figure img').evaluate(i=>i.complete&&i.naturalWidth>0),'photo loads');await r.context.close();
     r=await setup(JSON.stringify(fixture()),{ua:iosUA('26_0')+' Line/15.2.0'});await r.page.locator('#homescreen-guide[open]').waitFor();
