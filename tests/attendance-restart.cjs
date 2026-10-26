@@ -45,7 +45,7 @@ async function open(profile) {
   });
   const p = context.pages()[0] || await context.newPage(); p.setDefaultTimeout(8000);
   p.errors = []; p.on('pageerror', e => p.errors.push(e.message));
-  await p.goto(origin); await p.waitForFunction(() => typeof document.getElementById('btn-receive-property')?.onclick === 'function'); return p;
+  await p.goto(origin); await p.waitForFunction(() => typeof document.getElementById('btn-import-json')?.onclick === 'function'); return p;
 }
 const raw = p => p.evaluate(() => localStorage.getItem('senlings_v0'));
 const data = async p => JSON.parse(await raw(p));

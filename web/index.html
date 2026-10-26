@@ -13,6 +13,10 @@
   </script>
   <link rel="stylesheet" href="local-features.css">
   <link rel="manifest" href="manifest.json">
+  <script>
+    // iPhone では start_url の無い manifest を使う。置いた瞬間のアドレス(届いたものの # つき)が、そのまま印の行き先になる(10-26)
+    try { if (/iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1)) document.querySelector('link[rel="manifest"]').href = 'manifest-ios.json'; } catch (e) {}
+  </script>
   <link rel="icon" href="favicon.ico">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
@@ -1499,7 +1503,6 @@
       <div class="site-fallback-links">
         <button class="site-fallback-link" id="btn-contact-manager">担当者へ確認する</button>
         <button class="site-fallback-link" id="btn-add-site">現場を追加する</button>
-        <button class="site-fallback-link" id="btn-receive-property">受け取る(LINE で届いた依頼)</button>
       </div>
     </div>
   </div>

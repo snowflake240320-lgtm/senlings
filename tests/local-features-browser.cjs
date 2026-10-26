@@ -33,11 +33,11 @@ async function open() {
   report.chromium = context.browser().version();
   await context.route('**/*', route => route.request().url().startsWith(origin + '/') ? route.continue() : route.abort());
   page = context.pages()[0] || await context.newPage(); page.setDefaultTimeout(8000); page.errors = []; page.on('pageerror', e => page.errors.push(e.message)); if (process.env.DBG) { page.on('crash', () => console.log('CRASH')); page.on('close', () => console.log('CLOSE', new Error().stack.split('\n').slice(0,6).join('|'))); page.on('console', m => console.log('CONSOLE', m.text())); }
-  await page.goto(origin); await page.waitForFunction(() => typeof document.getElementById('btn-receive-property')?.onclick === 'function');
+  await page.goto(origin); await page.waitForFunction(() => typeof document.getElementById('btn-import-json')?.onclick === 'function');
 }
 async function restart() { const before = await raw(); assert.deepEqual(page.errors, []); await context.close(); await open(); assert.equal(await raw(), before); }
-async function closeDialog() { await click('#local-dialog .local-close'); }
-async function receive(contents) { await click('#btn-receive-property'); await click('#handoff-manual'); await page.locator('#handoff-input').fill(contents); await click('#handoff-inspect'); }
+async function closeDialog() { const receiving = await page.locator('#local-dialog[aria-label="ファイルで受け取る"]').count(); await click('#local-dialog .local-close'); if (receiving) await click('[data-tab=genba]'); /* 受け取りは設定の中なので、閉じたら■現場へ戻る */ }
+async function receive(contents) { if (await page.locator('#screen-working.active').count()) await click('[data-tab=genba]'); await click('[data-tab=home]'); await click('#btn-settings'); await click('#btn-import-json'); await page.locator('#handoff-input').fill(contents); await click('#handoff-inspect'); }
 async function downloads(selector) { const wait = page.waitForEvent('download'); await click(selector); return fs.readFile(await (await wait).path(), 'utf8'); }
 async function screenshot(name) { if (out) await page.screenshot({ path: path.join(out, name + '.png'), animations: 'disabled' }); }
 async function inject() {
@@ -139,7 +139,7 @@ async function preparePhoto() {
       await page.setViewportSize({ width, height: 844 }); await click('[data-tab=genba]');
       if (await page.locator('#screen-working.active').count()) await click('[data-tab=genba]'); // 今日の現場の上からは、もう一度押すと現場の一覧
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
-      await click('#btn-receive-property'); assert.ok(await page.locator('#local-dialog').evaluate(el => el.scrollWidth <= el.clientWidth)); await closeDialog();
+      await click('[data-tab=home]'); await click('#btn-settings'); await click('#btn-import-json'); assert.ok(await page.locator('#local-dialog').evaluate(el => el.scrollWidth <= el.clientWidth)); await closeDialog(); await click('[data-tab=genba]');
     }
     await screenshot('site-top'); assert.deepEqual(page.errors, []);
   });

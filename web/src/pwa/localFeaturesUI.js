@@ -42,29 +42,18 @@ function values(parent, packet, { showName = true, idLabel = '送り手の物件
   }
 }
 
-// 受け取る(郵便受け)。LINE などで届いた依頼の文を、まるごと貼る。いちばん下の〔Senlings〕の行から封筒を読む。
-// 二段構え(10-26 船長「煩雑」):一段目は「貼り付ける」だけ。二段目は届いた依頼と五択だけ。欄やファイルは、要るときにだけ出す。
-// 封筒が無い文でも、現場名を決めれば、その文を「届いた連絡」として現場を立てられる。物件情報ファイル(JSON)は、設定の「ファイルで受け取る」から。
+// 受け取る(郵便受け)。LINE で届いた依頼は、文のリンクから入る(コピー貼り付けは無し。10-26 船長)。
+// 届いた依頼は、要点と五択だけ(二段構え)。中身の全部と現場名は五択の下に畳む。
+// 封筒が無い文でも、現場名を決めれば、その文を「届いた連絡」として現場を立てられる。文とファイル(物件情報 JSON)は、設定の「ファイルで受け取る」から。
 // 受けるかどうか、その日に置くかどうかは、受けた人が決める。返事は LINE で、いつもどおりに。
 export function receiveProject(onSaved, { text: arrived = '', file: fileMode = false } = {}) {
-  const mode = arrived ? 'arrived' : fileMode ? 'file' : 'paste';
+  const mode = arrived ? 'arrived' : 'file';
+  void fileMode;
   const box = panel(mode === 'file' ? 'ファイルで受け取る' : '受け取る');
   const lead = paragraph(box, mode === 'arrived' ? 'リンクで届いた依頼です。受けるかどうかを選んでください。選ぶまで、何も残しません。'
-    : mode === 'file' ? '物件情報ファイル(JSON)を選びます。確かめてから、自分の現場に加えます。'
-    : 'LINE で届いた依頼の文を、まるごとコピーしてから。');
-  const pasteBtn = action(box, '貼り付ける', async () => {
-    let text = '';
-    try { text = await navigator.clipboard.readText(); }
-    catch { manual.onclick(); message.textContent = '貼り付けられませんでした。下の欄を長押しして「ペースト」を押してください。'; input.focus(); return; }
-    if (!text?.trim()) { message.textContent = 'コピーされた文がありません。LINE で依頼の文を長押し →「コピー」してから、もう一度。'; return; }
-    input.value = text; input.oninput(); inspect.onclick();
-  }, 'handoff-paste');
-  // 貼り付けが効かない端末のために、欄は畳んでおく
-  const manual = $('button', '文を自分で貼る', { type: 'button', className: 'local-link', id: 'handoff-manual' });
-  box.append(manual);
+    : '物件情報ファイル(JSON)か、届いた文を入れます。確かめてから、自分の現場に加えます。');
   const inputWrap = $('label', '届いた文'), input = $('textarea', '', { rows: 5, id: 'handoff-input', maxLength: 128000 });
   inputWrap.append(input); box.append(inputWrap);
-  manual.onclick = () => { manual.hidden = true; inputWrap.hidden = false; inspect.hidden = false; };
   let file = null;
   if (mode === 'file') file = field(box, '物件情報ファイル（JSON）', 'input', { type: 'file', accept: '.json,application/json', id: 'handoff-file' });
   const message = status(box), preview = $('div', '', { id: 'handoff-preview' });
@@ -211,15 +200,13 @@ export function receiveProject(onSaved, { text: arrived = '', file: fileMode = f
       confirmed = input.value; accept.disabled = plan.action === 'received';
       if (plan.action !== 'received') renderChoices(); else { choices.hidden = true; accept.hidden = !!envelope; }
       if (plan.action === 'received' && envelope?.work_date) offerDay(plan.project_id, envelope.work_date);
-      // 二段目:依頼が読めたら、貼る道具は片づける。封筒の無い文は、欄を見せたまま(直して確かめ直せる)
-      if (mode === 'paste') { lead.hidden = true; pasteBtn.hidden = true; manual.hidden = true; inputWrap.hidden = !!envelope; inspect.hidden = !!envelope; }
     } catch (error) { message.textContent = error.message; }
   }, 'handoff-inspect');
   box.insertBefore(inspect, message);
   input.oninput = () => { fileGeneration++; confirmed = null; packetJson = null; envelope = null; slugInput = null; detail = null; accept.disabled = true; accept.hidden = mode !== 'file'; choices.hidden = true; preview.replaceChildren(); after.replaceChildren(); message.textContent = ''; };
-  // 一段目:出すのは、その入口だけ
-  pasteBtn.hidden = mode !== 'paste'; manual.hidden = mode !== 'paste';
+  // リンクで届いたときは、要点と五択だけ。欄も確認の手も出さない
   inputWrap.hidden = mode !== 'file'; inspect.hidden = mode !== 'file'; accept.hidden = mode !== 'file';
+  void lead;
   if (file) file.onchange = async () => {
     const ticket = ++fileGeneration;
     confirmed = null; slugInput = null; accept.disabled = true; preview.replaceChildren();
@@ -231,8 +218,7 @@ export function receiveProject(onSaved, { text: arrived = '', file: fileMode = f
       input.value = text; message.textContent = '読み込みました。「内容を確認する」で確認してください。';
     } catch (error) { if (ticket === fileGeneration) message.textContent = error.message; }
   };
-  void pasteBtn;
-  // リンクで届いたときは、貼る手間なしで中身と五択まで
+  // リンクで届いたときは、そのまま中身と五択まで
   if (arrived) { input.value = arrived; input.oninput(); inspect.onclick(); }
   return box;
 }

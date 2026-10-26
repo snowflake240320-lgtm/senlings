@@ -112,7 +112,7 @@ function picture(name) {
  * @param {boolean} [o.hasRecords]  この置き場所(Safari)に、もう記録があるか
  */
 /**
- * @param {object} [o.arrival]  リンクで届いたもの。{ label: 見出し, text: 依頼の文(コピーする), hash: Safari へ渡す # の後ろ, later: 置かずに使うときの言葉 }
+ * @param {object} [o.arrival]  リンクで届いたもの。{ label: 見出し, hash: Safari へ渡す # の後ろ, later: 置かずに使うときの言葉 }
  */
 export function openHomeScreenGuide(state, { installPrompt = null, hasRecords = false, onLater = () => {}, arrival = null } = {}) {
   const text = homeScreenSteps(state);
@@ -132,7 +132,7 @@ export function openHomeScreenGuide(state, { installPrompt = null, hasRecords = 
     card.append($('small', '届いています'), $('strong', arrival.label));
     dialog.append(card);
     // 置く理由は、この一言だけ(10-26 船長「わかりやすく」)
-    dialog.append($('p', `置いて、ホーム画面から開くと、${arrival.text ? 'この依頼' : '施設'}が出ます。`, { className: 'homescreen-lead', id: 'homescreen-why' }));
+    dialog.append($('p', `置いて、ホーム画面から開くと、${arrival.kind === 'shisetsu' ? '施設' : 'この依頼'}が出ます。`, { className: 'homescreen-lead', id: 'homescreen-why' }));
   }
   if (text.lead) dialog.append($('p', text.lead, { className: 'homescreen-lead' }));
   if (text.steps.length) {
@@ -152,7 +152,7 @@ export function openHomeScreenGuide(state, { installPrompt = null, hasRecords = 
       const ic = $('span', '', { className: 'homescreen-step-icon' });
       ic.innerHTML = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">${sIcon(0, 0, 24)}</svg>`;
       span.append(ic, ' を開く');
-      if (arrival?.label) span.append($('small', `→ ${arrival.text ? 'この依頼' : '施設'}が出ます`, { className: 'homescreen-step-note' }));
+      if (arrival?.label) span.append($('small', `→ ${arrival.kind === 'shisetsu' ? '施設' : 'この依頼'}が出ます`, { className: 'homescreen-step-note' }));
       li.append(span);
       ol.append(li);
     }
@@ -170,20 +170,6 @@ export function openHomeScreenGuide(state, { installPrompt = null, hasRecords = 
     dialog.append(b);
   }
   if (hasRecords && !text.safari) dialog.append($('p', 'ここ(ブラウザ)で入れた記録は、ホーム画面の Senlings には移りません。持っていくなら、▲ホームの「JSON」で持ち出してから。', { className: 'later-note' }));
-  // もう置いてある人:ホーム画面の Senlings は別の置き場所なので、依頼はコピーして持っていく(畳んでおく)
-  if (arrival?.text && !text.safari) {
-    const d = $('details', '', { className: 'homescreen-already', id: 'homescreen-already' });
-    d.append($('summary', 'もう置いてある人は'));
-    d.append($('p', '依頼をコピーして、ホーム画面の Senlings の「受け取る」で貼ります。'));
-    const msg = $('p', '', { className: 'request-msg', id: 'homescreen-copy-msg' }); msg.setAttribute('role', 'status');
-    const copy = $('button', '依頼をコピーする', { type: 'button', className: 'local-action', id: 'homescreen-copy' });
-    copy.onclick = async () => {
-      try { await navigator.clipboard.writeText(arrival.text); msg.textContent = 'コピーしました。ホーム画面の Senlings を開いて、「受け取る」→「貼り付ける」。'; }
-      catch { msg.textContent = 'コピーできませんでした。LINE の文を長押しして、まるごとコピーしてください。'; }
-    };
-    d.append(copy, msg);
-    dialog.append(d);
-  }
   const later = $('button', arrival?.later ?? 'いまは置かずに使う', { className: 'homescreen-later', type: 'button', id: 'homescreen-later' });
   later.onclick = () => { writeLater(); dialog.close(); dialog.remove(); onLater(); };
   dialog.append(later);

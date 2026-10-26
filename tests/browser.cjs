@@ -261,7 +261,7 @@ async function inject(page, mode) {
   // 依頼(10-25):応援も元請けの依頼も、同じ封筒一通。送るのは人(共有の画面)。受けるかは受けた人
   async function stubShare(page){await page.evaluate(()=>{window.shared=[];Object.defineProperty(navigator,'share',{value:async d=>{window.shared.push(d.text);},configurable:true});});}
   async function receive(page,text){if(await page.locator('#local-dialog[open]').count())await click(page,'#local-dialog .local-close');await click(page,'[data-tab="genba"]');if(await page.locator('#screen-working.active').count())await click(page,'[data-tab="genba"]');
-    await click(page,'#btn-receive-property');await click(page,'#handoff-manual');await page.locator('#handoff-input').fill(text);await click(page,'#handoff-inspect');}
+    await click(page,'[data-tab="home"]');await click(page,'#btn-settings');await click(page,'#btn-import-json');await page.locator('#handoff-input').fill(text);await click(page,'#handoff-inspect');}
   await run('request: ask for help from Home, the other phone pastes it, the site, its hours and the day arrive only when chosen', async () => {
     const {page,context}=await setup();await ready(page);await stubShare(page);
     await click(page,'.site-card');await click(page,'#btn-teiji-fix');await page.locator('#teiji-start').fill('08:30');await page.locator('#teiji-end').fill('17:30');await click(page,'#btn-teiji-save');
@@ -398,13 +398,11 @@ async function inject(page, mode) {
     const link=text.match(/Senlings で開く → (\S+)/)[1];assert.match(link,/\?openExternalBrowser=1#r=z/);return {text,link:link.replace(/^https?:\/\/[^/]+/,origin)};}
   await run('arrival: empty start shows what to press, not nothing', async () => {
     const {page,context}=await setup(null);await page.locator('.site-welcome').waitFor();
-    assert.match(await page.locator('.site-welcome').innerText(),/LINE で依頼が届いたら/);
-    assert.deepEqual(await page.locator('.site-welcome button').allInnerTexts(),['受け取る\nコピーした依頼の文を貼る','自分で現場を立てる\n名前ひとつで。あとから直せます','施設を見る\n施設の決まりと、仲間の四人']);
-    await click(page,'#btn-welcome-receive');await page.locator('#handoff-paste').waitFor();
-    assert.equal(await page.locator('#handoff-input').isVisible(),false,'two stages: first only 貼り付ける');assert.equal(await page.locator('#handoff-inspect').isVisible(),false);assert.equal(await page.locator('#handoff-accept').isVisible(),false);assert.equal(await page.locator('#handoff-file').count(),0,'files are received from settings');
-    await click(page,'#local-dialog .local-close');
+    assert.match(await page.locator('.site-welcome').innerText(),/まだ現場がありません/);
+    assert.deepEqual(await page.locator('.site-welcome button').allInnerTexts(),['自分で現場を立てる\n名前ひとつで。あとから直せます','施設を見る\n施設の決まりと、仲間の四人']);
+    assert.equal(await page.locator('#btn-receive-property').count(),0,'no copy-and-paste entrance (10-26)');assert.equal(await page.locator('#handoff-paste').count(),0);
     await click(page,'[data-tab="home"]');await click(page,'#btn-settings');await click(page,'#btn-import-json');await page.locator('#handoff-file').waitFor();
-    assert.equal(await page.locator('#handoff-paste').isVisible(),false);assert.equal(await page.locator('#handoff-inspect').isVisible(),true);assert.match(await page.locator('#local-dialog h2').innerText(),/ファイルで受け取る/);await click(page,'#local-dialog .local-close');
+    assert.equal(await page.locator('#handoff-input').isVisible(),true);assert.equal(await page.locator('#handoff-inspect').isVisible(),true);assert.match(await page.locator('#local-dialog h2').innerText(),/ファイルで受け取る/);await click(page,'#local-dialog .local-close');
     await click(page,'[data-tab="genba"]');await click(page,'#btn-welcome-shisetsu');await page.locator('#screen-shisetsu.active').waitFor();
     await click(page,'[data-tab="genba"]');await click(page,'#btn-welcome-add');await page.locator('#add-site-modal:not([hidden])').waitFor();
     assert.equal((await stats(page)).writes,0);assert.deepEqual(page.errors,[]);await context.close();
@@ -421,7 +419,7 @@ async function inject(page, mode) {
     await page.reload();await ready(page);assert.equal(await page.locator('#handoff-choices').count(),0,'reopening does not ask again');
     assert.deepEqual(page.errors,[]);await context.close();
   });
-  await run('arrival: on iPhone the guide comes first with the request on top and a copy button; 置かずに見る opens the request; in LINE, Safari carries the request', async () => {
+  await run('arrival: on iPhone the guide comes first with the request on top; 置かずに見る opens the request; in LINE, Safari carries the request', async () => {
     const {text,link}=await makeLink();
     const {page,context}=await setup(null,{ua:iosUA('26_0')});await page.locator('#homescreen-guide[open]').waitFor();await click(page,'#homescreen-later');
     await page.evaluate(()=>localStorage.removeItem('senlings_homescreen_later'));
@@ -429,12 +427,8 @@ async function inject(page, mode) {
     assert.match(await page.locator('#homescreen-arrival').innerText(),/届いています\n【応援のお願い】架空の職人より/);
     assert.equal(await page.locator('#homescreen-why').innerText(),'置いて、ホーム画面から開くと、この依頼が出ます。');
     assert.match(await page.locator('#homescreen-open-step').innerText(),/ホーム画面の\s*を開く\s*→ この依頼が出ます/);
-    assert.equal(await page.locator('#homescreen-copy').isVisible(),false,'copying is folded away for people who already placed it');
-    await page.locator('#homescreen-already summary').click();
-    await page.evaluate(()=>{window.copied=[];navigator.clipboard.writeText=async t=>{window.copied.push(t);};});
-    await click(page,'#homescreen-copy');const copied=(await page.evaluate(()=>window.copied))[0];
-    assert.ok(copied.startsWith(text.split('\n\nSenlings を使っている')[0]),'the copy is the request text');assert.match(copied,/\n〔Senlings〕\S+$/,'ready to paste at home');assert.doesNotMatch(copied,/Senlings で開く/);
-    assert.equal(await page.locator('#homescreen-later').innerText(),'いまは置かずに、ここで見る');
+    assert.equal(await page.locator('#homescreen-copy').count(),0,'no copy-and-paste (10-26)');assert.equal(await page.locator('#homescreen-already').count(),0);
+    assert.equal(await page.locator('#homescreen-later').innerText(),'いまは置かずに、ここで見る');void text;
     await click(page,'#homescreen-later');await page.locator('#handoff-choices:not([hidden])').waitFor();
     assert.equal(await page.evaluate(()=>rawStored()),null);await context.close();
     const line=await setup(null,{ua:iosUA('26_0').replace('Safari/604.1','Safari Line/14.0.0')});
@@ -442,33 +436,41 @@ async function inject(page, mode) {
     const href=await line.page.locator('#homescreen-safari').getAttribute('href');
     assert.equal(href,link,'Safari で開く keeps the request');assert.deepEqual(line.page.errors,[]);await line.context.close();
   });
-  await run('arrival: while the guide is open the address and the home-screen icon carry the request; 置かずに見る puts them back', async () => {
+  await run('arrival: while the guide is open the address and a cookie carry the request (iPhone manifest has no start_url, so the address is the icon)', async () => {
     const {link}=await makeLink();const code=link.split('#')[1];
     const {page,context}=await setup(null,{ua:iosUA('26_0')});await page.locator('#homescreen-guide[open]').waitFor();
+    const m=await page.evaluate(async()=>(await fetch(document.querySelector('link[rel=manifest]').getAttribute('href'))).json());
+    assert.equal(await page.evaluate(()=>document.querySelector('link[rel=manifest]').getAttribute('href')),'manifest-ios.json');
+    assert.equal(m.start_url,undefined,'no start_url: the page address at add time becomes the icon');assert.equal(m.display,'standalone');assert.equal(m.scope,'./');
     await page.goto(link);await page.locator('#homescreen-arrival').waitFor();
     assert.equal(await page.evaluate(()=>location.hash),'#'+code,'the address keeps the request until they choose');
-    await page.waitForFunction(()=>document.querySelector('link[rel=manifest]').href.startsWith('blob:'));
-    const m=await page.evaluate(async()=>(await fetch(document.querySelector('link[rel=manifest]').href)).json());
-    assert.equal(m.start_url,`${origin}/index.html#${code}`);assert.equal(m.scope,`${origin}/`);assert.equal(m.display,'standalone');assert.match(m.icons[0].src,/^http.*icon-192\.png$/);
+    assert.equal(await page.evaluate(()=>document.cookie),`senlings_todoki=${code}`,'the cookie carries the same (copied when the icon is made)');
     await click(page,'#homescreen-later');await page.locator('#handoff-choices:not([hidden])').waitFor();
-    assert.equal(await page.evaluate(()=>location.hash),'');assert.match(await page.evaluate(()=>document.querySelector('link[rel=manifest]').getAttribute('href')),/^manifest\.json$/);
+    assert.equal(await page.evaluate(()=>location.hash),'');
     assert.deepEqual(page.errors,[]);await context.close();
+    const android=await setup(null);assert.equal(await android.page.evaluate(()=>document.querySelector('link[rel=manifest]').getAttribute('href')),'manifest.json','other phones keep start_url');await android.context.close();
   });
-  await run('arrival: opened from the home-screen icon, the request shows once; next launches start the usual way; the empty home-screen app opens the copied request in one tap', async () => {
-    const {text,link}=await makeLink();const code=link.split('#')[1];
+  await run('arrival: opened from the home-screen icon (address or cookie), the request shows once; next launches start the usual way', async () => {
+    const {link}=await makeLink();const code=link.split('#')[1];
     const {page,context}=await setup(null,{ua:iosUA('26_0'),standalone:true});await page.locator('.site-welcome').waitFor();
     assert.equal(await page.locator('#homescreen-guide').count(),0,'no guide inside the home-screen app');
     await page.goto(`${origin}/index.html#${code}`);await page.locator('#handoff-choices:not([hidden])').waitFor();
+    for (const s of ['#handoff-input','#handoff-inspect','#handoff-accept']) assert.equal(await page.locator(s).isVisible(),false,`${s} stays away: only the request and the five choices`);
+    assert.match(await page.locator('#handoff-preview').innerText(),/応援のお願い\(架空の職人より\)/);
     await click(page,'#local-dialog .local-close');
     await page.goto(`${origin}/`);await page.goto(`${origin}/index.html#${code}`);await page.locator('.site-welcome').waitFor();
     assert.equal(await page.locator('#handoff-choices').count(),0,'the same request does not come back at every launch');
     assert.equal(await page.evaluate(()=>location.hash),'');
-    assert.match(await page.locator('#btn-welcome-receive').innerText(),/^受け取る/);
-    await page.evaluate(t=>{navigator.clipboard.readText=async()=>t;},text);
-    await click(page,'#btn-welcome-receive');await click(page,'#handoff-paste');await page.locator('#handoff-choices:not([hidden])').waitFor();
-    for (const s of ['#handoff-paste','#handoff-manual','#handoff-input','#handoff-inspect','#handoff-accept']) assert.equal(await page.locator(s).isVisible(),false,`${s} is put away once the request is read`);
-    assert.match(await page.locator('#handoff-preview').innerText(),/応援のお願い\(架空の職人より\)/);
     assert.equal(await page.evaluate(()=>rawStored()),null);assert.deepEqual(page.errors,[]);await context.close();
+    // cookie だけが写ったとき(印の行き先が素のアドレスでも、依頼は届く)
+    const c=await setup(null,{ua:iosUA('26_0'),standalone:true});await c.page.locator('.site-welcome').waitFor();
+    await c.page.evaluate(code=>{document.cookie=`senlings_todoki=${code}; Path=/; SameSite=Lax`;},code);
+    await c.page.goto(`${origin}/`);await c.page.goto(`${origin}/index.html`);await c.page.locator('#handoff-choices:not([hidden])').waitFor();
+    assert.equal(await c.page.evaluate(()=>document.cookie),'','read once, then gone');
+    await click(c.page,'#choice-self');await c.page.locator('#reply-greet').waitFor();
+    assert.equal(JSON.parse(await c.page.evaluate(()=>rawStored())).projects[0].project_slug,'TEST');
+    await c.page.goto(`${origin}/`);await c.page.goto(`${origin}/index.html`);await ready(c.page);assert.equal(await c.page.locator('#handoff-choices').count(),0);
+    assert.deepEqual(c.page.errors,[]);await c.context.close();
   });
   await run('arrival: a facility link opens ●施設 with its name, even if the tab was put away; a cut request link says so', async () => {
     let {page,context}=await setup(null);await page.locator('.site-welcome').waitFor();
@@ -482,15 +484,14 @@ async function inject(page, mode) {
     const ios=await setup(null,{ua:iosUA('26_0')});await ios.page.locator('#homescreen-guide[open]').waitFor();
     const fh=`#shisetsu=${encodeURIComponent('架空の施設')}`;await ios.page.goto(`${origin}/?openExternalBrowser=1${fh}`);await ios.page.locator('#homescreen-arrival').waitFor();
     assert.match(await ios.page.locator('#homescreen-arrival').innerText(),/架空の施設の入口/);assert.equal(await ios.page.locator('#homescreen-why').innerText(),'置いて、ホーム画面から開くと、施設が出ます。');
-    await ios.page.waitForFunction(()=>document.querySelector('link[rel=manifest]').href.startsWith('blob:'));
-    const fm=await ios.page.evaluate(async()=>(await fetch(document.querySelector('link[rel=manifest]').href)).json());assert.equal(fm.start_url,`${origin}/index.html${fh}`);
+    assert.equal(await ios.page.evaluate(()=>location.hash),fh);assert.equal(await ios.page.evaluate(()=>document.cookie),`senlings_todoki=${fh.slice(1)}`);
     await click(ios.page,'#homescreen-later');assert.equal(await ios.page.evaluate(()=>location.hash),'');await ios.context.close();
     const home=await setup(null,{ua:iosUA('26_0'),standalone:true});await home.page.goto(`${origin}/index.html${fh}`);await home.page.locator('#screen-shisetsu.active').waitFor();
     assert.equal(await home.page.evaluate(()=>location.hash),'');
     await home.page.goto(`${origin}/`);await home.page.goto(`${origin}/index.html${fh}`);await home.page.locator('.site-welcome').waitFor();assert.equal(await home.page.locator('#screen-shisetsu.active').count(),0,'the icon still carries the entrance, but mornings start as usual');
     assert.equal(await home.page.locator('#shisetsu-name').innerText(),'架空の施設');await home.context.close();
     ({page,context}=await setup(null));await page.locator('.site-welcome').waitFor();
-    await page.goto(`${origin}/?openExternalBrowser=1#r=zAAAA`);await page.locator('#handoff-paste').waitFor();
+    await page.goto(`${origin}/?openExternalBrowser=1#r=zAAAA`);await page.locator('#handoff-input').waitFor();
     assert.match(await page.locator('#local-dialog [role=status]').first().innerText(),/途中で切れて/);
     assert.equal(await page.evaluate(()=>rawStored()),null);assert.deepEqual(page.errors,[]);await context.close();
   });

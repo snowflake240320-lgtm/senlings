@@ -100,10 +100,6 @@ html[data-mieru="70"] .mayottara li span { font-size: 15px; color: #dedad2; }
 .homescreen-step-icon { display: inline-block; width: 24px; height: 24px; vertical-align: -6px; }
 .homescreen-step-icon svg { width: 24px; height: 24px; display: block; }
 .homescreen-step-note { display: block; margin-left: 34px; color: #c5a059; font-size: 14px; }
-.homescreen-already { margin-top: 16px; border-top: 1px solid #2a2a24; padding-top: 6px; }
-.homescreen-already summary { cursor: pointer; padding: 10px 0; color: #8a8780; font-size: 13px; }
-.homescreen-already p { font-size: 13px; }
-.homescreen-already .local-action { margin-top: 6px; }
 /* ■現場、まだ何もないとき */
 .site-welcome { padding: 8px 0 0; }
 .site-welcome p { color: #c4c1b9; font-size: 15px; line-height: 1.8; margin: 0 0 14px; }
@@ -118,9 +114,6 @@ html[data-mieru="70"] .site-welcome-sub { font-size: 18px; }
 .homescreen-label { color: #c5a059 !important; font-size: 14px !important; letter-spacing: 0.1em; margin: 14px 0 4px !important; }
 .local-dialog.homescreen-guide h2, html[data-mieru] .local-dialog.homescreen-guide h2 { font-size: clamp(14px, 4.4vw, 19px); white-space: nowrap; }
 
-/* 受け取る:二段構え。欄は「文を自分で貼る」を押したときだけ */
-.local-dialog .local-link { display: block; width: auto; min-height: 0; margin: 10px auto 0; background: none; border: 0; color: #8a8780; font: inherit; font-size: 13px; text-decoration: underline; padding: 8px; }
-.local-dialog .local-link[hidden], .local-dialog label[hidden] { display: none; }
 /* 受け取る 二段目:要点は上に三行、中身の全部は五択の下に畳む */
 .handoff-head { margin: 4px 0 0; padding: 4px 0 4px 12px; border-left: 3px solid #c5a059; }
 .handoff-head p { margin: 2px 0 !important; }
@@ -130,3 +123,4 @@ html[data-mieru="70"] .site-welcome-sub { font-size: 18px; }
 .handoff-head-note { color: #c4c1b9 !important; font-size: 14px !important; }
 .handoff-detail { margin-top: 14px; border-top: 1px solid #2a2a24; padding-top: 6px; }
 .handoff-detail summary { cursor: pointer; padding: 10px 0; color: #8a8780; font-size: 13px; }
+.local-dialog label[hidden] { display: none; }

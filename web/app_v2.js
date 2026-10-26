@@ -31,14 +31,13 @@ function renderWelcome(list) {
   list.replaceChildren();
   const box = document.createElement('div'); box.className = 'site-welcome site-empty';
   const p = document.createElement('p');
-  p.textContent = 'まだ現場がありません。\nLINE で依頼が届いたら、文をまるごとコピーして、ここへ。';
+  p.textContent = 'まだ現場がありません。';
   p.style.whiteSpace = 'pre-line';
   const btn = (cls, id, main, sub, onclick) => {
     const b = Object.assign(document.createElement('button'), { type: 'button', className: cls, id, textContent: main });
     const s = document.createElement('small'); s.textContent = sub; b.append(s); b.onclick = onclick; return b;
   };
   box.append(p,
-    btn('site-welcome-main', 'btn-welcome-receive', '受け取る', 'コピーした依頼の文を貼る', () => receiveProject(renderSiteTop)),
     btn('site-welcome-sub', 'btn-welcome-add', '自分で現場を立てる', '名前ひとつで。あとから直せます', () => document.getElementById('btn-add-site').click()));
   if (readShowShisetsu()) box.append(btn('site-welcome-sub', 'btn-welcome-shisetsu', '施設を見る', '施設の決まりと、仲間の四人', () => document.querySelector('[data-tab="shisetsu"]').click()));
   list.append(box);
@@ -708,8 +707,6 @@ function renderHome() {
   document.getElementById('btn-export-json-shimai').onclick = () => {
     exportAllDataAsJSON();
   };
-  // 物件情報ファイル(JSON)の受け取りは、ここ(■現場の「受け取る」は LINE の文だけ。10-26)
-  document.getElementById('btn-import-json').onclick = () => receiveProject(renderSiteTop, { file: true });
   document.getElementById('btn-export-csv-monthly-shimai').onclick = () => {
     const month = new Date().toISOString().slice(0, 7);
     exportMonthlyCSV(month);
@@ -939,7 +936,8 @@ window.addEventListener('senlings-storage-ready', () => {
   if (document.getElementById('screen-home').classList.contains('active') || document.getElementById('screen-settings').classList.contains('active')) renderHome();
 });
 
-document.getElementById('btn-receive-property').onclick = () => receiveProject(renderSiteTop);
+// LINE で届いた依頼は、文のリンクから入る(コピー貼り付けは無し。10-26 船長)。文とファイル(物件情報 JSON)の受け取りは、設定に残す
+document.getElementById('btn-import-json').onclick = () => receiveProject(renderSiteTop, { file: true });
 document.getElementById('btn-nakama-pon').onclick = () => openPon();
 document.getElementById('btn-nakama-kon').onclick = () => openKon();
 document.getElementById('btn-nakama-kero').onclick = () => openKero();
@@ -1004,34 +1002,31 @@ function seenLinks() { try { const v = JSON.parse(localStorage.getItem(SEEN_KEY)
 function markSeen(id) { try { const v = seenLinks().filter(x => x !== id); v.push(id); localStorage.setItem(SEEN_KEY, JSON.stringify(v.slice(-50))); } catch { /* 覚えられなくても開ける */ } }
 function clearHash() { try { history.replaceState(null, '', `${location.pathname}${location.search}`); } catch { /* そのまま */ } }
 
-// ホーム画面の印に、この依頼を持たせる(10-26 船長「ホーム画面に置いてもらってから、依頼が見られれば」)。
-// iPhone はブラウザの側から「もう置いたか」を知らせてくれない。置いた印から開いたときだけ分かる。
-// そこで、置く前のあいだだけ、印の行き先(start_url)を依頼の入ったアドレスにしておく。効くかは iPhone の実物で確かめる。
-// 効かなくても、コピーした依頼を「受け取る」で貼れば開ける(二の矢)。
-let carryUrl = null;
-async function carryInIcon(hash) {
-  const link = document.querySelector('link[rel="manifest"]');
-  if (!link) return;
-  try {
-    const m = await (await fetch('manifest.json')).json();
-    const base = `${location.origin}/`;
-    m.start_url = `${base}index.html${hash}`; m.scope = base; m.id = `${base}index.html`;
-    m.icons = (m.icons ?? []).map(i => ({ ...i, src: new URL(i.src, base).href }));
-    const next = URL.createObjectURL(new Blob([JSON.stringify(m)], { type: 'application/manifest+json' }));
-    if (carryUrl) URL.revokeObjectURL(carryUrl);
-    carryUrl = next; link.href = next;
-  } catch { /* 持たせられなくても、コピーで渡せる */ }
+// ホーム画面の印に、届いたものを持たせる(10-26 船長「ホーム画面に置いてもらってから、依頼が見られれば」「コピー貼り付けはなくす」)。
+// iPhone はブラウザの側から「もう置いたか」を知らせてくれず、記録(localStorage)も置いた先へは移らない。
+// 置くときに移るものは二つだけ:置いた瞬間のアドレス(start_url が無い manifest なら、そのアドレスが印の行き先)と、cookie(iOS 17.2〜、置くときに一度だけ写される)。
+// どちらにも同じものを持たせる。置く前のあいだはアドレスの # を残し、cookie にも同じ中身を置く。印から開いた側は、読んだら消す。
+const TODOKI_COOKIE = 'senlings_todoki';
+function writeTodoki(hash) {
+  const v = hash.replace(/^#/, '');
+  if (!/^[A-Za-z0-9_=%.-]+$/.test(v)) return; // cookie に置けない字は、そもそも入っていない
+  try { document.cookie = `${TODOKI_COOKIE}=${v}; Max-Age=${7 * 86400}; Path=/; SameSite=Lax${location.protocol === 'https:' ? '; Secure' : ''}`; } catch { /* 置けなくても、アドレスのほうが残る */ }
 }
-function dropFromIcon() {
-  const link = document.querySelector('link[rel="manifest"]');
-  if (link && carryUrl) { link.href = 'manifest.json'; URL.revokeObjectURL(carryUrl); carryUrl = null; }
+function readTodoki() {
+  try { const m = document.cookie.match(new RegExp(`(?:^|; )${TODOKI_COOKIE}=([^;]*)`)); return m ? `#${m[1]}` : ''; } catch { return ''; }
+}
+function clearTodoki() {
+  try { document.cookie = `${TODOKI_COOKIE}=; Max-Age=0; Path=/; SameSite=Lax${location.protocol === 'https:' ? '; Secure' : ''}`; } catch { /* そのまま */ }
 }
 
 async function arrive() {
-  const raw = location.hash;
-  const a = readArrival(raw);
-  if (!a) return false;
   const home = homeScreenState({ installPrompt }).kind === 'home';
+  let raw = location.hash;
+  let a = readArrival(raw);
+  // 印から開いて、アドレスに何も無ければ、置くときに写された cookie を見る(読んだら消す)
+  if (!a && home) { raw = readTodoki(); a = readArrival(raw); clearTodoki(); }
+  if (!a) return false;
+  if (home) clearTodoki();
   const id = a.request !== undefined ? `r:${fnv(a.request)}` : `s:${a.shisetsu}`;
   // ホーム画面の印から開いて、もう見たものなら、いつもの朝へ(印がリンクを持ったままでも、毎回は出さない)
   if (home && seenLinks().includes(id)) { clearHash(); return false; }
@@ -1041,9 +1036,9 @@ async function arrive() {
     const cb = document.getElementById('setting-show-shisetsu'); if (cb) cb.checked = true;
     applyShisetsuTab(); applyShisetsuName();
     document.querySelector('[data-tab="shisetsu"]').click();
-    const settle = () => { clearHash(); dropFromIcon(); markSeen(id); };
-    // 先にホーム画面へ。置くあいだは、アドレスと印に入口を持たせておく
-    if (offerHomeScreen(false, { label: a.shisetsu ? `${a.shisetsu}の入口` : '施設の入口', hash: raw, later: 'いまは置かずに、施設を見る', onLater: settle })) { await carryInIcon(raw); return true; }
+    const settle = () => { clearHash(); markSeen(id); };
+    // 先にホーム画面へ。置くあいだは、アドレスと cookie に入口を持たせておく
+    if (offerHomeScreen(false, { kind: 'shisetsu', label: a.shisetsu ? `${a.shisetsu}の入口` : '施設の入口', hash: raw, later: 'いまは置かずに、施設を見る', onLater: settle })) { writeTodoki(raw); return true; }
     settle();
     return true;
   }
@@ -1053,12 +1048,12 @@ async function arrive() {
 async function arriveRequest(code, raw, id) {
   let env;
   try { env = await fromLinkCode(code); }
-  catch (e) { clearHash(); receiveProject(renderSiteTop).querySelector('[role=status]').textContent = e.message; return true; }
+  catch (e) { clearHash(); receiveProject(renderSiteTop, { file: true }).querySelector('[role=status]').textContent = e.message; return true; }
   const text = envelopeText(env);
   const label = `${bodyText(env).split('\n')[0]}\n${env.work_date ? `${dayLabel(env.work_date)} ` : ''}${env.site.name}`;
-  const open = () => { clearHash(); dropFromIcon(); markSeen(id); receiveProject(renderSiteTop, { text }); };
-  // 先にホーム画面へ。置くあいだは、アドレスと印に依頼を持たせておく
-  if (offerHomeScreen(false, { label, text, hash: raw, later: 'いまは置かずに、ここで見る', onLater: open })) { await carryInIcon(raw); return true; }
+  const open = () => { clearHash(); markSeen(id); receiveProject(renderSiteTop, { text }); };
+  // 先にホーム画面へ。置くあいだは、アドレスと cookie に依頼を持たせておく
+  if (offerHomeScreen(false, { label, hash: raw, later: 'いまは置かずに、ここで見る', onLater: open })) { writeTodoki(raw); return true; }
   open();
   return true;
 }
