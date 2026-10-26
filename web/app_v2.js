@@ -1086,15 +1086,17 @@ async function deliverOrGuide(a, id) {
   let homeThere = false, delivered = false, error = '';
   try { homeThere = await hasHome(key); } catch { homeThere = false; } // 郵便受けに届かないときは「家は知らない」として、置く案内へ
   try { await yubinPut(key, thing); delivered = true; yubinSweep(key).catch(() => {}); } catch (e) { error = e.message; }
+  const kind = a.shisetsu !== undefined ? 'shisetsu' : 'request';
+  const later = a.shisetsu !== undefined ? 'いまは置かずに、施設を見る' : 'いまは置かずに、ここで見る';
   if (homeThere) {
-    // 家がある:届けた/届かなかった、だけ伝える。開くのは家で
+    // 家がある:届けた/届かなかった、だけ伝える。開くのは家で。家が消えていた人には、置き方への戻り道
     clearHash(); markSeen(id);
-    openDeliveredNote({ label, ok: delivered, error, onHere: here });
+    openDeliveredNote({ label, ok: delivered, error, onHere: here, onGuide: () => offerHomeScreen(true, { kind, label, hash: arrivalHash(a), later, onLater: here }) });
     return true;
   }
   // はじめて(または郵便受けが使えない):置く案内。置いた印は、アドレスか cookie からこれを受け取る(郵便受けが無くても届く)
   if (a.shisetsu !== undefined) openShisetsuHere(a.shisetsu);
-  if (!offerHomeScreen(false, { kind: a.shisetsu !== undefined ? 'shisetsu' : 'request', label, hash: arrivalHash(a), later: a.shisetsu !== undefined ? 'いまは置かずに、施設を見る' : 'いまは置かずに、ここで見る', onLater: here })) here();
+  if (!offerHomeScreen(false, { kind, label, hash: arrivalHash(a), later, onLater: here })) here();
   return true;
 }
 

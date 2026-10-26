@@ -183,7 +183,7 @@ export function openHomeScreenGuide(state, { installPrompt = null, hasRecords = 
  * ブラウザで開いたリンクを、ホーム画面の Senlings(家)へ届けたあとの一枚。
  * 届けたか/届かなかったか、だけ。開くのは家で。「ここで見る」は小さく下に。
  */
-export function openDeliveredNote({ label = '', ok = true, error = '', onHere = () => {} } = {}) {
+export function openDeliveredNote({ label = '', ok = true, error = '', onHere = () => {}, onGuide = null } = {}) {
   document.getElementById('homescreen-guide')?.remove();
   document.getElementById('delivered-note')?.remove();
   const dialog = $('dialog', '', { className: 'local-dialog homescreen-guide delivered-note', id: 'delivered-note' });
@@ -211,6 +211,12 @@ export function openDeliveredNote({ label = '', ok = true, error = '', onHere = 
   const here = $('button', 'ここで見る', { className: 'homescreen-later', type: 'button', id: 'delivered-here' });
   here.onclick = () => { dialog.close(); dialog.remove(); onHere(); };
   dialog.append(here);
+  // 家が消えていたとき(印を消した・機種を変えた)の戻り道。置き直せば、郵便受けのものはそこへ届く
+  if (onGuide) {
+    const g = $('button', 'ホーム画面に Senlings が無いときは、置き方へ', { className: 'homescreen-later', type: 'button', id: 'delivered-guide' });
+    g.onclick = () => { dialog.close(); dialog.remove(); onGuide(); };
+    dialog.append(g);
+  }
   dialog.addEventListener('cancel', e => { e.preventDefault(); dialog.close(); dialog.remove(); });
   document.body.append(dialog);
   dialog.showModal();

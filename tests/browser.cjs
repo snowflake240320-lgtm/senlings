@@ -552,6 +552,12 @@ async function inject(page, mode) {
     await h.page.waitForFunction(()=>true);await new Promise(r=>setTimeout(r,300));assert.equal(boxItems().length,0,'taken out of the box once shown');
     await click(h.page,'#local-dialog .local-close');
     await h.page.evaluate(()=>window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true}))); /* 戻ってきた(実機では visibilitychange でも同じ) */await new Promise(r=>setTimeout(r,300));assert.equal(await h.page.locator('#local-dialog[open]').count(),0,'nothing comes twice');
+    // 家が消えていた人の戻り道:「届けました」から置き方へ(鍵と依頼を持ったまま)
+    await b.page.goto(`${origin}/`);await b.page.goto(second);await b.page.locator('#delivered-note[open]').waitFor();
+    await click(b.page,'#delivered-guide');await b.page.locator('#homescreen-guide[open]').waitFor();
+    assert.match(await b.page.locator('#homescreen-arrival').innerText(),/二通目|架空の元請け/);assert.match(await b.page.evaluate(()=>location.hash),new RegExp(`&k=${key}$`));
+    await click(b.page,'#homescreen-later');await b.page.locator('#handoff-choices:not([hidden])').waitFor();await click(b.page,'#local-dialog .local-close');
+    await b.page.evaluate(()=>localStorage.removeItem('senlings_homescreen_later'));
     // ブラウザで「ここで見る」も残っている(家で開かないと決めた人のため)
     await b.page.goto(`${origin}/`);await b.page.goto(second.replace(/#r=/,'#r=')+'');await b.page.locator('#delivered-note[open]').waitFor();
     await click(b.page,'#delivered-here');await b.page.locator('#handoff-choices:not([hidden])').waitFor();assert.match(await b.page.locator('#handoff-preview').innerText(),/二通目/);
