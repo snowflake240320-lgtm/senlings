@@ -67,6 +67,8 @@ test('box: when the post office is unreachable, put/peek throw a plain message',
   const k = makeKey();
   const down = async () => ({ status: 503, ok: false, text: async () => '' });
   await assert.rejects(put(k, 'x', { fetch: down }), /届きません\(503\)/);
+  const closed = async () => ({ status: 403, ok: false, text: async () => JSON.stringify({ error: { code: 403, status: 'PERMISSION_DENIED', message: 'Missing or insufficient permissions.' } }) });
+  await assert.rejects(put(k, 'x', { fetch: closed }), /届きません\(403 PERMISSION_DENIED\)/, 'the rules are not there yet');
   await assert.rejects(peek(k, { fetch: down }), /届きません/);
 });
 

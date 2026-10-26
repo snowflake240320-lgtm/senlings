@@ -69,8 +69,13 @@ async function call(method, path, body, fetchFn) {
     method, headers: body ? { 'Content-Type': 'application/json' } : undefined, body: body ? JSON.stringify(body) : undefined,
   });
   if (res.status === 404) return null;
-  if (!res.ok) throw new Error(`郵便受けに届きません(${res.status})。`);
   const text = await res.text();
+  if (!res.ok) {
+    // 何が閉まっているかは、短く添える(403 はルールが未設定か、鍵の制限)
+    let why = '';
+    try { why = JSON.parse(text)?.error?.status ?? ''; } catch { why = ''; }
+    throw new Error(`郵便受けに届きません(${res.status}${why ? ` ${why}` : ''})。`);
+  }
   return text ? JSON.parse(text) : {};
 }
 const field = (v) => typeof v === 'string' ? { stringValue: v } : typeof v === 'boolean' ? { booleanValue: v } : v instanceof Date ? { timestampValue: v.toISOString() } : { integerValue: String(v) };

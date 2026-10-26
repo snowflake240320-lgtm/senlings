@@ -24,13 +24,13 @@ const server = http.createServer(async (req, res) => {
 });
 let browser, origin;
 let passed = 0;
-async function run(name, fn) { if (process.env.TEST_FILTER && !name.includes(process.env.TEST_FILTER)) return; box.docs.clear(); box.calls.length = 0; box.down = false; await fn(); console.log('PASS', name); passed++; }
+async function run(name, fn) { if (process.env.TEST_FILTER && !name.includes(process.env.TEST_FILTER)) return; box.docs.clear(); box.calls.length = 0; box.down = false; box.readOnly = false; await fn(); console.log('PASS', name); passed++; }
 // 郵便受けの代役(Firestore REST の形だけ)。ブラウザとホーム画面の Senlings(別の context)が、同じ郵便受けを見る
-const box = { docs: new Map(), calls: [], n: 0, down: false };
+const box = { docs: new Map(), calls: [], n: 0, down: false, readOnly: false };
 function fakeFirestore(request) {
   const u = new URL(request.url()); const method = request.method(); const path = u.pathname.split('/documents/')[1]; box.calls.push(`${method} ${path}`);
   const json = (status, obj) => ({ status, contentType: 'application/json', body: obj === undefined ? '' : JSON.stringify(obj) });
-  if (box.down) return json(503, { error: 'down' });
+  if (box.down || (box.readOnly && method !== 'GET')) return json(503, { error: { status: 'UNAVAILABLE' } });
   if (u.searchParams.get('key') !== 'AIzaSyBNaj9bllnBSjlnL63smknkSK7T8SNnWZo') return json(403, { error: 'key' });
   const body = request.postData() ? JSON.parse(request.postData()) : null;
   if (method === 'POST') { const id = `it${++box.n}`; box.docs.set(`${path}/${id}`, body.fields); return json(200, { name: `projects/p/databases/(default)/documents/${path}/${id}`, fields: body.fields }); }
@@ -557,14 +557,25 @@ async function inject(page, mode) {
     await click(b.page,'#delivered-here');await b.page.locator('#handoff-choices:not([hidden])').waitFor();assert.match(await b.page.locator('#handoff-preview').innerText(),/二通目/);
     assert.deepEqual(b.page.errors,[]);assert.deepEqual(h.page.errors,[]);await b.context.close();await h.context.close();
   });
-  await run('yubin: when the post office is down, the browser says so and offers ここで見る; the house just waits for next time', async () => {
+  await run('yubin: when the post office is down or closed, a first-timer still gets the install guide (address and cookie carry the request); with a known house the browser says 届けられませんでした and offers ここで見る', async () => {
     const link=await makeLinkAs('架空の職人','電波なし');
     const b=await setup(null,{ua:iosUA('26_0')});await b.page.locator('#homescreen-guide[open]').waitFor();await click(b.page,'#homescreen-later');await b.page.evaluate(()=>localStorage.removeItem('senlings_homescreen_later'));
-    box.down=true;await b.page.goto(link);await b.page.locator('#delivered-note[open]').waitFor();
-    assert.match(await b.page.locator('#delivered-note h2').innerText(),/届けられませんでした/);assert.match(await b.page.locator('#delivered-why').innerText(),/電波を確かめて/);
-    await click(b.page,'#delivered-here');await b.page.locator('#handoff-choices:not([hidden])').waitFor();assert.deepEqual(b.page.errors,[]);await b.context.close();
-    const h=await setup(null,{ua:iosUA('26_0'),standalone:true});await h.page.evaluate(()=>localStorage.setItem('senlings_yubin_key','AAAAAAAAAAAAAAAAAAAAAA'));await h.page.goto(`${origin}/`);await h.page.locator('.site-welcome').waitFor();
-    await new Promise(r=>setTimeout(r,300));assert.equal(await h.page.locator('#local-dialog[open]').count(),0);assert.deepEqual(h.page.errors,[]);await h.context.close();
+    box.down=true;await b.page.goto(link);await b.page.locator('#homescreen-guide[open]').waitFor();
+    assert.equal(await b.page.locator('#delivered-note').count(),0,'no post office yet → the guide, which does not need it');
+    assert.match(await b.page.evaluate(()=>location.hash),/^#r=z.*&k=/);assert.match(await b.page.evaluate(()=>document.cookie),/^senlings_todoki=r=z.*&k=/);
+    await click(b.page,'#homescreen-later');await b.page.locator('#handoff-choices:not([hidden])').waitFor();await click(b.page,'#local-dialog .local-close');
+    // 家があると分かっているのに届かないとき
+    box.down=false;const key=await b.page.evaluate(()=>localStorage.getItem('senlings_yubin_key'));
+    const h=await setup(null,{ua:iosUA('26_0'),standalone:true});await h.page.evaluate(k=>localStorage.setItem('senlings_yubin_key',k),key);await h.page.goto(`${origin}/`);await h.page.waitForFunction(()=>Number(localStorage.getItem('senlings_yubin_home_at')||0)>0);await h.context.close();
+    await b.page.evaluate(()=>localStorage.removeItem('senlings_homescreen_later'));
+    const link2=await makeLinkAs('架空の職人','二通目・電波なし');
+    box.down=true;await b.page.goto(`${origin}/`);
+    // 家の印は読めない(503)ので、ここでも案内に戻る。読めて、入れられないときだけ「届けられませんでした」
+    box.down=false;box.readOnly=true;await b.page.goto(link2);await b.page.locator('#delivered-note[open]').waitFor();
+    assert.match(await b.page.locator('#delivered-note h2').innerText(),/届けられませんでした/);assert.match(await b.page.locator('#delivered-why').innerText(),/電波を確かめて.*503/);
+    await click(b.page,'#delivered-here');await b.page.locator('#handoff-choices:not([hidden])').waitFor();assert.deepEqual(b.page.errors,[]);box.readOnly=false;await b.context.close();
+    box.down=true;const h2=await setup(null,{ua:iosUA('26_0'),standalone:true});await h2.page.evaluate(()=>localStorage.setItem('senlings_yubin_key','AAAAAAAAAAAAAAAAAAAAAA'));await h2.page.goto(`${origin}/`);await h2.page.locator('.site-welcome').waitFor();
+    await new Promise(r=>setTimeout(r,300));assert.equal(await h2.page.locator('#local-dialog[open]').count(),0,'the house just waits for next time');assert.deepEqual(h2.page.errors,[]);await h2.context.close();
   });
   await run('arrival: the 元請け page makes a facility entrance link that opens ●施設', async () => {
     const {page,context}=await setup(null);await page.goto(origin+'/irai/');await stubShare(page);
