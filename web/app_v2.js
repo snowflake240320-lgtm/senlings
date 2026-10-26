@@ -17,7 +17,7 @@ import { HOO_TRADES, readNakama, setTrades } from './src/pwa/nakama.js';
 import { homeScreenState, openHomeScreenGuide, openDeliveredNote, readLater } from './src/pwa/homeScreen.js';
 import { openRequestDialog, siteFromProject } from './src/pwa/requestUI.js';
 import { readArrival, withKey, fromLinkCode, envelopeText, bodyText, dayLabel, fnv } from './src/pwa/envelope.js';
-import { makeKey, isKey, put as yubinPut, peek as yubinPeek, remove as yubinRemove, markHome, hasHome } from './src/pwa/yubin.js';
+import { makeKey, isKey, put as yubinPut, peek as yubinPeek, remove as yubinRemove, sweep as yubinSweep, markHome, hasHome } from './src/pwa/yubin.js';
 import { openShirase, openKinkyu } from './src/pwa/shiraseUI.js';
 
 // ── データ読み込み ────────────────────────────────────────
@@ -1085,7 +1085,7 @@ async function deliverOrGuide(a, id) {
   const thing = arrivalHash(a).slice(1);
   let homeThere = false, delivered = false, error = '';
   try { homeThere = await hasHome(key); } catch { homeThere = false; } // 郵便受けに届かないときは「家は知らない」として、置く案内へ
-  try { await yubinPut(key, thing); delivered = true; } catch (e) { error = e.message; }
+  try { await yubinPut(key, thing); delivered = true; yubinSweep(key).catch(() => {}); } catch (e) { error = e.message; }
   if (homeThere) {
     // 家がある:届けた/届かなかった、だけ伝える。開くのは家で
     clearHash(); markSeen(id);

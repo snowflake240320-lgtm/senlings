@@ -7,7 +7,7 @@
 // 船長の決め(10-26):「あずかりしらぬとこで。お互いのスマホに残っていればいい」
 // - 封をして出す。鍵(16バイトの乱数)はそのスマホの中にだけ(ブラウザとホーム画面の両方。置くときに一度だけ写す)。
 //   郵便受けの番号は鍵のハッシュ。郵便受け(Firestore)には封をした中身だけが置かれ、Senlings にも誰にも読めない。
-// - 受け取ったら消す。受け取られなかったものも、日限(x)で消える。残るのは、お互いのスマホの中だけ。
+// - 受け取ったら消す。受け取られなかったものも、日限(x)で消える(Firestore の TTL は有料プランが要るので、鍵を持つ側が自分の箱を掃く:sweep)。残るのは、お互いのスマホの中だけ。
 // - 郵便受けに「家がある」の印(home)だけ置く。中身は無い。ブラウザは、これで「もうホーム画面に置いてある」と分かる。
 //
 // 道具:WebCrypto(AES-GCM)と fetch だけ。SDK は使わない。
@@ -97,17 +97,33 @@ export async function put(key, text, { fetch: fetchFn = globalThis.fetch.bind(gl
  * 郵便受けを見る。開けられたものだけ返す(古い順)。消すのは、受け取った側が済んでから(remove)。
  * @returns {Promise<Array<{id:string, text:string, t:number}>>}
  */
-export async function peek(key, { fetch: fetchFn = globalThis.fetch.bind(globalThis) } = {}) {
+export async function peek(key, { fetch: fetchFn = globalThis.fetch.bind(globalThis), now = Date.now() } = {}) {
   const box = await boxIdOf(key);
   const res = await call('GET', `boxes/${box}/items?pageSize=50`, null, fetchFn);
   const docs = res?.documents ?? [];
   const out = [];
   for (const d of docs) {
     const id = d.name.split('/').pop();
-    try { out.push({ id, text: await openSeal(key, unfield(d.fields?.c)), t: Number(unfield(d.fields?.t) ?? 0) }); }
-    catch { /* 開かない封筒は、そのまま日限で消える */ }
+    const t = Number(unfield(d.fields?.t) ?? 0);
+    // 日限を過ぎたもの・開かないものは、鍵を持つ側が掃く(道の上に留め置かない)
+    if (!(t > now - ITEM_DAYS * 86400000)) { await call('DELETE', `boxes/${box}/items/${id}`, null, fetchFn).catch(() => {}); continue; }
+    try { out.push({ id, text: await openSeal(key, unfield(d.fields?.c)), t }); }
+    catch { await call('DELETE', `boxes/${box}/items/${id}`, null, fetchFn).catch(() => {}); }
   }
   return out.sort((a, b) => a.t - b.t);
+}
+
+/** 自分の箱を掃く(ブラウザ側が、出すついでに)。日限を過ぎたものだけ消す。開けられるものは残す。 */
+export async function sweep(key, { fetch: fetchFn = globalThis.fetch.bind(globalThis), now = Date.now() } = {}) {
+  const box = await boxIdOf(key);
+  const res = await call('GET', `boxes/${box}/items?pageSize=50`, null, fetchFn);
+  let swept = 0;
+  for (const d of res?.documents ?? []) {
+    const t = Number(unfield(d.fields?.t) ?? 0);
+    if (t > now - ITEM_DAYS * 86400000) continue;
+    await call('DELETE', `boxes/${box}/items/${d.name.split('/').pop()}`, null, fetchFn).catch(() => {}); swept++;
+  }
+  return swept;
 }
 
 /** 受け取り済み。郵便受けから消す(道の上に留め置かない)。 */

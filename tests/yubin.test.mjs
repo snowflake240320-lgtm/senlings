@@ -1,7 +1,7 @@
 // 郵便受け(10-26):封をして出す。鍵はスマホの中だけ。郵便受けには封をした中身だけ。受け取ったら消す。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeKey, isKey, boxIdOf, seal, openSeal, put, peek, remove, markHome, hasHome, ITEM_DAYS } from '../web/src/pwa/yubin.js';
+import { makeKey, isKey, boxIdOf, seal, openSeal, put, peek, remove, sweep, markHome, hasHome, ITEM_DAYS } from '../web/src/pwa/yubin.js';
 import { readArrival, withKey } from '../web/src/pwa/envelope.js';
 
 // 郵便受けの代役(Firestore REST の形だけ真似る)
@@ -82,4 +82,18 @@ test('arrival: # carries r=, shisetsu= and k= joined by &; withKey adds or repla
   assert.equal(withKey(`#r=zAAAA&k=${makeKey()}`, k), `#r=zAAAA&k=${k}`);
   assert.equal(withKey('', k), `#k=${k}`);
   assert.equal(withKey('#r=zAAAA', ''), '#r=zAAAA');
+});
+
+test('sweep: envelopes past the 14-day limit are removed by the key holder (no paid TTL needed); peek also drops them and the ones that will not open', async () => {
+  const box = fakeBox(); const k = makeKey(), other = makeKey();
+  const mine = await boxIdOf(k), theirsBox = await boxIdOf(other);
+  await put(k, 'fresh', { fetch: box.fetch });
+  const old = await put(k, 'old', { fetch: box.fetch });
+  box.docs.get(`boxes/${mine}/items/${old}`).t = { integerValue: String(Date.now() - (ITEM_DAYS + 1) * 86400000) };
+  const theirs = await put(other, 'theirs', { fetch: box.fetch });
+  box.docs.set(`boxes/${mine}/items/junk`, { c: { stringValue: box.docs.get(`boxes/${theirsBox}/items/${theirs}`).c.stringValue }, t: { integerValue: String(Date.now()) }, x: { timestampValue: new Date().toISOString() } });
+  assert.equal(await sweep(k, { fetch: box.fetch }), 1, 'only the old one');
+  assert.deepEqual((await peek(k, { fetch: box.fetch })).map(m => m.text), ['fresh'], 'the sealed-with-another-key one is dropped too');
+  assert.equal([...box.docs.keys()].filter(x => x.includes(`${mine}/items/`)).length, 1);
+  assert.deepEqual((await peek(other, { fetch: box.fetch })).map(m => m.text), ['theirs'], 'other boxes untouched');
 });
