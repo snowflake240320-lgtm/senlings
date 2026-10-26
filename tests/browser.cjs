@@ -261,7 +261,7 @@ async function inject(page, mode) {
   // 依頼(10-25):応援も元請けの依頼も、同じ封筒一通。送るのは人(共有の画面)。受けるかは受けた人
   async function stubShare(page){await page.evaluate(()=>{window.shared=[];Object.defineProperty(navigator,'share',{value:async d=>{window.shared.push(d.text);},configurable:true});});}
   async function receive(page,text){if(await page.locator('#local-dialog[open]').count())await click(page,'#local-dialog .local-close');await click(page,'[data-tab="genba"]');if(await page.locator('#screen-working.active').count())await click(page,'[data-tab="genba"]');
-    await click(page,'#btn-receive-property');await page.locator('#handoff-input').fill(text);await click(page,'#handoff-inspect');}
+    await click(page,'#btn-receive-property');await click(page,'#handoff-manual');await page.locator('#handoff-input').fill(text);await click(page,'#handoff-inspect');}
   await run('request: ask for help from Home, the other phone pastes it, the site, its hours and the day arrive only when chosen', async () => {
     const {page,context}=await setup();await ready(page);await stubShare(page);
     await click(page,'.site-card');await click(page,'#btn-teiji-fix');await page.locator('#teiji-start').fill('08:30');await page.locator('#teiji-end').fill('17:30');await click(page,'#btn-teiji-save');
@@ -400,8 +400,12 @@ async function inject(page, mode) {
     const {page,context}=await setup(null);await page.locator('.site-welcome').waitFor();
     assert.match(await page.locator('.site-welcome').innerText(),/LINE で依頼が届いたら/);
     assert.deepEqual(await page.locator('.site-welcome button').allInnerTexts(),['受け取る\nコピーした依頼の文を貼る','自分で現場を立てる\n名前ひとつで。あとから直せます','施設を見る\n施設の決まりと、仲間の四人']);
-    await click(page,'#btn-welcome-receive');await page.locator('#handoff-input').waitFor();await click(page,'#local-dialog .local-close');
-    await click(page,'#btn-welcome-shisetsu');await page.locator('#screen-shisetsu.active').waitFor();
+    await click(page,'#btn-welcome-receive');await page.locator('#handoff-paste').waitFor();
+    assert.equal(await page.locator('#handoff-input').isVisible(),false,'two stages: first only 貼り付ける');assert.equal(await page.locator('#handoff-inspect').isVisible(),false);assert.equal(await page.locator('#handoff-accept').isVisible(),false);assert.equal(await page.locator('#handoff-file').count(),0,'files are received from settings');
+    await click(page,'#local-dialog .local-close');
+    await click(page,'[data-tab="home"]');await click(page,'#btn-settings');await click(page,'#btn-import-json');await page.locator('#handoff-file').waitFor();
+    assert.equal(await page.locator('#handoff-paste').isVisible(),false);assert.equal(await page.locator('#handoff-inspect').isVisible(),true);assert.match(await page.locator('#local-dialog h2').innerText(),/ファイルで受け取る/);await click(page,'#local-dialog .local-close');
+    await click(page,'[data-tab="genba"]');await click(page,'#btn-welcome-shisetsu');await page.locator('#screen-shisetsu.active').waitFor();
     await click(page,'[data-tab="genba"]');await click(page,'#btn-welcome-add');await page.locator('#add-site-modal:not([hidden])').waitFor();
     assert.equal((await stats(page)).writes,0);assert.deepEqual(page.errors,[]);await context.close();
   });
@@ -462,6 +466,7 @@ async function inject(page, mode) {
     assert.match(await page.locator('#btn-welcome-receive').innerText(),/^受け取る/);
     await page.evaluate(t=>{navigator.clipboard.readText=async()=>t;},text);
     await click(page,'#btn-welcome-receive');await click(page,'#handoff-paste');await page.locator('#handoff-choices:not([hidden])').waitFor();
+    for (const s of ['#handoff-paste','#handoff-manual','#handoff-input','#handoff-inspect','#handoff-accept']) assert.equal(await page.locator(s).isVisible(),false,`${s} is put away once the request is read`);
     assert.match(await page.locator('#handoff-preview').innerText(),/応援のお願い\(架空の職人より\)/);
     assert.equal(await page.evaluate(()=>rawStored()),null);assert.deepEqual(page.errors,[]);await context.close();
   });
@@ -485,7 +490,7 @@ async function inject(page, mode) {
     await home.page.goto(`${origin}/`);await home.page.goto(`${origin}/index.html${fh}`);await home.page.locator('.site-welcome').waitFor();assert.equal(await home.page.locator('#screen-shisetsu.active').count(),0,'the icon still carries the entrance, but mornings start as usual');
     assert.equal(await home.page.locator('#shisetsu-name').innerText(),'架空の施設');await home.context.close();
     ({page,context}=await setup(null));await page.locator('.site-welcome').waitFor();
-    await page.goto(`${origin}/?openExternalBrowser=1#r=zAAAA`);await page.locator('#handoff-input').waitFor();
+    await page.goto(`${origin}/?openExternalBrowser=1#r=zAAAA`);await page.locator('#handoff-paste').waitFor();
     assert.match(await page.locator('#local-dialog [role=status]').first().innerText(),/途中で切れて/);
     assert.equal(await page.evaluate(()=>rawStored()),null);assert.deepEqual(page.errors,[]);await context.close();
   });

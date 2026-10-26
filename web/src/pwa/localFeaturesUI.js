@@ -43,23 +43,34 @@ function values(parent, packet, { showName = true, idLabel = '送り手の物件
 }
 
 // 受け取る(郵便受け)。LINE などで届いた依頼の文を、まるごと貼る。いちばん下の〔Senlings〕の行から封筒を読む。
-// 封筒が無い文でも、現場名を決めれば、その文を「届いた連絡」として現場を立てられる。物件情報ファイル(JSON)も、そのまま受け取れる。
+// 二段構え(10-26 船長「煩雑」):一段目は「貼り付ける」だけ。二段目は届いた依頼と五択だけ。欄やファイルは、要るときにだけ出す。
+// 封筒が無い文でも、現場名を決めれば、その文を「届いた連絡」として現場を立てられる。物件情報ファイル(JSON)は、設定の「ファイルで受け取る」から。
 // 受けるかどうか、その日に置くかどうかは、受けた人が決める。返事は LINE で、いつもどおりに。
-export function receiveProject(onSaved, { text: arrived = '' } = {}) {
-  const box = panel('受け取る');
-  paragraph(box, arrived ? 'リンクで届いた依頼です。受けるかどうかを選んでください。選ぶまで、何も残しません。' : 'LINE などで届いた依頼の文を、まるごとコピーして貼ります。確かめてから、自分の現場に加えます。');
+export function receiveProject(onSaved, { text: arrived = '', file: fileMode = false } = {}) {
+  const mode = arrived ? 'arrived' : fileMode ? 'file' : 'paste';
+  const box = panel(mode === 'file' ? 'ファイルで受け取る' : '受け取る');
+  const lead = paragraph(box, mode === 'arrived' ? 'リンクで届いた依頼です。受けるかどうかを選んでください。選ぶまで、何も残しません。'
+    : mode === 'file' ? '物件情報ファイル(JSON)を選びます。確かめてから、自分の現場に加えます。'
+    : 'LINE で届いた依頼の文を、まるごとコピーしてから。');
   const pasteBtn = action(box, '貼り付ける', async () => {
-    try { const text = await navigator.clipboard.readText(); if (text) { input.value = text; input.oninput(); inspect.onclick(); } else message.textContent = 'コピーされた文がありません。'; }
-    catch { message.textContent = '貼り付けられませんでした。下の欄を長押しして「ペースト」を押してください。'; input.focus(); }
+    let text = '';
+    try { text = await navigator.clipboard.readText(); }
+    catch { manual.onclick(); message.textContent = '貼り付けられませんでした。下の欄を長押しして「ペースト」を押してください。'; input.focus(); return; }
+    if (!text?.trim()) { message.textContent = 'コピーされた文がありません。LINE で依頼の文を長押し →「コピー」してから、もう一度。'; return; }
+    input.value = text; input.oninput(); inspect.onclick();
   }, 'handoff-paste');
-  const input = field(box, '届いた文', 'textarea', { rows: 5, id: 'handoff-input', maxLength: 128000 });
-  const fileBox = $('details', '', { className: 'nakama-more' }); fileBox.append($('summary', 'ファイルで受け取る(物件情報 JSON)'));
-  const file = field(fileBox, '物件情報ファイル（JSON）', 'input', { type: 'file', accept: '.json,application/json', id: 'handoff-file' });
-  box.append(fileBox);
+  // 貼り付けが効かない端末のために、欄は畳んでおく
+  const manual = $('button', '文を自分で貼る', { type: 'button', className: 'local-link', id: 'handoff-manual' });
+  box.append(manual);
+  const inputWrap = $('label', '届いた文'), input = $('textarea', '', { rows: 5, id: 'handoff-input', maxLength: 128000 });
+  inputWrap.append(input); box.append(inputWrap);
+  manual.onclick = () => { manual.hidden = true; inputWrap.hidden = false; inspect.hidden = false; };
+  let file = null;
+  if (mode === 'file') file = field(box, '物件情報ファイル（JSON）', 'input', { type: 'file', accept: '.json,application/json', id: 'handoff-file' });
   const message = status(box), preview = $('div', '', { id: 'handoff-preview' });
   box.append(preview);
   const after = $('div', '', { id: 'handoff-after' });
-  let confirmed = null, packetJson = null, envelope = null, fileGeneration = 0, slugInput = null;
+  let confirmed = null, packetJson = null, envelope = null, fileGeneration = 0, slugInput = null, detail = null;
   // 受けるかどうかは、受けた人が決める(受注の前の五択。10-25 船長)。封筒のときだけ出す
   const choices = $('div', '', { className: 'request-choices', id: 'handoff-choices', hidden: true });
   function doAccept() {
@@ -145,6 +156,7 @@ export function receiveProject(onSaved, { text: arrived = '' } = {}) {
     });
     pick('受けない', '見送ると返す(何も残さない)', 'decline', () =>
       reply('受けない', `${to}${day}${env.site.name} の件、ありがとうございます。今回は見送らせてください。また声をかけてもらえると嬉しいです。`, 'decline'));
+    if (detail) choices.append(detail);
     choices.append(generalRules());
   }
   // その日に置くかは、受けた人が決める(押したときだけ)
@@ -158,7 +170,7 @@ export function receiveProject(onSaved, { text: arrived = '' } = {}) {
     }, 'handoff-place-day');
   }
   const inspect = action(box, '内容を確認する', () => {
-    confirmed = null; packetJson = null; envelope = null; accept.disabled = true; accept.hidden = false; choices.hidden = true; preview.replaceChildren(); after.replaceChildren(); slugInput = null;
+    confirmed = null; packetJson = null; envelope = null; accept.disabled = true; accept.hidden = false; choices.hidden = true; preview.replaceChildren(); after.replaceChildren(); slugInput = null; detail = null;
     try {
       const text = input.value;
       let plain = false;
@@ -172,32 +184,43 @@ export function receiveProject(onSaved, { text: arrived = '' } = {}) {
         packetJson = JSON.stringify({ format: 'senlings.project-handoff', schema_version: 1, source_project_id: `text:${crypto.randomUUID()}`, revision: 1, project: { name: first, raw: text.slice(0, 20000) } });
       } else throw new Error('届いた文を貼ってください。');
       const plan = inspectTransfer(packetJson);
+      // 封筒なら、上には要点だけ(何を・いつ・どこ・一言)。中身の全部と現場名は、五択の下に畳む
+      const where = envelope ? (plan.action === 'received' ? preview : (detail = $('details', '', { className: 'handoff-detail', id: 'handoff-detail' }))) : preview;
       if (envelope) {
-        paragraph(preview, `${KINDS[envelope.kind]}${envelope.from ? `(${envelope.from}より)` : ''}`);
-        if (envelope.work_date) paragraph(preview, `日にち：${dayLabel(envelope.work_date)}`);
-        if (envelope.site.start) paragraph(preview, `時間：${envelope.site.start.replace(/^0/, '')}〜${envelope.site.end.replace(/^0/, '')}`);
-        if (envelope.note) paragraph(preview, envelope.note);
+        const head = $('div', '', { className: 'handoff-head' });
+        head.append($('p', `${KINDS[envelope.kind]}${envelope.from ? `(${envelope.from}より)` : ''}`, { className: 'handoff-head-kind' }));
+        const when = [envelope.work_date ? dayLabel(envelope.work_date) : '', envelope.site.start ? `${envelope.site.start.replace(/^0/, '')}〜${envelope.site.end.replace(/^0/, '')}` : ''].filter(Boolean).join(' ');
+        if (when) head.append($('p', when, { className: 'handoff-head-when' }));
+        head.append($('p', plan.action === 'update' ? plan.current_slug : envelope.site.name, { className: 'handoff-head-site' }));
+        if (envelope.note) head.append($('p', envelope.note, { className: 'handoff-head-note' }));
+        preview.append(head);
+        if (detail) detail.append($('summary', plan.action === 'add' ? '中身を全部見る・現場名を変える' : '中身を全部見る'));
       }
       if (plain) paragraph(preview, 'Senlings 用の行がない文です。この文を「届いた連絡」として残して、現場を立てます。');
       if (plan.action === 'add') {
-        slugInput = field(preview, 'この端末での現場名（そのままでも、自分の呼び名でも）', 'input', { value: plan.packet.project.name, maxLength: 200, id: 'handoff-slug' });
-        values(preview, plan.packet, { showName: false, showId: !envelope && !plain });
+        slugInput = field(where, 'この端末での現場名（そのままでも、自分の呼び名でも）', 'input', { value: plan.packet.project.name, maxLength: 200, id: 'handoff-slug' });
+        values(where, plan.packet, { showName: false, showId: !envelope && !plain });
       } else if (plan.action === 'update') {
-        paragraph(preview, `現場名はそのまま：${plan.current_slug}` + (plan.current_slug !== plan.packet.project.name ? `（送り手の現場名：${plan.packet.project.name}）` : ''));
-        values(preview, plan.packet, { showName: false, showId: !envelope });
-      } else values(preview, plan.packet, { showId: !envelope });
+        paragraph(where, `現場名はそのまま：${plan.current_slug}` + (plan.current_slug !== plan.packet.project.name ? `（送り手の現場名：${plan.packet.project.name}）` : ''));
+        values(where, plan.packet, { showName: false, showId: !envelope });
+      } else values(where, plan.packet, { showId: !envelope });
       message.textContent = plan.action === 'received' ? '同じ版を受取済みです。'
-        : plan.action === 'update' ? '知っている現場の、新しい知らせです。表示した項目を現場へ反映します。現場名・以前の原本・自分の記録はそのまま残ります。'
-        : '新しい現場として加えます。この端末に置くだけで、相手には何も送られません。';
+        : plan.action === 'update' ? (envelope ? '知っている現場の、新しい知らせです。' : '知っている現場の、新しい知らせです。表示した項目を現場へ反映します。現場名・以前の原本・自分の記録はそのまま残ります。')
+        : envelope ? '' : '新しい現場として加えます。この端末に置くだけで、相手には何も送られません。';
       accept.textContent = plan.action === 'update' ? '確認してこの版を反映する' : '確認して受け取る';
       confirmed = input.value; accept.disabled = plan.action === 'received';
-      if (plan.action !== 'received') renderChoices(); else { choices.hidden = true; accept.hidden = false; }
+      if (plan.action !== 'received') renderChoices(); else { choices.hidden = true; accept.hidden = !!envelope; }
       if (plan.action === 'received' && envelope?.work_date) offerDay(plan.project_id, envelope.work_date);
+      // 二段目:依頼が読めたら、貼る道具は片づける。封筒の無い文は、欄を見せたまま(直して確かめ直せる)
+      if (mode === 'paste') { lead.hidden = true; pasteBtn.hidden = true; manual.hidden = true; inputWrap.hidden = !!envelope; inspect.hidden = !!envelope; }
     } catch (error) { message.textContent = error.message; }
   }, 'handoff-inspect');
   box.insertBefore(inspect, message);
-  input.oninput = () => { fileGeneration++; confirmed = null; packetJson = null; envelope = null; slugInput = null; accept.disabled = true; accept.hidden = false; choices.hidden = true; preview.replaceChildren(); after.replaceChildren(); message.textContent = ''; };
-  file.onchange = async () => {
+  input.oninput = () => { fileGeneration++; confirmed = null; packetJson = null; envelope = null; slugInput = null; detail = null; accept.disabled = true; accept.hidden = mode !== 'file'; choices.hidden = true; preview.replaceChildren(); after.replaceChildren(); message.textContent = ''; };
+  // 一段目:出すのは、その入口だけ
+  pasteBtn.hidden = mode !== 'paste'; manual.hidden = mode !== 'paste';
+  inputWrap.hidden = mode !== 'file'; inspect.hidden = mode !== 'file'; accept.hidden = mode !== 'file';
+  if (file) file.onchange = async () => {
     const ticket = ++fileGeneration;
     confirmed = null; slugInput = null; accept.disabled = true; preview.replaceChildren();
     try {

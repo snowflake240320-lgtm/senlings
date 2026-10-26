@@ -708,6 +708,8 @@ function renderHome() {
   document.getElementById('btn-export-json-shimai').onclick = () => {
     exportAllDataAsJSON();
   };
+  // 物件情報ファイル(JSON)の受け取りは、ここ(■現場の「受け取る」は LINE の文だけ。10-26)
+  document.getElementById('btn-import-json').onclick = () => receiveProject(renderSiteTop, { file: true });
   document.getElementById('btn-export-csv-monthly-shimai').onclick = () => {
     const month = new Date().toISOString().slice(0, 7);
     exportMonthlyCSV(month);

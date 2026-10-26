@@ -117,3 +117,16 @@ html[data-mieru="70"] .site-welcome-sub { font-size: 18px; }
 .shisetsu-name { color: #e8e5df; font-size: 17px; margin-top: 4px; } .shisetsu-name[hidden] { display: none; } html[data-mieru="70"] .shisetsu-name { font-size: 19px; }
 .homescreen-label { color: #c5a059 !important; font-size: 14px !important; letter-spacing: 0.1em; margin: 14px 0 4px !important; }
 .local-dialog.homescreen-guide h2, html[data-mieru] .local-dialog.homescreen-guide h2 { font-size: clamp(14px, 4.4vw, 19px); white-space: nowrap; }
+
+/* 受け取る:二段構え。欄は「文を自分で貼る」を押したときだけ */
+.local-dialog .local-link { display: block; width: auto; min-height: 0; margin: 10px auto 0; background: none; border: 0; color: #8a8780; font: inherit; font-size: 13px; text-decoration: underline; padding: 8px; }
+.local-dialog .local-link[hidden], .local-dialog label[hidden] { display: none; }
+/* 受け取る 二段目:要点は上に三行、中身の全部は五択の下に畳む */
+.handoff-head { margin: 4px 0 0; padding: 4px 0 4px 12px; border-left: 3px solid #c5a059; }
+.handoff-head p { margin: 2px 0 !important; }
+.handoff-head-kind { color: #c5a059 !important; font-size: 13px !important; }
+.handoff-head-when { color: #e8e5df !important; font-size: 15px !important; }
+.handoff-head-site { color: #e8e5df !important; font-size: 18px !important; }
+.handoff-head-note { color: #c4c1b9 !important; font-size: 14px !important; }
+.handoff-detail { margin-top: 14px; border-top: 1px solid #2a2a24; padding-top: 6px; }
+.handoff-detail summary { cursor: pointer; padding: 10px 0; color: #8a8780; font-size: 13px; }

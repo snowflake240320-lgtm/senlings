@@ -37,7 +37,7 @@ async function open() {
 }
 async function restart() { const before = await raw(); assert.deepEqual(page.errors, []); await context.close(); await open(); assert.equal(await raw(), before); }
 async function closeDialog() { await click('#local-dialog .local-close'); }
-async function receive(contents) { await click('#btn-receive-property'); await page.locator('#handoff-input').fill(contents); await click('#handoff-inspect'); }
+async function receive(contents) { await click('#btn-receive-property'); await click('#handoff-manual'); await page.locator('#handoff-input').fill(contents); await click('#handoff-inspect'); }
 async function downloads(selector) { const wait = page.waitForEvent('download'); await click(selector); return fs.readFile(await (await wait).path(), 'utf8'); }
 async function screenshot(name) { if (out) await page.screenshot({ path: path.join(out, name + '.png'), animations: 'disabled' }); }
 async function inject() {
