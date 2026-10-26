@@ -1101,10 +1101,11 @@ async function deliverOrGuide(a, id) {
 }
 
 // ── 家で郵便受けを見る(開いたとき・戻ってきたとき)。開けたら消す ──
-let checking = false, queue = [];
+let checking = false, again = false, queue = [];
 async function checkBox() {
-  if (!isHome() || checking) return;
+  if (!isHome()) return;
   const key = readKey(); if (!key) return;
+  if (checking) { again = true; return; } // 見ている最中に戻ってきたら、終わってからもう一度
   checking = true;
   try {
     // 「家がある」の印(中身は無い)。30日ごとに置き直す(日限を延ばす)
@@ -1112,7 +1113,7 @@ async function checkBox() {
     queue = await yubinPeek(key);
     await nextFromBox(key);
   } catch { /* 電波が無いときは、次に開いたとき */ }
-  finally { checking = false; }
+  finally { checking = false; if (again) { again = false; checkBox(); } }
 }
 async function nextFromBox(key) {
   while (queue.length) {
