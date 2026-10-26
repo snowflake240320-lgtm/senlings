@@ -34,6 +34,13 @@ test('columns follow the template header; sample company info and sample rows ar
   // あなたのこと(10-26):会社・住所・電話・取引先コードは請求書の頭へ
   const wb2 = template(); const ws2 = wb2.Sheets[DATA_SHEET]; fillInvoiceWorkbook(XLSX, wb2, ctx({ company: '架空工業', address: '〒000-0000 架空市1-1', phone: '090-1111-2222', clientCode: '12345' }));
   assert.equal(ws2.F6.v, '架空工業'); assert.equal(ws2.F2.v, '〒000-0000 架空市1-1'); assert.equal(ws2.K4.v, '090-1111-2222'); assert.equal(ws2.K2.v, '12345');
+  // 請求先(10-26):合計請求書の宛先と、担当者の列
+  const wb3 = template(); wb3.Sheets['合計請求書'] = { B3: { v: '〒111-0035' }, B4: { v: '東京都台東区西浅草1-7-4' }, B5: { v: '株式会社藤田建装　御中' } };
+  fillInvoiceWorkbook(XLSX, wb3, ctx({ billing: { postal: '〒000-0000', address: '架空市2-2', company: '架空建装', honorific: '架空建装　御中', person: '架空の田中' } }));
+  assert.equal(wb3.Sheets['合計請求書'].B3.v, '〒000-0000'); assert.equal(wb3.Sheets['合計請求書'].B4.v, '架空市2-2'); assert.equal(wb3.Sheets['合計請求書'].B5.v, '架空建装　御中');
+  assert.equal(wb3.Sheets[DATA_SHEET].G15.v, '架空の田中', 'the 請求先 person goes in the contact column');
+  const wb4 = template(); wb4.Sheets['合計請求書'] = { B5: { v: '株式会社藤田建装　御中' } }; fillInvoiceWorkbook(XLSX, wb4, ctx());
+  assert.equal(wb4.Sheets['合計請求書'].B5.v, '株式会社藤田建装　御中', 'no 請求先 → the template stays'); assert.equal(wb4.Sheets[DATA_SHEET].G15.v, '架空担当');
   assert.equal(ws.B15.v, '001', 'serial number kept');
   assert.deepEqual(['C15', 'D15', 'E15', 'F15', 'G15', 'H15', 'I15', 'J15', 'K15', 'L15', 'M15'].map(a => ws[a].v),
     [2026, 12, 26, '架空の職人', '架空担当', '2026-0001-01', 'M1070 架空の店', '明細書1参照', 1, '式', 500000]);

@@ -35,11 +35,14 @@ const timestamp = value => typeof value === "number" && Number.isFinite(value) &
 // Missing collections are supported for older saves. Never repair present invalid values.
 function safeShape(data) {
   if (!record(data)) return false;
-  for (const key of [...Object.keys(DEFAULT_STATE), 'local_records', 'handoff_receipts', 'tsunagi']) {
+  for (const key of [...Object.keys(DEFAULT_STATE), 'local_records', 'handoff_receipts', 'tsunagi', 'seikyusaki']) {
     if (Object.hasOwn(data, key) && (!Array.isArray(data[key]) || !data[key].every(record))) return false;
   }
   for (const r of data.local_records ?? []) {
     if (typeof r.id !== 'string' || typeof r.project_id !== 'string' || !['memo', 'sos'].includes(r.kind) || typeof r.text !== 'string' || !timestamp(r.created_at)) return false;
+  }
+  for (const r of data.seikyusaki ?? []) {
+    if (typeof r.id !== 'string' || typeof r.company !== 'string' || ['address', 'person', 'phone', 'email', 'line'].some(k => r[k] != null && typeof r[k] !== 'string')) return false;
   }
   for (const r of data.tsunagi ?? []) {
     if (typeof r.id !== 'string' || typeof r.site_name !== 'string' || typeof r.to !== 'string' || typeof r.text !== 'string' || !timestamp(r.created_at)) return false;
@@ -50,7 +53,7 @@ function safeShape(data) {
   }
   if (data.settings != null && (!record(data.settings) || Object.values(data.settings).some(v => v !== null && typeof v !== 'string'))) return false;
   const stringFields = {
-    projects: ['project_id', 'project_slug', 'address', 'project_code', 'site_contact_id', 'start_date'],
+    projects: ['project_id', 'project_slug', 'address', 'project_code', 'site_contact_id', 'start_date', 'seikyusaki_id'],
     contacts: ['contact_id', 'name', 'role', 'phone', 'company'],
     work_sessions: ['id', 'project_id'],
     expenses: ['id', 'project_id', 'expense_date', 'category', 'memo'],

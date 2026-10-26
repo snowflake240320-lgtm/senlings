@@ -10,7 +10,8 @@ import { generateSnapshot, UnconfirmedExpenseError } from './src/pwa/invoice.js'
 import { setClaimStatus } from './src/pwa/expense.js';
 import { exportInvoiceToExcel } from './src/pwa/invoiceExport.js';
 
-import { receiveProject, giveProject, writeMemo, takePhoto, reviewRecords, editSettings, editMe, showContact, sosText, copyText, exportText } from './src/pwa/localFeaturesUI.js';
+import { receiveProject, giveProject, writeMemo, takePhoto, reviewRecords, editSettings, editMe, editSeikyusaki, showContact, sosText, copyText, exportText } from './src/pwa/localFeaturesUI.js';
+import { seikyusakiOf } from './src/pwa/seikyusaki.js';
 import { saveLocalRecord, contactPhone } from './src/pwa/localRecords.js';
 import { openPon, openKon, openKero, openHoo, ponDeductionFor } from './src/pwa/nakamaUI.js';
 import { HOO_TRADES, readNakama, setTrades } from './src/pwa/nakama.js';
@@ -214,6 +215,7 @@ function goToHandover(project) {
   document.getElementById('btn-give-property').onclick = () => giveProject(project);
   document.getElementById('btn-request-help').onclick = () => openOuen(project);
   document.getElementById('btn-project-contact').onclick = () => showContact(project);
+  renderSeikyusakiButton(project);
   renderHandoverTeiji(project);
   const todayBtn = document.getElementById('btn-today');
   const placed = teijiOn(load(), todayStr());
@@ -225,6 +227,15 @@ function goToHandover(project) {
     goToWorking(project);
   };
   showScreen('screen-handover');
+}
+
+// 請求先(10-26):現場ごとに一つ。決まっていれば会社名を見せる
+function renderSeikyusakiButton(project) {
+  const b = document.getElementById('btn-seikyusaki');
+  const fresh = (load().projects ?? []).find(p => p.project_id === project.project_id) ?? project;
+  const s = seikyusakiOf(fresh);
+  b.textContent = s ? `請求先:${s.company}` : '請求先を決める';
+  b.onclick = () => editSeikyusaki(fresh, () => renderSeikyusakiButton(project));
 }
 
 // 現場の定時(現場の決まり。無ければ 8:00〜17:00)。直すのは、決まりが違うときだけ。
@@ -726,11 +737,22 @@ function renderHome() {
   const displayEl   = document.getElementById('invoice-display');
   const skipBtn     = document.getElementById('btn-invoice-skip-expense');
   const excelBtn    = document.getElementById('btn-invoice-excel');
+  const seikyuBtn   = document.getElementById('btn-invoice-seikyusaki');
+  const seikyuLabel = document.getElementById('invoice-seikyusaki-label');
+  // 請求先(10-26):たたき台の下に、この現場の請求先。無ければ決めてから書き出す
+  const renderSeikyu = () => {
+    const proj = (getAllData().projects ?? []).find(p => p.project_id === invoiceCtx?.project_id);
+    const s = proj ? seikyusakiOf(proj) : null;
+    seikyuLabel.textContent = s ? `請求先:${s.company}${s.person ? ` / ${s.person}` : ''}` : '請求先を決める(宛先が空のまま出ます)';
+    seikyuBtn.style.display = 'flex';
+    seikyuBtn.onclick = () => { if (proj) editSeikyusaki(proj, renderSeikyu); };
+  };
 
   // 画面を開くたびリセット
   resultArea.style.display  = 'none';
   skipBtn.style.display     = 'none';
   excelBtn.style.display    = 'none';
+  seikyuBtn.style.display   = 'none';
   displayEl.innerHTML       = '';
   displayEl.className       = 'invoice-display';
 
@@ -758,6 +780,7 @@ function renderHome() {
           <p class="later-note">ポンの内訳から。Excel にも一行で載り、内訳は別紙「立替内訳」に入ります。</p>`);
       }
       excelBtn.style.display = 'flex';
+      renderSeikyu();
     } catch (err) {
       if (err instanceof UnconfirmedExpenseError) {
         displayEl.className = 'invoice-display invoice-display--warn';

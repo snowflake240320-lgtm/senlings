@@ -383,6 +383,27 @@ async function inject(page, mode) {
     assert.match(await other.page.locator('#reply-greet').inputValue(),/よろしくお願いします。\n\n受け工業\n受ける人\n080-0000-0000$/);
     assert.deepEqual(other.page.errors,[]);await other.context.close();
   });
+  await run('seikyusaki: a site gets one 請求先 from the book (or a new one); the invoice draft shows it; the book is kept on the phone', async () => {
+    const d=fixture();d.work_sessions=[{id:'w',project_id:'p',check_in_at:Date.now()-3600000,check_out_at:Date.now(),break_minutes:0}];
+    const {page,context}=await setup(JSON.stringify(d));await ready(page);
+    await click(page,'.site-card');assert.equal(await page.locator('#btn-seikyusaki').innerText(),'請求先を決める');
+    await click(page,'#btn-seikyusaki');assert.equal(await page.locator('#seikyusaki-pick').count(),0,'empty book: no picker yet');
+    await page.locator('#seikyusaki-company').fill('株式会社 架空建装');await page.locator('#seikyusaki-address').fill('〒111-0035 東京都台東区西浅草1-7-4');await page.locator('#seikyusaki-person').fill('架空の田中');await page.locator('#seikyusaki-email').fill('t@example.test');
+    assert.equal(await page.locator('#seikyusaki-preview').innerText(),'〒111-0035\n東京都台東区西浅草1-7-4\n株式会社 架空建装　御中\n担当:架空の田中');
+    await click(page,'#seikyusaki-save');assert.match(await page.locator('#local-dialog [role=status]').innerText(),/架空建装 を、この現場の請求先にしました/);
+    await click(page,'#local-dialog .local-close');assert.equal(await page.locator('#btn-seikyusaki').innerText(),'請求先:株式会社 架空建装');
+    let s=JSON.parse((await stats(page)).raw);assert.equal(s.seikyusaki.length,1);assert.equal(s.projects[0].seikyusaki_id,s.seikyusaki[0].id);
+    // たたき台の下にも出る。変えるときはそこから
+    await click(page,'[data-tab="home"]');await click(page,'#btn-shimai-invoice');await click(page,'#btn-invoice-skip-expense');await page.locator('.invoice-card-title').waitFor();
+    assert.equal(await page.locator('#invoice-seikyusaki-label').innerText(),'請求先:株式会社 架空建装 / 架空の田中');
+    await click(page,'#btn-invoice-seikyusaki');assert.equal(await page.locator('#seikyusaki-pick').inputValue(),s.seikyusaki[0].id,'the book now has one, and it is selected');
+    await page.locator('#seikyusaki-person').fill('架空の佐藤');await click(page,'#seikyusaki-save');await click(page,'#local-dialog .local-close');
+    s=JSON.parse((await stats(page)).raw);assert.equal(s.seikyusaki.length,1,'same company → the same page in the book, corrected');assert.equal(s.seikyusaki[0].person,'架空の佐藤');
+    assert.equal(await page.locator('#invoice-seikyusaki-label').innerText(),'請求先:株式会社 架空建装 / 架空の佐藤');
+    await click(page,'#btn-invoice-seikyusaki');await click(page,'#seikyusaki-clear');await click(page,'#local-dialog .local-close');
+    assert.match(await page.locator('#invoice-seikyusaki-label').innerText(),/^請求先を決める/);s=JSON.parse((await stats(page)).raw);assert.equal(s.seikyusaki.length,1,'the book keeps it');assert.equal(s.projects[0].seikyusaki_id,null);
+    assert.deepEqual(page.errors,[]);await context.close();
+  });
   await run('shirase: 遅れます with the Google Maps arrival (+10, by 5) and 事故渋滞; writes nothing; SMS and tel go to the site contact', async () => {
     const {page,context}=await setup(JSON.stringify(withContact()));await ready(page);await stubShare(page);await working(page);
     const before=await stats(page);

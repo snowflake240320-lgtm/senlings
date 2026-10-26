@@ -7,6 +7,7 @@ import { saveLocalRecord, contactPhone, SOS_LABELS, saveTsunagi, listTsunagi } f
 import { savePhotoMeta, buildPhotoFilename } from './photo.js';
 import { SETTINGS_KEYS, getAllSettings, saveSettingsFromForm, getSetting, signatureLines, signatureText } from './settings.js';
 import { readNakama, HOO_TRADES } from './nakama.js';
+import { SEIKYUSAKI_FIELDS, listSeikyusaki, saveSeikyusaki, setProjectSeikyusaki, seikyusakiOf, billingBlock } from './seikyusaki.js';
 
 const $ = (tag, text, attrs = {}) => Object.assign(document.createElement(tag), { textContent: text, ...attrs });
 let dialog;
@@ -425,4 +426,60 @@ export function editSettings() {
     try { saveSettingsFromForm(Object.fromEntries(Object.entries(fields).map(([key, input]) => [key, input.value]))); message.textContent = '保存しました。'; }
     catch (error) { message.textContent = error.message; }
   }, 'settings-save');
+}
+
+// 請求先(10-26 船長)。現場ごとに一つ。同じ元請けは帳面から選ぶ。名刺の読み取りは、まだ。
+export function editSeikyusaki(project, onDone = () => {}, { draft = null } = {}) {
+  const box = panel('請求先');
+  const fresh = (load().projects ?? []).find(p => p.project_id === project.project_id) ?? project;
+  const current = seikyusakiOf(fresh);
+  paragraph(box, `${fresh.project_slug} の請求先。請求書の宛先(〒・住所・会社名 御中)と担当者の欄に載ります。この端末にだけ残します。`);
+  const message = status(box);
+  const all = listSeikyusaki();
+  // 帳面から選ぶ
+  if (all.length) {
+    const sel = $('select', '', { id: 'seikyusaki-pick' });
+    sel.append($('option', '(帳面から選ぶ)', { value: '' }));
+    for (const s of all) sel.append($('option', `${s.company}${s.person ? ` / ${s.person}` : ''}`, { value: s.id }));
+    if (current) sel.value = current.id;
+    const w = $('label', '帳面にある請求先'); w.append(sel); box.append(w);
+    sel.onchange = () => { const s = all.find(x => x.id === sel.value); if (s) fill(s); };
+  }
+  // 入れる・直す
+  const fields = {};
+  const form = $('div', '', { className: 'request-form' });
+  for (const [key, label] of SEIKYUSAKI_FIELDS) {
+    const attrs = { maxLength: 300, id: `seikyusaki-${key}` };
+    if (key === 'phone') { attrs.type = 'tel'; attrs.inputMode = 'tel'; }
+    if (key === 'email') { attrs.type = 'email'; attrs.inputMode = 'email'; }
+    fields[key] = field(form, label, 'input', attrs);
+  }
+  box.append(form);
+  let editingId = null;
+  const fill = s => { editingId = s?.id ?? null; for (const [key] of SEIKYUSAKI_FIELDS) fields[key].value = s?.[key] ?? ''; };
+  fill(current ?? draft);
+  form.addEventListener('input', () => { /* 直しながら選び直したら、新しい一枚になる */ });
+  const preview = $('pre', '', { className: 'request-preview', id: 'seikyusaki-preview' });
+  const show = () => {
+    const b = billingBlock({ company: fields.company.value, address: fields.address.value, person: fields.person.value });
+    preview.textContent = fields.company.value.trim() ? [b.postal, b.address, b.honorific, b.person ? `担当:${b.person}` : ''].filter(Boolean).join('\n') : '(会社名を入れると、宛先の形が出ます)';
+  };
+  form.addEventListener('input', show); show();
+  box.append($('p', '請求書の宛先', { className: 'homescreen-label' }), preview);
+  action(box, 'この現場の請求先にする', () => {
+    try {
+      const input = Object.fromEntries(SEIKYUSAKI_FIELDS.map(([k]) => [k, fields[k].value]));
+      // 帳面の一枚を直したときは同じ一枚を直す。会社名が変わっていたら新しい一枚
+      const base = editingId ? all.find(x => x.id === editingId) : null;
+      const saved = saveSeikyusaki(base && base.company === input.company.trim() ? { id: base.id, ...input } : input);
+      setProjectSeikyusaki(fresh.project_id, saved.id);
+      message.textContent = `${saved.company} を、この現場の請求先にしました。`;
+      onDone(saved);
+    } catch (e) { message.textContent = e.message; }
+  }, 'seikyusaki-save');
+  if (current) action(box, 'この現場の請求先を外す', () => {
+    try { setProjectSeikyusaki(fresh.project_id, null); message.textContent = '外しました(帳面には残ります)。'; onDone(null); }
+    catch (e) { message.textContent = e.message; }
+  }, 'seikyusaki-clear');
+  return box;
 }

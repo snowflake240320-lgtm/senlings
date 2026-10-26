@@ -17,6 +17,7 @@ import { load } from "./storage.js";
 import { monthlySummary, overtimePay, formatMinutes } from "./work.js";
 import { monthlyExpenseSummary } from "./expenseQuery.js";
 import { getSetting, SETTINGS_KEYS } from './settings.js';
+import { seikyusakiOf, billingBlock } from './seikyusaki.js';
 import { ClaimStatus } from "./expense.js";
 import { ponRows, ponTotal, ponLedgerRows } from "./nakama.js";
 
@@ -59,6 +60,12 @@ export function fillInvoiceWorkbook(XLSX, wb, ctx) {
   put(10, 4, ctx.phone || null);                    // K4 電話番号
   put(5, 6, ctx.company || ctx.userName || null);   // F6 会社名(無ければ名前)
   put(10, 6, ctx.registration || null);             // K6 登録番号
+  // 請求先(10-26):合計請求書の宛先(〒・住所・会社名 御中)。無ければテンプレートのまま
+  const sum = wb.Sheets['合計請求書'];
+  if (ctx.billing && sum) {
+    const w = (a, v) => { if (v) sum[a] = { v, t: 's' }; else delete sum[a]; };
+    w('B3', ctx.billing.postal); w('B4', ctx.billing.address); w('B5', ctx.billing.honorific);
+  }
   put(5, 10, `${ctx.year}${String(ctx.month).padStart(2, '0')}`); // F10 請求年月(YYYYMM)
   ws['O11'] = { v: ctx.taxRate, t: 'n' };           // O11 消費税率
 
@@ -67,7 +74,7 @@ export function fillInvoiceWorkbook(XLSX, wb, ctx) {
 
   const line = (r, detail, price) => {
     put(COL.year, r, ctx.year); put(COL.month, r, ctx.month); put(COL.day, r, ctx.completionDay);
-    put(COL.user, r, ctx.userName); put(COL.contact, r, ctx.contactName);
+    put(COL.user, r, ctx.userName); put(COL.contact, r, ctx.billing?.person || ctx.contactName);
     put(COL.code, r, ctx.projectCode); put(COL.name, r, ctx.projectName);
     put(COL.detail, r, detail); put(COL.qty, r, 1); put(COL.unit, r, '式'); put(COL.price, r, price);
     // 式は残し、開いた直後にも正しい値が見えるように計算済みの値も置く
@@ -158,6 +165,7 @@ export async function exportInvoiceToExcel({ project_id, year, month }) {
     address: getSetting(SETTINGS_KEYS.ADDRESS) ?? "",
     phone: getSetting(SETTINGS_KEYS.PHONE) ?? "",
     clientCode: getSetting(SETTINGS_KEYS.CLIENT_CODE) ?? "",
+    billing: billingBlock(seikyusakiOf(project, data)),
     registration: getSetting(SETTINGS_KEYS.REGISTRATED_NUMBER) ?? "",
     contactName: contact?.name ?? "",
     projectCode: project.project_code ?? "",
