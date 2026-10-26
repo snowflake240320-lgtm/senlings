@@ -1,9 +1,9 @@
 import { load } from './storage.js';
 import { TRANSFER_FIELDS, makeTransfer, inspectTransfer, acceptTransfer } from './projectTransfer.js';
-import { findEnvelope, envelopeToTransfer, envelopeText, makeEnvelope, dayLabel, KINDS } from './envelope.js';
+import { findEnvelope, envelopeToTransfer, envelopeText, makeEnvelope, dayLabel, bodyOf, KINDS } from './envelope.js';
 import { placeTeiji, teijiOn, setProjectTeiji, teijiOf } from './work.js';
 import { openRequestDialog, siteFromProject, appLink, generalRules } from './requestUI.js';
-import { saveLocalRecord, contactPhone, SOS_LABELS } from './localRecords.js';
+import { saveLocalRecord, contactPhone, SOS_LABELS, saveTsunagi, listTsunagi } from './localRecords.js';
 import { savePhotoMeta, buildPhotoFilename } from './photo.js';
 import { SETTINGS_KEYS, getAllSettings, saveSettingsFromForm, getSetting } from './settings.js';
 import { readNakama, HOO_TRADES } from './nakama.js';
@@ -142,6 +142,20 @@ export function receiveProject(onSaved, { text: arrived = '', file: fileMode = f
         site: { ...env.site, revision: Math.max(env.site.revision, Math.floor(Date.now() / 1000)) } });
       reply('ほかの人へつなぐ', envelopeText(again, { link: appLink() }), 'pass',
         { note: me ? '' : '設定で呼び名を入れると、相手があなたに返事できます。' });
+      // 自分だけの控え(10-26 船長)。請求にも CSV にも入れない。相手には何も送らない
+      const keep = $('section', '', { className: 'tsunagi-keep', id: 'tsunagi-keep' });
+      keep.append($('h3', '自分だけの控え'));
+      paragraph(keep, 'だれに頼み直したか、この端末にだけ残します。請求には入れません。');
+      const to = field(keep, 'だれに(任意)', 'input', { maxLength: 200, id: 'tsunagi-to', placeholder: '例:架空の田中さん' });
+      const msg = status(keep);
+      const tid = `tsunagi:${env.id}:${env.site.revision}`;
+      const save = action(keep, '控えを残す', () => {
+        try {
+          saveTsunagi({ id: tid, site_name: env.site.name, work_date: env.work_date ?? '', to: to.value, text: bodyOf(envelopeText(again)) });
+          msg.textContent = `控えを残しました(${env.site.name}${to.value.trim() ? ` → ${to.value.trim()}` : ''})。`; save.disabled = true;
+        } catch (e) { msg.textContent = e.message; }
+      }, 'tsunagi-save');
+      after.append(keep);
     });
     pick('受けない', '見送ると返す(何も残さない)', 'decline', () =>
       reply('受けない', `${to}${day}${env.site.name} の件、ありがとうございます。今回は見送らせてください。また声をかけてもらえると嬉しいです。`, 'decline'));
@@ -326,6 +340,7 @@ export function reviewRecords() {
   const box = panel('自分の記録を見返す'), data = load();
   paragraph(box, '記録はこの端末にあります。渡したいものだけ、個別に書き出せます。');
   const records = [
+    ...listTsunagi().map(r => ({ ...r, kind: 'tsunagi', time: r.created_at, project_id: null, text: `${r.work_date ? `${dayLabel(r.work_date)} ` : ''}${r.site_name}${r.to ? ` → ${r.to}` : ''}\n${r.text}` })),
     ...(data.local_records ?? []).map(r => ({ ...r, kind: r.personal_note ? 'return' : r.kind, time: r.created_at })), // 帰りの一言も帰還の記録
     ...data.photos.filter(p => !p.deleted).map(p => ({ ...p, kind: 'photo', time: p.taken_at })),
     ...data.work_sessions.filter(s => s.personal_note).map(s => ({ ...s, kind: 'return', time: s.check_out_at, text: s.personal_note.text })),
@@ -333,8 +348,8 @@ export function reviewRecords() {
   if (!records.length) paragraph(box, 'メモ・写真・帰還時の記録はまだありません。');
   for (const record of records) {
     const card = $('section', '', { className: 'local-record' });
-    const name = data.projects.find(p => p.project_id === record.project_id)?.project_slug ?? record.project_id;
-    const kind = { memo: 'メモ', sos: 'SOS・送信未確認', photo: '写真', return: '帰還の記録' }[record.kind];
+    const name = record.kind === 'tsunagi' ? record.site_name : (data.projects.find(p => p.project_id === record.project_id)?.project_slug ?? record.project_id);
+    const kind = { memo: 'メモ', sos: 'SOS・送信未確認', photo: '写真', return: '帰還の記録', tsunagi: 'つないだ控え' }[record.kind];
     card.append($('h3', `${name} ／ ${kind}`), $('p', record.time ? new Date(record.time).toLocaleString('ja-JP') : '日時なし'));
     let content = record.text ?? record.atmosphere ?? '';
     if (record.personal_note) {

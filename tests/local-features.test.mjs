@@ -107,3 +107,17 @@ for (const base of ['../web/src/pwa/', '../src/pwa/']) {
     assert.equal(load().local_records.length, 1); assert.equal(load().local_records[0].text, '工夫'); assert.equal(load().current_session, null);
   });
 }
+
+// つないだ控え(10-26):自分だけ。請求にも CSV にも入らない
+import { saveTsunagi, listTsunagi } from '../web/src/pwa/localRecords.js';
+test('tsunagi: a private note of whom you passed a request to; same id keeps one; the guard accepts the shape', () => {
+  const m = storage();
+  const saved = saveTsunagi({ id: 'tsunagi:a:1', site_name: ' 架空の現場 ', work_date: '2026-12-02', to: '架空の田中', text: '【応援のお願い】自分より', created_at: 100 });
+  assert.deepEqual(saved, { id: 'tsunagi:a:1', site_name: '架空の現場', work_date: '2026-12-02', to: '架空の田中', text: '【応援のお願い】自分より', created_at: 100 });
+  saveTsunagi({ id: 'tsunagi:a:1', site_name: '別', to: '別', created_at: 200 });
+  assert.equal(listTsunagi().length, 1); assert.equal(listTsunagi()[0].to, '架空の田中');
+  assert.throws(() => saveTsunagi({ id: '', site_name: 'x' }), /控え/);
+  assert.throws(() => saveTsunagi({ id: 'b', site_name: '   ' }), /控え/);
+  assert.ok(JSON.parse(m.raw).tsunagi.length === 1);
+  void load;
+});

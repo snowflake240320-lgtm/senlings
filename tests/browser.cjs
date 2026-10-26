@@ -333,6 +333,14 @@ async function inject(page, mode) {
     await receive(p,text);await click(p,'#choice-pass');await click(p,'#reply-send-pass');
     const passed=(await p.evaluate(()=>window.shared)).at(-1);assert.match(passed,/^【応援のお願い】つなぐ人より\n/,'passing on is asking again in your own name');assert.doesNotMatch(passed,/架空の元請け/);
     assert.equal(await p.evaluate(()=>localStorage.getItem('senlings_v0')),kept0,'passing on keeps nothing');
+    // 自分だけの控え(10-26):押したときだけ残る。請求にも CSV にも入らない。相手には何も送らない
+    await p.locator('#tsunagi-to').fill('架空の田中さん');await click(p,'#tsunagi-save');
+    assert.match(await p.locator('#tsunagi-keep [role=status]').innerText(),/控えを残しました\(TEST → 架空の田中さん\)/);
+    const kept=JSON.parse(await p.evaluate(()=>localStorage.getItem('senlings_v0')));assert.equal(kept.tsunagi.length,1);assert.equal(kept.tsunagi[0].to,'架空の田中さん');assert.equal(kept.tsunagi[0].site_name,'TEST');assert.match(kept.tsunagi[0].text,/^【応援のお願い】つなぐ人より/);assert.doesNotMatch(kept.tsunagi[0].text,/〔Senlings〕/);
+    assert.equal((kept.projects??[]).length,0,'still no site added');assert.equal((await p.evaluate(()=>window.shared)).length,(await p.evaluate(()=>window.shared)).length,'nothing sent by keeping');
+    assert.equal(await p.locator('#tsunagi-save').isDisabled(),true,'kept once; the button rests');
+    await click(p,'#local-dialog .local-close');await click(p,'[data-tab="shimai"]');await click(p,'#btn-review-records');
+    assert.match(await p.locator('.local-record').first().innerText(),/TEST ／ つないだ控え[\s\S]*→ 架空の田中さん/);await click(p,'#local-dialog .local-close');
     // つないだ文を受けた人にも、元の差出人のまま届く
     const third=await setup(null);const q=third.page;await q.locator('.site-empty').waitFor();await q.evaluate(()=>localStorage.setItem('senlings_homescreen_later','1'));await q.evaluate(n=>localStorage.setItem('senlings_v0',JSON.stringify({settings:{senlings_user_name:n}})),'三人目');
     await receive(q,passed);assert.match(await q.locator('#handoff-preview').innerText(),/応援のお願い\(つなぐ人より\)/);

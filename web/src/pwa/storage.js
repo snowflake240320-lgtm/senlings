@@ -35,11 +35,14 @@ const timestamp = value => typeof value === "number" && Number.isFinite(value) &
 // Missing collections are supported for older saves. Never repair present invalid values.
 function safeShape(data) {
   if (!record(data)) return false;
-  for (const key of [...Object.keys(DEFAULT_STATE), 'local_records', 'handoff_receipts']) {
+  for (const key of [...Object.keys(DEFAULT_STATE), 'local_records', 'handoff_receipts', 'tsunagi']) {
     if (Object.hasOwn(data, key) && (!Array.isArray(data[key]) || !data[key].every(record))) return false;
   }
   for (const r of data.local_records ?? []) {
     if (typeof r.id !== 'string' || typeof r.project_id !== 'string' || !['memo', 'sos'].includes(r.kind) || typeof r.text !== 'string' || !timestamp(r.created_at)) return false;
+  }
+  for (const r of data.tsunagi ?? []) {
+    if (typeof r.id !== 'string' || typeof r.site_name !== 'string' || typeof r.to !== 'string' || typeof r.text !== 'string' || !timestamp(r.created_at)) return false;
   }
   for (const r of data.handoff_receipts ?? []) {
     if (typeof r.project_id !== 'string' || !timestamp(r.received_at) || typeof r.raw !== 'string' || !record(r.packet) ||

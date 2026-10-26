@@ -41,3 +41,23 @@ export function contactPhone(project) {
   const phone = value.replace(/[\s()-]/g, '');
   return /^\+?\d{6,15}$/.test(phone) ? phone : null;
 }
+
+// つないだ控え(10-26 船長「つなぐを考えたとき、請求書でなく、自分のための備忘録もほしい」)。
+// ほかの人へつないだとき、自分だけの控え。請求にも CSV にも入れない。相手には何も送らない。数えない。
+export function saveTsunagi({ id, site_name, work_date = '', to = '', text = '', created_at = Date.now() }) {
+  if (typeof id !== 'string' || !id || typeof site_name !== 'string' || !site_name.trim() || typeof to !== 'string' || to.length > 200 ||
+      typeof text !== 'string' || text.length > 20000 || typeof work_date !== 'string' || !Number.isFinite(created_at)) {
+    throw new Error('控えの内容を確認してください。');
+  }
+  let saved;
+  update(data => {
+    data.tsunagi ??= [];
+    saved = data.tsunagi.find(r => r.id === id);
+    if (saved) return data;
+    saved = { id, site_name: site_name.trim().slice(0, 200), work_date, to: to.trim(), text, created_at };
+    data.tsunagi.push(saved);
+    return data;
+  });
+  return saved;
+}
+export function listTsunagi() { return load().tsunagi ?? []; }
