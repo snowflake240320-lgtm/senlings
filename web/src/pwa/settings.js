@@ -3,7 +3,14 @@
 import { load, update } from './storage.js';
 
 export const SETTINGS_KEYS = {
+  // あなたのこと(10-26 船長:会社・住所・名前・電話・メール・LINE。郵送もメールもあるから)
+  COMPANY:               'senlings_company',
+  ADDRESS:               'senlings_address',
   USER_NAME:             'senlings_user_name',
+  PHONE:                 'senlings_phone',
+  EMAIL:                 'senlings_email',
+  LINE_ID:               'senlings_line',
+  CLIENT_CODE:           'senlings_client_code',
   WORK_UNIT_PRICE:       'senlings_work_unit_price',
   TAX_RATE:              'senlings_tax_rate',
   INVOICE_CLOSING_DAY:   'senlings_invoice_closing_day',
@@ -59,3 +66,16 @@ export function saveSettingsFromForm(formData) {
     return data;
   });
 }
+
+/**
+ * 署名(文の下に添える、自分のこと)。会社・名前・電話。空のものは出さない。
+ * LINE の文に添えるので短く。メールと住所は、要るところ(請求書・メール)でだけ使う。
+ */
+export function signatureLines({ email = false, address = false } = {}) {
+  const v = key => (getSetting(key) ?? '').toString().replace(/\s+/g, ' ').trim();
+  const lines = [v(SETTINGS_KEYS.COMPANY), v(SETTINGS_KEYS.USER_NAME), v(SETTINGS_KEYS.PHONE)];
+  if (email) lines.push(v(SETTINGS_KEYS.EMAIL));
+  if (address) lines.push(v(SETTINGS_KEYS.ADDRESS));
+  return lines.filter(Boolean);
+}
+export function signatureText(opts) { return signatureLines(opts).join('\n'); }

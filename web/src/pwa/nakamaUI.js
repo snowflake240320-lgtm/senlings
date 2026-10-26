@@ -19,7 +19,7 @@ function panel(title, id) {
   dialog.dataset.nakama = id;
   dialog.setAttribute('aria-label', title);
   const head = $('header'); const close = $('button', '閉じる', { className: 'local-close', type: 'button' });
-  close.onclick = () => dialog.close(); head.append($('h2', title), close);
+  close.onclick = () => { dialog.close(); dialog.remove(); }; head.append($('h2', title), close);
   dialog.append(head); document.body.append(dialog); dialog.showModal();
   return dialog;
 }

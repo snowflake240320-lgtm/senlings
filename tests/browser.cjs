@@ -367,6 +367,22 @@ async function inject(page, mode) {
   });
   // 知らせ・いざというとき(10-25):宛先はこの現場の担当。送るのは本人。何を送ったかは残さない
   const withContact = () => { const d = fixture(); d.projects[0].site_info = { contact: '架空の田中', contact_phone: '090-0000-0000' }; d.projects[0].address = '架空市1-1'; return d; };
+  await run('me: 会社・名前・電話 from あなたのこと become the signature under requests and notices; mail, address and LINE stay out of LINE texts', async () => {
+    const d=withContact();d.settings={senlings_company:'架空工業',senlings_user_name:'架空の職人',senlings_phone:'090-1111-2222',senlings_address:'架空市1-1',senlings_email:'a@example.test',senlings_line:'kakuu'};
+    const {page,context}=await setup(JSON.stringify(d));await ready(page);await stubShare(page);
+    await click(page,'.site-card');await click(page,'#btn-request-help');await click(page,'#req-make');await page.locator('#req-share:not([hidden])').waitFor();await click(page,'#req-share');
+    const text=(await page.evaluate(()=>window.shared))[0];
+    assert.match(text,/電話:090-0000-0000\n\n架空工業\n架空の職人\n090-1111-2222\n\nSenlings を使っている人は/,'the signature sits under the site block');
+    assert.doesNotMatch(text,/a@example|kakuu/);assert.equal((text.match(/架空市1-1/g)||[]).length,1,'the site address once; my own address is not in the signature');
+    await click(page,'#local-dialog .local-close');await click(page,'#btn-today');await page.locator('#screen-working.active').waitFor();await click(page,'#btn-shirase');await click(page,'#shirase-okure');await page.locator('#okure-at').fill('09:12');await click(page,'#okure-make');
+    assert.match(await page.locator('#okure-preview').innerText(),/着きます。\n架空工業\n架空の職人\n090-1111-2222$/);
+    await click(page,'#local-dialog .local-close');await context.close();
+    // 受けた側のあいさつにも、受けた人の署名
+    const other=await setup(JSON.stringify({projects:[],work_sessions:[],expenses:[],settings:{senlings_company:'受け工業',senlings_user_name:'受ける人',senlings_phone:'080-0000-0000'}}));await other.page.locator('.site-welcome').waitFor();
+    await receive(other.page,text);await click(other.page,'#choice-self');
+    assert.match(await other.page.locator('#reply-greet').inputValue(),/よろしくお願いします。\n\n受け工業\n受ける人\n080-0000-0000$/);
+    assert.deepEqual(other.page.errors,[]);await other.context.close();
+  });
   await run('shirase: 遅れます with the Google Maps arrival (+10, by 5) and 事故渋滞; writes nothing; SMS and tel go to the site contact', async () => {
     const {page,context}=await setup(JSON.stringify(withContact()));await ready(page);await stubShare(page);await working(page);
     const before=await stats(page);

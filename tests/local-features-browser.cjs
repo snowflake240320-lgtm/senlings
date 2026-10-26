@@ -128,10 +128,11 @@ async function preparePhoto() {
     assert.deepEqual(data.projects[0], fixture.projects[0]); assert.equal(await page.evaluate(() => localStorage.getItem('unrelated')), 'KEEP');
   });
   await run('settings failed save keeps exact bytes, successful save survives restart and JSON export', async () => {
-    await click('#btn-shimai-settings'); await page.locator('#setting-user_name').fill('架空の職人'); const before = await raw();
-    await inject(); await click('#settings-save'); await page.locator('#storage-error[open]').waitFor(); assert.equal(await raw(), before);
-    await retry(); await click('#settings-save'); await closeDialog(); await restart(); await click('[data-tab=home]'); await click('#btn-settings'); await click('#btn-shimai-settings');
-    assert.equal(await page.locator('#setting-user_name').inputValue(), '架空の職人'); await closeDialog();
+    await click('#btn-shimai-me'); /* あなたのこと(10-26):会社・住所・名前・電話・メール・LINE */ await page.locator('#setting-user_name').fill('架空の職人'); await page.locator('#setting-company').fill('架空工業'); await page.locator('#setting-phone').fill('090-1111-2222'); await page.locator('#setting-address').fill('架空市1-1'); const before = await raw();
+    await inject(); await click('#me-save'); await page.locator('#storage-error[open]').waitFor(); assert.equal(await raw(), before);
+    await retry(); await click('#me-save'); assert.equal(await page.locator('#me-sign').innerText(), '架空工業\n架空の職人\n090-1111-2222', 'the signature shows what will be added under messages'); await closeDialog(); await restart(); await click('[data-tab=home]'); await click('#btn-settings'); await click('#btn-shimai-me');
+    assert.equal(await page.locator('#setting-user_name').inputValue(), '架空の職人'); assert.equal(await page.locator('#setting-address').inputValue(), '架空市1-1'); await closeDialog();
+    await click('#btn-shimai-settings'); assert.equal(await page.locator('#setting-user_name').count(), 0, 'the name moved to あなたのこと'); await closeDialog();
     assert.equal(JSON.parse(await downloads('#btn-export-json-shimai')).settings.senlings_user_name, '架空の職人');
   });
   await run('320px and 390px screens and receive dialog fit without horizontal overflow', async () => {

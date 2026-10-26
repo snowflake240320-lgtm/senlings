@@ -2,7 +2,7 @@
 // Senlings 新UI メインJS
 
 import { completeSession, saveReturnNote, placeTeiji, removeTeiji, markOvertime, setOvertime, setProjectTeiji, teijiOn, teijiOf, formatTeiji, formatMinutes, localDate, addDays, sessionDate, overtimePay } from './src/pwa/work.js';
-import { getSetting, SETTINGS_KEYS } from './src/pwa/settings.js';
+import { getSetting, SETTINGS_KEYS, signatureLines, signatureText } from './src/pwa/settings.js';
 import { load, update } from './src/pwa/storage.js';
 import { exportAllDataAsJSON } from './src/pwa/export.js';
 import { exportMonthlyCSV, exportProjectCSV } from './src/pwa/csvExport.js';
@@ -10,7 +10,7 @@ import { generateSnapshot, UnconfirmedExpenseError } from './src/pwa/invoice.js'
 import { setClaimStatus } from './src/pwa/expense.js';
 import { exportInvoiceToExcel } from './src/pwa/invoiceExport.js';
 
-import { receiveProject, giveProject, writeMemo, takePhoto, reviewRecords, editSettings, showContact, sosText, copyText, exportText } from './src/pwa/localFeaturesUI.js';
+import { receiveProject, giveProject, writeMemo, takePhoto, reviewRecords, editSettings, editMe, showContact, sosText, copyText, exportText } from './src/pwa/localFeaturesUI.js';
 import { saveLocalRecord, contactPhone } from './src/pwa/localRecords.js';
 import { openPon, openKon, openKero, openHoo, ponDeductionFor } from './src/pwa/nakamaUI.js';
 import { HOO_TRADES, readNakama, setTrades } from './src/pwa/nakama.js';
@@ -342,6 +342,7 @@ function openShiraseFor(project) {
   const placedOn = date => teijiOn(load(), date)?.project_id === project.project_id;
   openShirase(fresh, {
     me: getSetting(SETTINGS_KEYS.USER_NAME) ?? '',
+    sign: signatureLines(),
     today: todayStr(),
     tomorrow: addDays(todayStr(), 1),
     phone: contactPhone(fresh),
@@ -350,7 +351,7 @@ function openShiraseFor(project) {
     onUndoYasumi: date => { placeTeiji(project.project_id, date); renderWorkingTime(project); },
     onKawari: date => {
       const f = (load().projects ?? []).find(p => p.project_id === project.project_id) ?? fresh;
-      openRequestDialog({ kind: 'ouen', from: getSetting(SETTINGS_KEYS.USER_NAME) ?? '', site: siteFromProject(f, teijiOf(f)), workDate: date });
+      openRequestDialog({ kind: 'ouen', from: getSetting(SETTINGS_KEYS.USER_NAME) ?? '', sign: signatureText(), site: siteFromProject(f, teijiOf(f)), workDate: date });
     },
   });
 }
@@ -413,7 +414,7 @@ function goToSos(project) {
   document.getElementById('btn-sos-send').disabled = true;
   renderSosOptions();
   // いざというとき:記録は残さない。すぐ開く
-  const kinkyu = kind => openKinkyu(kind, project, { me: getSetting(SETTINGS_KEYS.USER_NAME) ?? '', phone: contactPhone(project) });
+  const kinkyu = kind => openKinkyu(kind, project, { me: getSetting(SETTINGS_KEYS.USER_NAME) ?? '', sign: signatureLines(), phone: contactPhone(project) });
   document.getElementById('btn-kinkyu-taore').onclick = () => kinkyu('taore');
   document.getElementById('btn-kinkyu-kaji').onclick = () => kinkyu('kaji');
 
@@ -659,7 +660,7 @@ function openOuen(project) {
   const p = project ?? (placed && (data.projects ?? []).find(x => x.project_id === placed.project_id)) ?? null;
   const fresh = p && (data.projects ?? []).find(x => x.project_id === p.project_id);
   const day = placed && (!project || placed.project_id === project.project_id) ? placed.date : undefined;
-  openRequestDialog({ kind: 'ouen', from: getSetting(SETTINGS_KEYS.USER_NAME) ?? '', site: siteFromProject(fresh, fresh ? teijiOf(fresh) : null), workDate: day });
+  openRequestDialog({ kind: 'ouen', from: getSetting(SETTINGS_KEYS.USER_NAME) ?? '', sign: signatureText(), site: siteFromProject(fresh, fresh ? teijiOf(fresh) : null), workDate: day });
 }
 
 function renderHome() {
@@ -718,6 +719,7 @@ function renderHome() {
   document.getElementById('btn-shimai-settings').onclick = () => {
     editSettings();
   };
+  document.getElementById('btn-shimai-me').onclick = () => { editMe(); };
 
   // ── 請求書下書き ──────────────────────────────────────
   const resultArea  = document.getElementById('invoice-result-area');

@@ -52,9 +52,12 @@ export function fillInvoiceWorkbook(XLSX, wb, ctx) {
   const cell = (c, r) => XLSX.utils.encode_cell({ c, r: r - 1 });
   const put = (c, r, v) => { if (v === null || v === undefined || v === '') delete ws[cell(c, r)]; else ws[cell(c, r)] = { v, t: typeof v === 'number' ? 'n' : 's' }; };
 
-  // 見本の会社情報は空ける(請求する人の情報だけを残す)
+  // 見本の会社情報は空けて、請求する人のことを置く(10-26:会社・住所・電話は設定の「あなたのこと」から)
   for (const a of ['F2', 'K2', 'K4']) delete ws[a];
-  put(5, 6, ctx.userName || null);                  // F6 会社名(いまは設定のお名前)
+  put(5, 2, ctx.address || null);                   // F2 住所(郵送にも)
+  put(10, 2, ctx.clientCode || null);               // K2 取引先コード(元請けからもらった番号)
+  put(10, 4, ctx.phone || null);                    // K4 電話番号
+  put(5, 6, ctx.company || ctx.userName || null);   // F6 会社名(無ければ名前)
   put(10, 6, ctx.registration || null);             // K6 登録番号
   put(5, 10, `${ctx.year}${String(ctx.month).padStart(2, '0')}`); // F10 請求年月(YYYYMM)
   ws['O11'] = { v: ctx.taxRate, t: 'n' };           // O11 消費税率
@@ -151,6 +154,10 @@ export async function exportInvoiceToExcel({ project_id, year, month }) {
   fillInvoiceWorkbook(XLSX, wb, {
     year, month, completionDay,
     userName: getSetting(SETTINGS_KEYS.USER_NAME) ?? "",
+    company: getSetting(SETTINGS_KEYS.COMPANY) ?? "",
+    address: getSetting(SETTINGS_KEYS.ADDRESS) ?? "",
+    phone: getSetting(SETTINGS_KEYS.PHONE) ?? "",
+    clientCode: getSetting(SETTINGS_KEYS.CLIENT_CODE) ?? "",
     registration: getSetting(SETTINGS_KEYS.REGISTRATED_NUMBER) ?? "",
     contactName: contact?.name ?? "",
     projectCode: project.project_code ?? "",

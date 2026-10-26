@@ -104,3 +104,13 @@ test('link: too long falls back to the plain entrance; facility entrance carries
   assert.equal(readArrival(''), null);
   assert.equal(readArrival('#other'), null);
 });
+
+test('sign: the signature rides under the site block, after a blank line, and comes back through the text', () => {
+  const env = makeEnvelope({ kind: 'ouen', from: '架空の職人', date: '2026-12-01', work_date: '2026-12-02', note: '一言', sign: '架空工業\n架空の職人\nTEL:090-1111-2222\n\n■ いたずら\n五行目', site: { name: '架空の現場', start: '08:00', end: '17:00', address: '架空市1-1', contact_phone: '090-0000-0000' } });
+  assert.equal(env.sign, '架空工業\n架空の職人\nTEL:090-1111-2222\n■いたずら', 'blank lines dropped, ■ tamed, four lines at most');
+  const text = envelopeText(env);
+  assert.match(text, /電話:090-0000-0000\n\n架空工業\n架空の職人\nTEL:090-1111-2222\n■いたずら\n\nSenlings を使っている人は/);
+  assert.deepEqual(findEnvelope(`[LINE]\n${text}\n既読`), env, 'the signature line with a colon is not mistaken for a site field');
+  const plain = makeEnvelope({ kind: 'ouen', from: 'x', date: '2026-12-01', site: { name: 'y' } });
+  assert.equal(plain.sign, undefined); assert.doesNotMatch(envelopeText(plain), /\n\n\n/);
+});

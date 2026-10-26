@@ -29,8 +29,11 @@ test('columns follow the template header; sample company info and sample rows ar
   const out = fillInvoiceWorkbook(XLSX, wb, ctx());
   assert.equal(out.rows, 1);
   assert.equal(ws.C6.v, '※会社名', 'the label is not overwritten');
-  assert.equal(ws.F10.v, '202612'); assert.equal(ws.O11.v, 0.1); assert.equal(ws.F6.v, '架空の職人'); assert.equal(ws.K6.v, 'T0000000000000');
+  assert.equal(ws.F10.v, '202612'); assert.equal(ws.O11.v, 0.1); assert.equal(ws.F6.v, '架空の職人', 'no company → the name'); assert.equal(ws.K6.v, 'T0000000000000');
   for (const a of ['F2', 'K2', 'K4', 'I16', 'M16', 'I18']) assert.equal(ws[a], undefined, `${a} cleared`);
+  // あなたのこと(10-26):会社・住所・電話・取引先コードは請求書の頭へ
+  const wb2 = template(); const ws2 = wb2.Sheets[DATA_SHEET]; fillInvoiceWorkbook(XLSX, wb2, ctx({ company: '架空工業', address: '〒000-0000 架空市1-1', phone: '090-1111-2222', clientCode: '12345' }));
+  assert.equal(ws2.F6.v, '架空工業'); assert.equal(ws2.F2.v, '〒000-0000 架空市1-1'); assert.equal(ws2.K4.v, '090-1111-2222'); assert.equal(ws2.K2.v, '12345');
   assert.equal(ws.B15.v, '001', 'serial number kept');
   assert.deepEqual(['C15', 'D15', 'E15', 'F15', 'G15', 'H15', 'I15', 'J15', 'K15', 'L15', 'M15'].map(a => ws[a].v),
     [2026, 12, 26, '架空の職人', '架空担当', '2026-0001-01', 'M1070 架空の店', '明細書1参照', 1, '式', 500000]);

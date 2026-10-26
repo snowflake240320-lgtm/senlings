@@ -5,7 +5,7 @@ import { placeTeiji, teijiOn, setProjectTeiji, teijiOf } from './work.js';
 import { openRequestDialog, siteFromProject, appLink, generalRules } from './requestUI.js';
 import { saveLocalRecord, contactPhone, SOS_LABELS, saveTsunagi, listTsunagi } from './localRecords.js';
 import { savePhotoMeta, buildPhotoFilename } from './photo.js';
-import { SETTINGS_KEYS, getAllSettings, saveSettingsFromForm, getSetting } from './settings.js';
+import { SETTINGS_KEYS, getAllSettings, saveSettingsFromForm, getSetting, signatureLines, signatureText } from './settings.js';
 import { readNakama, HOO_TRADES } from './nakama.js';
 
 const $ = (tag, text, attrs = {}) => Object.assign(document.createElement(tag), { textContent: text, ...attrs });
@@ -16,7 +16,7 @@ function panel(title) {
   dialog.setAttribute('aria-label', title);
   const head = $('header'), heading = $('h2', title);
   const close = $('button', '閉じる', { className: 'local-close', type: 'button' });
-  close.onclick = () => dialog.close(); head.append(heading, close);
+  close.onclick = () => { dialog.close(); dialog.remove(); }; head.append(heading, close);
   dialog.append(head); document.body.append(dialog); dialog.showModal();
   return dialog;
 }
@@ -99,10 +99,12 @@ export function receiveProject(onSaved, { text: arrived = '', file: fileMode = f
   function greet(env, me) {
     let trades = '';
     try { trades = readNakama().trades.map(k => HOO_TRADES[k]?.label).filter(Boolean).join('・'); } catch { trades = ''; }
-    const lines = [`${env.from ? `${env.from}さん` : 'ご担当の方'}`,
+    const sign = signatureLines();
+    const main = [`${env.from ? `${env.from}さん` : 'ご担当の方'}`,
       `${me ? `${me}です。` : ''}${trades ? `${trades}をやっています。` : ''}`.trim(),
       `${env.work_date ? `${dayLabel(env.work_date)}、` : ''}${env.site.name}、伺います。`,
       '当日は、どうぞよろしくお願いします。'].filter(Boolean);
+    const lines = sign.length ? [...main, '', ...sign] : main; // 署名は、空の一行をはさんで下に
     reply('頼んでくれた人へ、あいさつ', lines.join('\n'), 'greet', { keep: true, note: `受けたことを、${env.from ? `${env.from}さん` : '頼んでくれた人'}へ伝えます。このやりとりが、そのまま「この現場に呼ばれた」しるしになります。` });
   }
   function renderChoices() {
@@ -112,6 +114,7 @@ export function receiveProject(onSaved, { text: arrived = '', file: fileMode = f
     const env = envelope, me = getSetting(SETTINGS_KEYS.USER_NAME) ?? '';
     const day = env.work_date ? `${dayLabel(env.work_date)} の` : '';
     const to = env.from ? `${env.from}さん\n` : '';
+    const tail = signatureLines().length ? `\n\n${signatureText()}` : '';
     choices.append($('p', 'どうしますか。選ぶまで、何も残しません。', { className: 'request-choices-lead' }));
     const pick = (text, sub, id, fn) => {
       const b = $('button', '', { type: 'button', className: 'request-choice', id: `choice-${id}` });
@@ -132,13 +135,13 @@ export function receiveProject(onSaved, { text: arrived = '', file: fileMode = f
       if (env.work_date) offerDay(r.project_id, env.work_date, { keep: true });
       const project = load().projects.find(p => p.project_id === r.project_id);
       action(after, '手伝ってくれる人に声をかける(応援を呼ぶ)', () =>
-        openRequestDialog({ kind: 'ouen', from: me, site: siteFromProject(project, teijiOf(project)), workDate: env.work_date }), 'handoff-ouen');
+        openRequestDialog({ kind: 'ouen', from: me, sign: signatureText(), site: siteFromProject(project, teijiOf(project)), workDate: env.work_date }), 'handoff-ouen');
     });
     pick('時期を調整する', 'その日は難しいと返す(現場は加えない)', 'later', () =>
-      reply('時期を調整する', `${to}${day}${env.site.name} の件、ありがとうございます。その日は難しいです。\n○/○ からなら行けます。`, 'later'));
+      reply('時期を調整する', `${to}${day}${env.site.name} の件、ありがとうございます。その日は難しいです。\n○/○ からなら行けます。${tail}`, 'later'));
     // つなぐ=自分の名前で頼み直す。受けた人の依頼主はあなたになり、あいさつも返事もあなたへ届く(越えない)
     pick('ほかの人へつなぐ', 'あなたの名前で、ほかの人に頼み直す', 'pass', () => {
-      const again = makeEnvelope({ kind: 'ouen', from: me, date: env.date, work_date: env.work_date ?? '', note: env.note ?? '',
+      const again = makeEnvelope({ kind: 'ouen', from: me, date: env.date, work_date: env.work_date ?? '', note: env.note ?? '', sign: signatureText(),
         site: { ...env.site, revision: Math.max(env.site.revision, Math.floor(Date.now() / 1000)) } });
       reply('ほかの人へつなぐ', envelopeText(again, { link: appLink() }), 'pass',
         { note: me ? '' : '設定で呼び名を入れると、相手があなたに返事できます。' });
@@ -158,7 +161,7 @@ export function receiveProject(onSaved, { text: arrived = '', file: fileMode = f
       after.append(keep);
     });
     pick('受けない', '見送ると返す(何も残さない)', 'decline', () =>
-      reply('受けない', `${to}${day}${env.site.name} の件、ありがとうございます。今回は見送らせてください。また声をかけてもらえると嬉しいです。`, 'decline'));
+      reply('受けない', `${to}${day}${env.site.name} の件、ありがとうございます。今回は見送らせてください。また声をかけてもらえると嬉しいです。${tail}`, 'decline'));
     if (detail) choices.append(detail);
     choices.append(generalRules());
   }
@@ -377,18 +380,43 @@ export function showContact(project) {
   if (phone) box.append($('a', `電話する：${phone}`, { href: `tel:${phone}`, className: 'local-action' }));
 }
 
+// あなたのこと(10-26 船長:会社・住所・名前・電話・メール・LINE。郵送もメールもあるから)。
+// 署名(会社・名前・電話)は、依頼・あいさつ・知らせの文の下に添える。請求書には会社・住所・電話も載る。
+export function editMe() {
+  const box = panel('あなたのこと'), settings = getAllSettings(), fields = {};
+  paragraph(box, 'この端末にだけ残します。会社・名前・電話は、送る文の下に署名として付きます。会社・住所・電話は請求書に載ります。');
+  const add = (name, label, attrs = {}) => {
+    const key = SETTINGS_KEYS[name];
+    fields[key] = field(box, label, 'input', { value: settings[key] ?? '', maxLength: 500, id: `setting-${name.toLowerCase()}`, ...attrs });
+  };
+  add('COMPANY', '会社(屋号)', { autocomplete: 'organization' });
+  add('ADDRESS', '住所(郵送に使います)', { autocomplete: 'street-address' });
+  add('USER_NAME', '名前', { autocomplete: 'name' });
+  add('PHONE', '電話', { type: 'tel', inputMode: 'tel', autocomplete: 'tel' });
+  add('EMAIL', 'メール', { type: 'email', inputMode: 'email', autocomplete: 'email' });
+  add('LINE_ID', 'LINE(ID か、LINE の名前)');
+  const preview = $('pre', '', { className: 'request-preview', id: 'me-sign' });
+  const show = () => { const s = signatureLines(); preview.textContent = s.length ? s.join('\n') : '(会社・名前・電話を入れると、ここに署名が出ます)'; };
+  box.append($('p', '署名(文の下に付きます)', { className: 'homescreen-label' }), preview); show();
+  const message = status(box);
+  action(box, '保存する', () => {
+    try { saveSettingsFromForm(Object.fromEntries(Object.entries(fields).map(([key, input]) => [key, input.value]))); message.textContent = '保存しました。'; show(); }
+    catch (error) { message.textContent = error.message; }
+  }, 'me-save');
+}
+
 export function editSettings() {
-  const box = panel('請求書・口座設定'), settings = getAllSettings(), fields = {};
-  paragraph(box, 'この端末の設定として保存します。保存済みの請求書下書きは変更しません。');
+  const box = panel('単価・税率・口座'), settings = getAllSettings(), fields = {};
+  paragraph(box, 'この端末の設定として保存します。保存済みの請求書下書きは変更しません。名前・会社・住所は「あなたのこと」で。');
   const add = (parent, name, label) => {
     const key = SETTINGS_KEYS[name];
     fields[key] = field(parent, label, 'input', { value: settings[key] ?? '', maxLength: 500, id: `setting-${name.toLowerCase()}` });
   };
-  // 今回使う口は三つ(Excel・CSVに出る)。口座・登録番号は保管のみなので畳んでおく。旧UIで入れた値は読める。
-  for (const [name, label] of [['USER_NAME', 'お名前（請求書に出ます）'], ['WORK_UNIT_PRICE', '1人工の単価（円）'], ['TAX_RATE', '税率（例：0.10）']]) add(box, name, label);
+  // 今回使う口は二つ(Excel・CSVに出る)。登録番号・取引先コードは請求書に載る。口座は保管のみなので畳んでおく。旧UIで入れた値は読める。
+  for (const [name, label] of [['WORK_UNIT_PRICE', '1人工の単価（円）'], ['TAX_RATE', '税率（例：0.10）']]) add(box, name, label);
   const more = $('details', '', { className: 'add-site-more', id: 'settings-more' });
-  more.append($('summary', '口座・登録番号も入れる（保管のみ）'));
-  for (const [name, label] of [['REGISTRATED_NUMBER', '登録番号'], ['BANK_NAME', '銀行名'], ['BANK_BRANCH', '支店名'],
+  more.append($('summary', '登録番号・取引先コード・口座も入れる'));
+  for (const [name, label] of [['REGISTRATED_NUMBER', '登録番号(請求書に載ります)'], ['CLIENT_CODE', '取引先コード(請求書に載ります。元請けからもらった番号)'], ['BANK_NAME', '銀行名'], ['BANK_BRANCH', '支店名'],
     ['BANK_ACCOUNT_TYPE', '口座種別'], ['BANK_ACCOUNT_NUMBER', '口座番号'], ['BANK_ACCOUNT_HOLDER', '口座名義']]) add(more, name, label);
   paragraph(more, '口座情報はこの端末での保管用です。いまのExcelテンプレートには自動では載りません。');
   box.append(more);

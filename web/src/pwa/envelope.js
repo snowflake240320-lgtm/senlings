@@ -37,13 +37,17 @@ export function fnv(text) {
   return h.toString(36);
 }
 
+// 署名(会社・名前・電話):文の下に添える。四行まで。空の行と「■ 」で始まる行は詰める
+function signLines(sign) {
+  return (sign ?? '').toString().replace(/\r\n?/g, '\n').split('\n').map(l => l.trim().replace(/^■\s+/, '■')).filter(Boolean).slice(0, 4).join('\n').slice(0, 300);
+}
 // 一言は何行でもいい。ただ、空の行と「■ 」で始まる行は、文の区切りと紛れるので詰める
 function noteLines(note) {
   return (note ?? '').toString().replace(/\r\n?/g, '\n').split('\n').map(l => l.trim().replace(/^■\s+/, '■')).filter(Boolean).join('\n').slice(0, 2000);
 }
 
 /** 封筒を作る。空の項目は入れない。形が合わなければ止める。 */
-export function makeEnvelope({ kind, from, to = '', date, work_date = '', note = '', site = {}, id = shortId() } = {}) {
+export function makeEnvelope({ kind, from, to = '', date, work_date = '', note = '', sign = '', site = {}, id = shortId() } = {}) {
   const name = oneLine(site.name, 200);
   const s = {
     source_id: oneLine(site.source_id, 200) || `n${fnv(name)}`,
@@ -53,8 +57,8 @@ export function makeEnvelope({ kind, from, to = '', date, work_date = '', note =
   if (site.start || site.end) { s.start = oneLine(site.start, 5); s.end = oneLine(site.end, 5); }
   for (const [key] of SITE_FIELDS) { const v = oneLine(site[key], 2000); if (v) s[key] = v; }
   const env = { format: ENVELOPE_FORMAT, v: 1, id: oneLine(id, 100), kind, from: oneLine(from, 100), to: oneLine(to, 100),
-    date: oneLine(date, 10), work_date: oneLine(work_date, 10), note: noteLines(note), site: s };
-  for (const k of ['to', 'work_date', 'note']) if (!env[k]) delete env[k];
+    date: oneLine(date, 10), work_date: oneLine(work_date, 10), note: noteLines(note), sign: signLines(sign), site: s };
+  for (const k of ['to', 'work_date', 'note', 'sign']) if (!env[k]) delete env[k];
   return checkEnvelope(env);
 }
 
@@ -64,10 +68,11 @@ export function checkEnvelope(env) {
     && Object.hasOwn(KINDS, env.kind) && str(env.from, 100) && !/[\n]/.test(env.from) && !env.from.includes('】') && (env.to == null || str(env.to, 100))
     && str(env.date, 10) && DATE.test(env.date) && (env.work_date == null || (str(env.work_date, 10) && DATE.test(env.work_date)))
     && (env.note == null || (str(env.note, 2000) && !env.note.split('\n').some(l => l.trim() === '' || l.startsWith('■ ')))) && record(env.site)
+    && (env.sign == null || (str(env.sign, 300) && env.sign.split('\n').length <= 4 && !env.sign.split('\n').some(l => l.trim() === '' || l.startsWith('■ '))))
     && str(env.site.source_id, 200) && /^[A-Za-z0-9_.:-]+$/.test(env.site.source_id) && Number.isSafeInteger(env.site.revision) && env.site.revision > 0
     && str(env.site.name, 200) && env.site.name.trim() && !/\n/.test(env.site.name)
     && ((env.site.start == null && env.site.end == null) || (HM.test(env.site.start ?? '') && HM.test(env.site.end ?? '') && env.site.start < env.site.end))
-    && Object.keys(env).every(k => ['format', 'v', 'id', 'kind', 'from', 'to', 'date', 'work_date', 'note', 'site'].includes(k))
+    && Object.keys(env).every(k => ['format', 'v', 'id', 'kind', 'from', 'to', 'date', 'work_date', 'note', 'sign', 'site'].includes(k))
     && Object.keys(env.site).every(k => ['source_id', 'revision', 'name', 'start', 'end', ...SITE_FIELDS.map(([f]) => f)].includes(k))
     && SITE_FIELDS.every(([f]) => env.site[f] == null || (str(env.site[f], 2000) && !/\n/.test(env.site[f])));
   if (!ok) {
@@ -100,6 +105,7 @@ export function bodyText(env) {
   if (env.work_date) lines.push(`日にち:${dayLabel(env.work_date)}`);
   if (s.start && s.end) lines.push(`時間:${hm(s.start)}〜${hm(s.end)}`);
   for (const [key, label] of SITE_FIELDS) if (s[key]) lines.push(`${label}:${s[key]}`);
+  if (env.sign) lines.push('', ...env.sign.split('\n')); // 署名は、空の一行をはさんで下に
   return lines.join('\n');
 }
 
@@ -215,14 +221,19 @@ export function findEnvelope(text) {
   const name = body[mark].slice(2);
   const note = body.slice(2, mark).join('\n').trim();
   const site = { source_id: t.s, revision: t.r, name };
-  for (const l of body.slice(mark + 1)) {
+  // 現場の項目は「■ 」の次から、空の行まで。空の行の下は署名
+  const rest = body.slice(mark + 1);
+  const blank = rest.findIndex(l => l.trim() === '');
+  const fieldLines = blank < 0 ? rest : rest.slice(0, blank);
+  const sign = blank < 0 ? '' : rest.slice(blank + 1).join('\n');
+  for (const l of fieldLines) {
     const i = l.indexOf(':'); if (i < 0) continue;
     const label = l.slice(0, i), value = l.slice(i + 1);
     if (label === '時間') { const [a, b] = value.split('〜'); site.start = pad(a ?? ''); site.end = pad(b ?? ''); continue; }
     const f = SITE_FIELDS.find(([, lab]) => lab === label); if (f) site[f[0]] = value;
   }
   let env;
-  try { env = makeEnvelope({ id: t.i, kind, from, date: t.d, work_date: t.w ?? '', note, site }); } catch { throw new Error(CUT); }
+  try { env = makeEnvelope({ id: t.i, kind, from, date: t.d, work_date: t.w ?? '', note, sign, site }); } catch { throw new Error(CUT); }
   if (fnv(bodyText(env)) !== t.h) throw new Error(CUT);
   return env;
 }

@@ -58,3 +58,10 @@ test('Googleマップと SMS の口:住所・番号が無ければ出さない',
   assert.equal(smsLink(null, 'x'), null);
   assert.equal(smsLink('0900000000', 'a b'), 'sms:0900000000?&body=a%20b');
 });
+
+test('署名:会社・名前・電話が文の下に。無ければ呼び名だけ', () => {
+  const sign = ['架空工業', '架空の職人', '090-1111-2222'];
+  assert.equal(okureText({ site: '架空の現場', at: '10:00', sign }), 'ご担当の方\n架空の現場、遅れます。すみません。\n10:00 ごろ着きます。\n架空工業\n架空の職人\n090-1111-2222');
+  assert.equal(yasumiText({ site: '架空の現場', date: '2026-12-01', today: '2026-12-01', me: '呼び名', sign: [] }).split('\n').pop(), '呼び名');
+  assert.match(sokuhouText({ kind: 'kaji', site: 'x', sign, now: new Date('2026-12-01T10:07:00+09:00').getTime() }), /119 をお願いします。\n架空工業\n架空の職人\n090-1111-2222$/);
+});

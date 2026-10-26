@@ -41,7 +41,7 @@ export function appLink(loc = typeof location === 'undefined' ? null : location)
  * @param {string} [o.workDate]  日にち(無ければ明日)
  * @param {function} [o.onFrom]  差出人を覚えておくとき
  */
-export function renderComposer(container, { kind, from = '', site = {}, workDate, onFrom = () => {}, link = appLink() } = {}) {
+export function renderComposer(container, { kind, from = '', site = {}, workDate, onFrom = () => {}, link = appLink(), sign = '' } = {}) {
   container.replaceChildren();
   const form = $('div', '', { className: 'request-form' });
   const field = (label, attrs = {}, tag = 'input') => {
@@ -86,7 +86,8 @@ export function renderComposer(container, { kind, from = '', site = {}, workDate
       // 同じ現場は同じ照合用ID(受けた側では、新しい版として上書きされ、表札は変わらない)。版は送るたびに新しく。
       const s = { ...site, name: nameIn.value, start: startIn.value, end: endIn.value, revision: Math.floor(Date.now() / 1000) };
       for (const [key] of SITE_FIELDS) s[key] = siteIns[key].value;
-      const env = makeEnvelope({ kind, from: fromIn.value, date: localDate(Date.now()), work_date: dateIn.value, note: noteIn.value, site: s });
+      // 署名(会社・名前・電話)は、設定の「あなたのこと」から。文の下に添える
+      const env = makeEnvelope({ kind, from: fromIn.value, date: localDate(Date.now()), work_date: dateIn.value, note: noteIn.value, sign, site: s });
       // リンクには依頼そのものが入る(押せば、その現場の依頼が開く)
       text = envelopeText(env, { link: await envelopeLink(env, link) });
       // 見る欄では、Senlings 用の一行を畳む(送る文には、そのまま入る)
@@ -121,7 +122,7 @@ export function openRequestDialog(opts) {
   dialog = $('dialog', '', { className: 'local-dialog request-dialog', id: 'local-dialog' });
   dialog.setAttribute('aria-label', opts.kind === 'ouen' ? '応援を呼ぶ' : '現場を依頼する');
   const head = $('header'); const close = $('button', '閉じる', { className: 'local-close', type: 'button' });
-  close.onclick = () => dialog.close();
+  close.onclick = () => { dialog.close(); dialog.remove(); }; // 閉じたら片づける(同じ id の箱を二つ残さない)
   head.append($('h2', opts.kind === 'ouen' ? '応援を呼ぶ' : '現場を依頼する'), close);
   dialog.append(head);
   dialog.append($('p', opts.kind === 'ouen' ? '頼みたい人に、LINE などで送る文を作ります。送るのはあなた。相手が Senlings を使っていなくても、文だけで伝わります。' : '職人に送る文を作ります。'));

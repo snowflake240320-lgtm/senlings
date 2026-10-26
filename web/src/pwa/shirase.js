@@ -47,7 +47,7 @@ export function mapsLink(address) {
  * @param {boolean} [o.jiko]   事故渋滞
  * @param {string} [o.note]    一言
  */
-export function okureText({ site, contact, me, mapsAt, at, jiko = false, note } = {}) {
+export function okureText({ site, contact, me, sign = [], mapsAt, at, jiko = false, note } = {}) {
   const name = line(site);
   if (!name) throw new Error('現場名がありません。');
   const lines = [`${atena(contact)}`, `${name}、${jiko ? '事故渋滞で' : ''}遅れます。すみません。`];
@@ -55,8 +55,14 @@ export function okureText({ site, contact, me, mapsAt, at, jiko = false, note } 
   else if (at) lines.push(`${showTime(at)} ごろ着きます。`);
   else throw new Error('着く時刻を入れてください。');
   if (line(note, 500)) lines.push(line(note, 500));
-  if (line(me, 100)) lines.push(line(me, 100));
+  lines.push(...signOf(sign, me));
   return lines.join('\n');
+}
+
+// 署名(会社・名前・電話)。無ければ呼び名だけ
+function signOf(sign, me) {
+  const s = (Array.isArray(sign) ? sign : []).map(l => line(l, 100)).filter(Boolean).slice(0, 4);
+  return s.length ? s : (line(me, 100) ? [line(me, 100)] : []);
 }
 
 /**
@@ -70,7 +76,7 @@ export function okureText({ site, contact, me, mapsAt, at, jiko = false, note } 
  * @param {boolean} [o.kawari] 代わりを探していることを添える
  * @param {string} [o.note]
  */
-export function yasumiText({ site, date, today, contact, me, kawari = false, note } = {}) {
+export function yasumiText({ site, date, today, contact, me, sign = [], kawari = false, note } = {}) {
   const name = line(site);
   if (!name) throw new Error('現場名がありません。');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date ?? '')) throw new Error('休む日を確かめてください。');
@@ -78,7 +84,7 @@ export function yasumiText({ site, date, today, contact, me, kawari = false, not
   const lines = [`${atena(contact)}`, `${when}の${name}、休ませてください。申し訳ありません。`];
   if (kawari) lines.push('代わりに入れる人を、こちらで当たっています。決まったら、また連絡します。');
   if (line(note, 500)) lines.push(line(note, 500));
-  if (line(me, 100)) lines.push(line(me, 100));
+  lines.push(...signOf(sign, me));
   return lines.join('\n');
 }
 
@@ -97,7 +103,7 @@ export const KINKYU = Object.freeze({
  * @param {string} [o.me]
  * @param {number} [o.now]
  */
-export function sokuhouText({ kind, site, place, aed = true, me, now = Date.now() } = {}) {
+export function sokuhouText({ kind, site, place, aed = true, me, sign = [], now = Date.now() } = {}) {
   if (!Object.hasOwn(KINKYU, kind)) throw new Error('種類を確かめてください。');
   const d = new Date(now);
   const at = `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
@@ -106,7 +112,7 @@ export function sokuhouText({ kind, site, place, aed = true, me, now = Date.now(
   lines.push(`場所:${line(place) || '(場所を書く)'}`);
   if (kind === 'taore' && aed) lines.push('AED を持ってきてください。119 をお願いします。');
   if (kind === 'kaji') lines.push('近くの人は逃げてください。119 をお願いします。');
-  if (line(me, 100)) lines.push(line(me, 100));
+  lines.push(...signOf(sign, me));
   return lines.join('\n');
 }
 

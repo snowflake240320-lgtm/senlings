@@ -12,7 +12,7 @@ function open(title, cls = '') {
   dialog.setAttribute('aria-label', title);
   const head = $('header');
   const close = $('button', '閉じる', { className: 'local-close', type: 'button' });
-  close.onclick = () => dialog.close();
+  close.onclick = () => { dialog.close(); dialog.remove(); }; // 閉じたら片づける(同じ id の箱を二つ残さない)
   head.append($('h2', title), close);
   dialog.append(head);
   document.body.append(dialog);
@@ -124,7 +124,7 @@ function renderOkure(body, project, o) {
     if (link && mapsIn.value) { try { hint.textContent = `余裕をみて ${yoyuu(mapsIn.value)} ごろ、と書きます。`; } catch { /* 時刻が欠けている */ } }
   };
   const sb = sendBox(body, () => okureText({
-    site: project.project_slug, contact: project.site_info?.contact, me: o.me, jiko: jiko.checked, note: note.value,
+    site: project.project_slug, contact: project.site_info?.contact, me: o.me, sign: o.sign, jiko: jiko.checked, note: note.value,
     ...(link ? { mapsAt: mapsIn.value || undefined } : { at: mapsIn.value || undefined }),
   }), { phone: o.phone, idp: 'okure' });
   form.addEventListener('input', () => { showHint(); sb.reset(); });
@@ -172,7 +172,7 @@ function renderYasumi(body, project, o) {
   ouen.onclick = () => o.onKawari(day.value);
 
   const sb = sendBox(body, () => yasumiText({
-    site: project.project_slug, date: day.value, today: o.today, contact: project.site_info?.contact, me: o.me, kawari: kawari.checked, note: note.value,
+    site: project.project_slug, date: day.value, today: o.today, contact: project.site_info?.contact, me: o.me, sign: o.sign, kawari: kawari.checked, note: note.value,
   }), { phone: o.phone, idp: 'yasumi', after: () => { next.hidden = false; renderOff(); } });
   body.append(next);
   const changed = () => { sb.reset(); wasPlaced = false; offMsg.textContent = ''; next.hidden = true; };
@@ -188,7 +188,7 @@ function renderYasumi(body, project, o) {
  * @param {string} o.me
  * @param {string|null} o.phone 担当の電話
  */
-export function openKinkyu(kind, project, { me = '', phone = null } = {}) {
+export function openKinkyu(kind, project, { me = '', sign = [], phone = null } = {}) {
   const box = open(KINKYU[kind], 'kinkyu-dialog');
   const first = $('ol', '', { className: 'kinkyu-steps' });
   const step = (strong, rest = '') => { const li = $('li'); li.append($('strong', strong)); if (rest) li.append($('span', rest)); first.append(li); };
@@ -217,7 +217,7 @@ export function openKinkyu(kind, project, { me = '', phone = null } = {}) {
     form.append(aedL);
   }
   box.append(form);
-  const sb = sendBox(box, () => sokuhouText({ kind, site: project?.project_slug, place: place.value, aed: aed?.checked ?? false, me }), { phone, idp: 'kinkyu' });
+  const sb = sendBox(box, () => sokuhouText({ kind, site: project?.project_slug, place: place.value, aed: aed?.checked ?? false, me, sign }), { phone, idp: 'kinkyu' });
   form.addEventListener('input', sb.reset);
   form.addEventListener('change', sb.reset);
   if (phone) box.append(telLink(phone, `担当へ電話する:${shown(project, phone)}`, 'kinkyu-tel'));
