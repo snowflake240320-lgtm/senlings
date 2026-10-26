@@ -87,7 +87,15 @@ const unfield = f => f?.stringValue ?? (f?.booleanValue ?? (f?.integerValue != n
  * @returns {Promise<string>} 郵便受けの中の札(消すときに使う)
  */
 export async function put(key, text, { fetch: fetchFn = globalThis.fetch.bind(globalThis) } = {}) {
-  const box = await boxIdOf(key);
+  return putSealed(await boxIdOf(key), key, text, { fetch: fetchFn });
+}
+
+/**
+ * 受け口から届ける(元請け → 職人)。箱の番号と、その相手だけの封の鍵は、職人が渡したもの(受け口)。
+ * 鍵が違えば、職人の側で開かず、消える。
+ */
+export async function putSealed(box, key, text, { fetch: fetchFn = globalThis.fetch.bind(globalThis) } = {}) {
+  if (!/^[A-Za-z0-9_-]{24}$/.test(box ?? '')) throw new Error('受け口の形が違います。');
   const c = await seal(key, text);
   const doc = await call('POST', `boxes/${box}/items`, fields({ c, t: Date.now(), x: new Date(Date.now() + ITEM_DAYS * 86400000) }), fetchFn);
   return doc?.name?.split('/').pop() ?? '';
@@ -97,7 +105,7 @@ export async function put(key, text, { fetch: fetchFn = globalThis.fetch.bind(gl
  * 郵便受けを見る。開けられたものだけ返す(古い順)。消すのは、受け取った側が済んでから(remove)。
  * @returns {Promise<Array<{id:string, text:string, t:number}>>}
  */
-export async function peek(key, { fetch: fetchFn = globalThis.fetch.bind(globalThis), now = Date.now() } = {}) {
+export async function peek(key, { fetch: fetchFn = globalThis.fetch.bind(globalThis), now = Date.now(), keys = [] } = {}) {
   const box = await boxIdOf(key);
   const res = await call('GET', `boxes/${box}/items?pageSize=50`, null, fetchFn);
   const docs = res?.documents ?? [];
@@ -107,8 +115,13 @@ export async function peek(key, { fetch: fetchFn = globalThis.fetch.bind(globalT
     const t = Number(unfield(d.fields?.t) ?? 0);
     // 日限を過ぎたもの・開かないものは、鍵を持つ側が掃く(道の上に留め置かない)
     if (!(t > now - ITEM_DAYS * 86400000)) { await call('DELETE', `boxes/${box}/items/${id}`, null, fetchFn).catch(() => {}); continue; }
-    try { out.push({ id, text: await openSeal(key, unfield(d.fields?.c)), t }); }
-    catch { await call('DELETE', `boxes/${box}/items/${id}`, null, fetchFn).catch(() => {}); }
+    // 自分の鍵、次に受け口の鍵(元請けごと)。どれでも開かなければ消す(外した受け口からのものも、ここで消える)
+    let opened = null;
+    for (const [i, k] of [key, ...keys].entries()) {
+      try { opened = { id, text: await openSeal(k, unfield(d.fields?.c)), t, via: i === 0 ? null : k }; break; } catch { /* 次の鍵 */ }
+    }
+    if (opened) out.push(opened);
+    else await call('DELETE', `boxes/${box}/items/${id}`, null, fetchFn).catch(() => {});
   }
   return out.sort((a, b) => a.t - b.t);
 }

@@ -628,6 +628,45 @@ async function inject(page, mode) {
     box.down=true;const h2=await setup(null,{ua:iosUA('26_0'),standalone:true});await h2.page.evaluate(()=>localStorage.setItem('senlings_yubin_key','AAAAAAAAAAAAAAAAAAAAAA'));await h2.page.goto(`${origin}/`);await h2.page.locator('.site-welcome').waitFor();
     await new Promise(r=>setTimeout(r,300));assert.equal(await h2.page.locator('#local-dialog[open]').count(),0,'the house just waits for next time');assert.deepEqual(h2.page.errors,[]);await h2.context.close();
   });
+  // 受け口(10-26):職人が渡す → 元請けの PC がつながる → 現場の依頼を封をして直接届ける → 家で開く。外せば、届かない
+  await run('ukeguchi: the house hands a port to a 元請け; the 元請け page connects, and delivers a request straight into the box; the house opens it and may make the sender its 請求先; removing the port stops later ones', async () => {
+    // 家(ホーム画面の Senlings)で受け口を作る
+    const h=await setup(JSON.stringify({projects:[],work_sessions:[],expenses:[],settings:{senlings_company:'受け工業',senlings_user_name:'受ける人',senlings_phone:'080-0000-0000'}}),{ua:iosUA('26_0'),standalone:true});
+    await h.page.locator('.site-welcome').waitFor();await stubShare(h.page);
+    await click(h.page,'[data-tab="home"]');await click(h.page,'#btn-tsunagari');await h.page.locator('#tsunagari-label').fill('架空建装');await click(h.page,'#tsunagari-make');
+    const ptext=await h.page.locator('#tsunagari-text').innerText();assert.match(ptext,/^架空建装 ご担当の方\n受け工業 受ける人です。/);
+    const plink=ptext.match(/https?:\S+/)[0].replace(/^https?:\/\/[^/]+/,origin);assert.match(plink,/\/irai\/\?openExternalBrowser=1#u=[A-Za-z0-9_-]{24}\.[A-Za-z0-9_-]{22}&n=/);
+    assert.match(await h.page.locator('#tsunagari-list').innerText(),/架空建装/);
+    let hs=JSON.parse(await h.page.evaluate(()=>rawStored()));assert.equal(hs.ukeguchi.length,1);const key=await h.page.evaluate(()=>localStorage.getItem('senlings_yubin_key'));assert.ok(key,'the house has its own key now');
+    await click(h.page,'#local-dialog .local-close');
+    // 元請けの PC:受け口のリンクで開く → つながる
+    const pc=await setup(null);await pc.page.goto(plink);await pc.page.locator('#tsunagari-list').waitFor();
+    assert.match(await pc.page.locator('#tsunagari-msg').innerText(),/受ける人 とつながりました/);assert.match(await pc.page.locator('#tsunagari-list').innerText(),/受ける人/);
+    assert.equal(await pc.page.evaluate(()=>location.hash),'','the port is read once and taken off the address');
+    assert.equal(await pc.page.locator('#todoke').isHidden(),true,'nothing to deliver before a request is made');
+    // 現場の依頼を作って、届ける
+    await pc.page.locator('#req-from').fill('架空建装');await pc.page.locator('#req-name').fill('架空のモール 2階');await pc.page.locator('#composer .request-more summary').click();await pc.page.locator('#req-contact').fill('架空の田中');await pc.page.locator('#req-contact_phone').fill('03-0000-0000');await click(pc.page,'#req-make');
+    await pc.page.locator('#todoke:not([hidden])').waitFor();await pc.page.locator('.todoke-pick').check();await click(pc.page,'#todoke-send');
+    await pc.page.locator('#todoke-msg:has-text("届けました")').waitFor();assert.match(await pc.page.locator('#todoke-msg').innerText(),/届けました:受ける人/);
+    assert.equal(boxItems().length,1);assert.doesNotMatch(JSON.stringify([...box.docs.values()]),/架空のモール|田中/,'sealed');
+    // 家に戻る → 開く → 五択 → 自分で受ける → 差出人を請求先に
+    await h.page.evaluate(()=>window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true})));
+    await h.page.locator('#handoff-choices:not([hidden])').waitFor();assert.match(await h.page.locator('#handoff-preview').innerText(),/現場案内\(架空建装より\)[\s\S]*架空のモール 2階/);
+    await click(h.page,'#choice-self');await h.page.locator('#handoff-seikyusaki').waitFor();await click(h.page,'#handoff-seikyusaki');
+    assert.equal(await h.page.locator('#seikyusaki-company').inputValue(),'架空建装');assert.equal(await h.page.locator('#seikyusaki-person').inputValue(),'架空の田中');assert.equal(await h.page.locator('#seikyusaki-phone').inputValue(),'03-0000-0000');
+    await click(h.page,'#seikyusaki-save');await click(h.page,'#local-dialog .local-close');
+    hs=JSON.parse(await h.page.evaluate(()=>rawStored()));assert.equal(hs.projects[0].project_slug,'架空のモール 2階');assert.equal(hs.seikyusaki[0].company,'架空建装');assert.equal(hs.projects[0].seikyusaki_id,hs.seikyusaki[0].id);
+    await new Promise(r=>setTimeout(r,300));assert.equal(boxItems().length,0,'taken out of the box');
+    // 受け口を外す → 元請けが次を届けても、家では開かず消える
+    await click(h.page,'[data-tab="home"]');await click(h.page,'#btn-tsunagari');await h.page.locator('[id^=tsunagari-rm-]').click();assert.match(await h.page.locator('#local-dialog [role=status]').innerText(),/受け口を外しました/);await click(h.page,'#local-dialog .local-close');
+    await pc.page.locator('#req-name').fill('二つ目の現場');await click(pc.page,'#req-make');await pc.page.locator('#todoke:not([hidden])').waitFor();await pc.page.locator('.todoke-pick').check();await click(pc.page,'#todoke-send');await pc.page.locator('#todoke-msg:has-text("届けました")').waitFor();
+    assert.equal(boxItems().length,1);
+    await h.page.evaluate(()=>window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true})));await new Promise(r=>setTimeout(r,500));
+    assert.equal(await h.page.locator('#local-dialog[open]').count(),0,'nothing opens');assert.equal(boxItems().length,0,'and the sealed-with-a-removed-key envelope is swept');
+    // 元請けの側でも外せる
+    await pc.page.locator('[id^=tsunagari-rm-]').click();assert.match(await pc.page.locator('#tsunagari-list').innerText(),/まだありません/);
+    assert.deepEqual(h.page.errors,[]);assert.deepEqual(pc.page.errors,[]);await h.context.close();await pc.context.close();
+  });
   await run('arrival: the 元請け page makes a facility entrance link that opens ●施設', async () => {
     const {page,context}=await setup(null);await page.goto(origin+'/irai/');await stubShare(page);
     await page.locator('#shisetsu-name-in').fill('架空の施設');await click(page,'#shisetsu-make');

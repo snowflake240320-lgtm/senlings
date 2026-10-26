@@ -126,3 +126,6 @@ html[data-mieru="70"] .site-welcome-sub { font-size: 18px; }
 .local-dialog label[hidden] { display: none; }
 .delivered-note .homescreen-lead { font-size: 17px; }
 .tsunagi-keep { margin-top: 16px; border-top: 1px solid #2a2a24; padding-top: 6px; }
+/* 一覧の「外す」:小さく、押せば外れる。確認は出さない(帳面には何も残らないので戻せる) */
+.local-remove { flex-shrink: 0; margin-left: auto; background: none; border: 1px solid #55554c; border-radius: 8px; color: #c4c1b9; font: inherit; font-size: 13px; min-height: 36px; padding: 6px 12px; }
+.local-dialog .local-choice span { flex: 1; }

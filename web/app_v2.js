@@ -18,7 +18,8 @@ import { HOO_TRADES, readNakama, setTrades } from './src/pwa/nakama.js';
 import { homeScreenState, openHomeScreenGuide, openDeliveredNote, readLater } from './src/pwa/homeScreen.js';
 import { openRequestDialog, siteFromProject } from './src/pwa/requestUI.js';
 import { readArrival, withKey, fromLinkCode, envelopeText, bodyText, dayLabel, fnv } from './src/pwa/envelope.js';
-import { makeKey, isKey, put as yubinPut, peek as yubinPeek, remove as yubinRemove, sweep as yubinSweep, markHome, hasHome } from './src/pwa/yubin.js';
+import { makeKey, isKey, boxIdOf, put as yubinPut, peek as yubinPeek, remove as yubinRemove, sweep as yubinSweep, markHome, hasHome } from './src/pwa/yubin.js';
+import { listUkeguchi, addUkeguchi, removeUkeguchi, ukeguchiLink, ukeguchiText } from './src/pwa/ukeguchi.js';
 import { openShirase, openKinkyu } from './src/pwa/shiraseUI.js';
 
 // ── データ読み込み ────────────────────────────────────────
@@ -677,6 +678,7 @@ function openOuen(project) {
 function renderHome() {
   renderJunbi();
   document.getElementById('btn-ouen').onclick = () => openOuen(null);
+  document.getElementById('btn-tsunagari').onclick = () => openTsunagari();
   const facilityToggle = document.getElementById('setting-show-shisetsu');
   facilityToggle.checked = readShowShisetsu();
   facilityToggle.onchange = () => {
@@ -1125,17 +1127,81 @@ async function deliverOrGuide(a, id) {
   return true;
 }
 
+// ── 元請けとつながる(受け口を渡す。10-26 船長) ──
+// 受け口 = 郵便受けの番号 + その元請けだけの封の鍵。渡すかどうかは職人が決める。いつでも外せる
+let tsunagariDialog;
+async function openTsunagari() {
+  tsunagariDialog?.remove();
+  const $ = (tag, text = '', attrs = {}) => Object.assign(document.createElement(tag), { textContent: text, ...attrs });
+  const d = $('dialog', '', { className: 'local-dialog', id: 'local-dialog' });
+  d.setAttribute('aria-label', '元請けとつながる');
+  const head = $('header'); const close = $('button', '閉じる', { className: 'local-close', type: 'button' });
+  close.onclick = () => { d.close(); d.remove(); };
+  head.append($('h2', '元請けとつながる'), close); d.append(head);
+  d.append($('p', '受け口を渡すと、元請けは現場の依頼をあなたの Senlings に直接届けられます(パソコンからでも。LINE を通りません)。渡すかどうかは、あなたが決めます。いつでも外せます。元請けはあなたの記録を見られません。'));
+  const msg = $('p', '', { className: 'request-msg' }); msg.setAttribute('role', 'status');
+  const labelW = $('label', '相手の名前(会社)'); const label = $('input', '', { maxLength: 100, id: 'tsunagari-label', placeholder: '例:架空建装' }); labelW.append(label);
+  const make = $('button', '受け口を作る', { type: 'button', className: 'local-action', id: 'tsunagari-make' });
+  const out = $('pre', '', { className: 'request-preview', id: 'tsunagari-text', hidden: true });
+  const share = $('button', 'LINE などで送る', { type: 'button', className: 'local-action request-send', id: 'tsunagari-share', hidden: true });
+  const copy = $('button', 'コピーする', { type: 'button', className: 'local-action', id: 'tsunagari-copy', hidden: true });
+  const list = $('div', '', { id: 'tsunagari-list' });
+  d.append(labelW, make, out, share, copy, msg, $('p', 'つながっている元請け', { className: 'homescreen-label' }), list);
+  let text = '';
+  const renderList = () => {
+    list.replaceChildren();
+    const all = listUkeguchi();
+    if (!all.length) { list.append($('p', 'まだありません。', { className: 'request-msg' })); return; }
+    for (const u of all) {
+      const row = $('div', '', { className: 'local-choice' });
+      row.append($('span', `${u.label}(${new Date(u.created_at).toLocaleDateString('ja-JP')} から)`));
+      const rm = $('button', '外す', { type: 'button', className: 'local-remove', id: `tsunagari-rm-${u.id}` });
+      rm.onclick = () => { try { removeUkeguchi(u.id); msg.textContent = `${u.label} の受け口を外しました。この先、そこからは届きません。`; renderList(); } catch (e) { msg.textContent = e.message; } };
+      row.append(rm); list.append(row);
+    }
+  };
+  make.onclick = async () => {
+    try {
+      const key = ensureKey();
+      const u = addUkeguchi({ label: label.value });
+      const myName = (getSetting(SETTINGS_KEYS.USER_NAME) ?? '').trim();
+      const link = ukeguchiLink(location.origin, await boxIdOf(key), u.key, myName);
+      text = ukeguchiText({ name: [getSetting(SETTINGS_KEYS.COMPANY), myName].map(v => (v ?? '').trim()).filter(Boolean).join(' '), label: u.label, link });
+      out.textContent = text; out.hidden = false; share.hidden = false; copy.hidden = false;
+      msg.textContent = `${u.label} の受け口を作りました。この文を、その相手にだけ送ってください。`;
+      label.value = ''; renderList();
+    } catch (e) { msg.textContent = e.message; }
+  };
+  share.onclick = async () => {
+    if (!text) return;
+    if (navigator.share) { try { await navigator.share({ text }); msg.textContent = '共有の画面に渡しました。'; return; } catch (e) { if (e?.name === 'AbortError') { msg.textContent = 'まだ送っていません。'; return; } } }
+    copy.onclick();
+  };
+  copy.onclick = async () => {
+    if (!text) return;
+    try { await navigator.clipboard.writeText(text); msg.textContent = 'コピーしました。その相手にだけ送ってください。'; } catch { msg.textContent = '上の文を長押しして選んでください。'; }
+  };
+  renderList();
+  document.body.append(d); d.showModal();
+  tsunagariDialog = d;
+  // 受け口の鍵は家で使う。ブラウザで作ったなら、ここが家(置かずに使う)になるまで便は見ない
+  return d;
+}
+
 // ── 家で郵便受けを見る(開いたとき・戻ってきたとき)。開けたら消す ──
+// 家とは:ホーム画面の Senlings。または「置かずに使う」と決めたブラウザ(受け口からの便は、ここに届く)
+const isHouse = () => isHome() || readLater();
 let checking = false, again = false, queue = [];
 async function checkBox() {
-  if (!isHome()) return;
+  if (!isHouse()) return;
   const key = readKey(); if (!key) return;
   if (checking) { again = true; return; } // 見ている最中に戻ってきたら、終わってからもう一度
   checking = true;
   try {
-    // 「家がある」の印(中身は無い)。30日ごとに置き直す(日限を延ばす)
-    if (Date.now() - homeAt() > 30 * 86400000) { await markHome(key); try { localStorage.setItem(HOME_AT_KEY, String(Date.now())); } catch { /* そのまま */ } }
-    queue = await yubinPeek(key);
+    // 「家がある」の印(中身は無い)。30日ごとに置き直す(日限を延ばす)。ホーム画面の家だけ(ブラウザの家は、ブラウザ自身が開く)
+    if (isHome() && Date.now() - homeAt() > 30 * 86400000) { await markHome(key); try { localStorage.setItem(HOME_AT_KEY, String(Date.now())); } catch { /* そのまま */ } }
+    // 自分の鍵と、受け口の鍵(元請けごと)
+    queue = await yubinPeek(key, { keys: listUkeguchi().map(u => u.key) });
     await nextFromBox(key);
   } catch { /* 電波が無いときは、次に開いたとき */ }
   finally { checking = false; if (again) { again = false; checkBox(); } }

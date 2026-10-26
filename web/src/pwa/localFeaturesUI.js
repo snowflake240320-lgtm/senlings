@@ -7,7 +7,7 @@ import { saveLocalRecord, contactPhone, SOS_LABELS, saveTsunagi, listTsunagi } f
 import { savePhotoMeta, buildPhotoFilename } from './photo.js';
 import { SETTINGS_KEYS, getAllSettings, saveSettingsFromForm, getSetting, signatureLines, signatureText } from './settings.js';
 import { readNakama, HOO_TRADES } from './nakama.js';
-import { SEIKYUSAKI_FIELDS, listSeikyusaki, saveSeikyusaki, setProjectSeikyusaki, seikyusakiOf, billingBlock } from './seikyusaki.js';
+import { SEIKYUSAKI_FIELDS, listSeikyusaki, saveSeikyusaki, setProjectSeikyusaki, seikyusakiOf, billingBlock, seikyusakiFromEnvelope } from './seikyusaki.js';
 
 const $ = (tag, text, attrs = {}) => Object.assign(document.createElement(tag), { textContent: text, ...attrs });
 let dialog;
@@ -127,6 +127,7 @@ export function receiveProject(onSaved, { text: arrived = '', file: fileMode = f
       choices.hidden = true; onSaved(); after.replaceChildren();
       greet(env, me);
       if (env.work_date) offerDay(r.project_id, env.work_date, { keep: true });
+      offerSeikyusaki(env, r.project_id);
     });
     pick('協力して受ける', '現場を加えて、手伝ってくれる人に声をかける', 'together', () => {
       const r = doAccept(); if (!r) return;
@@ -137,6 +138,7 @@ export function receiveProject(onSaved, { text: arrived = '', file: fileMode = f
       const project = load().projects.find(p => p.project_id === r.project_id);
       action(after, '手伝ってくれる人に声をかける(応援を呼ぶ)', () =>
         openRequestDialog({ kind: 'ouen', from: me, sign: signatureText(), site: siteFromProject(project, teijiOf(project)), workDate: env.work_date }), 'handoff-ouen');
+      offerSeikyusaki(env, r.project_id);
     });
     pick('時期を調整する', 'その日は難しいと返す(現場は加えない)', 'later', () =>
       reply('時期を調整する', `${to}${day}${env.site.name} の件、ありがとうございます。その日は難しいです。\n○/○ からなら行けます。${tail}`, 'later'));
@@ -165,6 +167,14 @@ export function receiveProject(onSaved, { text: arrived = '', file: fileMode = f
       reply('受けない', `${to}${day}${env.site.name} の件、ありがとうございます。今回は見送らせてください。また声をかけてもらえると嬉しいです。${tail}`, 'decline'));
     if (detail) choices.append(detail);
     choices.append(generalRules());
+  }
+  // 現場案内(元請けから)なら、差出人を請求先に(10-26)。押したときだけ。帳面に無ければ下書きから
+  function offerSeikyusaki(env, projectId) {
+    const draft = seikyusakiFromEnvelope(env);
+    if (!draft) return;
+    const project = load().projects.find(p => p.project_id === projectId);
+    if (!project || seikyusakiOf(project)) return;
+    action(after, `${env.from} を、この現場の請求先にする`, () => editSeikyusaki(project, () => {}, { draft }), 'handoff-seikyusaki');
   }
   // その日に置くかは、受けた人が決める(押したときだけ)
   function offerDay(projectId, date, { keep = false } = {}) {

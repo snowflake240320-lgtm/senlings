@@ -41,7 +41,7 @@ export function appLink(loc = typeof location === 'undefined' ? null : location)
  * @param {string} [o.workDate]  日にち(無ければ明日)
  * @param {function} [o.onFrom]  差出人を覚えておくとき
  */
-export function renderComposer(container, { kind, from = '', site = {}, workDate, onFrom = () => {}, link = appLink(), sign = '' } = {}) {
+export function renderComposer(container, { kind, from = '', site = {}, workDate, onFrom = () => {}, onMade = () => {}, link = appLink(), sign = '' } = {}) {
   container.replaceChildren();
   const form = $('div', '', { className: 'request-form' });
   const field = (label, attrs = {}, tag = 'input') => {
@@ -78,7 +78,7 @@ export function renderComposer(container, { kind, from = '', site = {}, workDate
   container.append(make, preview, share, copy, msg, generalRules());
 
   let text = '';
-  const reset = () => { text = ''; preview.hidden = true; share.hidden = true; copy.hidden = true; msg.textContent = ''; };
+  const reset = () => { text = ''; preview.hidden = true; share.hidden = true; copy.hidden = true; msg.textContent = ''; onMade(null, ''); };
   form.addEventListener('input', reset);
 
   make.onclick = async () => {
@@ -95,6 +95,7 @@ export function renderComposer(container, { kind, from = '', site = {}, workDate
       share.hidden = false; copy.hidden = false;
       msg.textContent = 'この文で送ります。直すときは上の欄を直して、もう一度「文を見る」。';
       onFrom(fromIn.value.trim());
+      onMade(env, text);
     } catch (e) { msg.textContent = e.message; }
   };
   share.onclick = async () => {
