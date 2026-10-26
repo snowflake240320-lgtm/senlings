@@ -124,3 +124,4 @@ html[data-mieru="70"] .site-welcome-sub { font-size: 18px; }
 .handoff-detail { margin-top: 14px; border-top: 1px solid #2a2a24; padding-top: 6px; }
 .handoff-detail summary { cursor: pointer; padding: 10px 0; color: #8a8780; font-size: 13px; }
 .local-dialog label[hidden] { display: none; }
+.delivered-note .homescreen-lead { font-size: 17px; }

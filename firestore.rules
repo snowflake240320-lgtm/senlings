@@ -30,6 +30,28 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // ── boxes(郵便受け。2026-10-26)──────────────────────
+    // 同じスマホの中で、ブラウザからホーム画面の Senlings へ届けるための置き場。
+    // 番号は鍵のハッシュ(誰にも当てられない)。中身(c)は封をしてあり、誰にも読めない。
+    // 受け取った側が消す。受け取られなかったものは x(日限)で消える(Console の TTL ポリシー:items の x、boxes の x)。
+    // 箱そのものには「家がある」の印(home)だけ。中身は置かない。
+    match /boxes/{box} {
+      allow read: if true;
+      allow create, update: if request.resource.data.keys().hasOnly(['home', 'x'])
+        && request.resource.data.home == true
+        && request.resource.data.x is timestamp;
+      allow delete: if false;
+
+      match /items/{item} {
+        allow read, delete: if true;
+        allow create: if request.resource.data.keys().hasOnly(['c', 't', 'x'])
+          && request.resource.data.c is string && request.resource.data.c.size() <= 8000
+          && request.resource.data.t is int
+          && request.resource.data.x is timestamp;
+        allow update: if false;
+      }
+    }
+
     // その他のコレクションは match を書かない = デフォルト拒否。
 
   }

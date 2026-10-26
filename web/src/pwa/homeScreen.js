@@ -178,3 +178,41 @@ export function openHomeScreenGuide(state, { installPrompt = null, hasRecords = 
   dialog.showModal();
   return dialog;
 }
+
+/**
+ * ブラウザで開いたリンクを、ホーム画面の Senlings(家)へ届けたあとの一枚。
+ * 届けたか/届かなかったか、だけ。開くのは家で。「ここで見る」は小さく下に。
+ */
+export function openDeliveredNote({ label = '', ok = true, error = '', onHere = () => {} } = {}) {
+  document.getElementById('homescreen-guide')?.remove();
+  document.getElementById('delivered-note')?.remove();
+  const dialog = $('dialog', '', { className: 'local-dialog homescreen-guide delivered-note', id: 'delivered-note' });
+  dialog.setAttribute('aria-label', ok ? 'ホーム画面の Senlings に届けました' : '届けられませんでした');
+  const head = $('header', '', { className: 'homescreen-head' });
+  const icon = $('span', '', { className: 'homescreen-icon' });
+  icon.innerHTML = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">${sIcon(0, 0, 24)}</svg>`;
+  const h2 = $('h2', ok ? 'ホーム画面の Senlings に届けました' : '届けられませんでした'); h2.tabIndex = -1; h2.autofocus = true;
+  head.append(icon, h2);
+  dialog.append(head);
+  if (label) {
+    const card = $('div', '', { className: 'homescreen-arrival', id: 'delivered-arrival' });
+    card.append($('small', '届いています'), $('strong', label));
+    dialog.append(card);
+  }
+  if (ok) {
+    const p = $('p', 'ホーム画面の ', { className: 'homescreen-lead', id: 'delivered-why' });
+    const ic = $('span', '', { className: 'homescreen-step-icon' });
+    ic.innerHTML = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">${sIcon(0, 0, 24)}</svg>`;
+    p.append(ic, ' を開くと、出ます。');
+    dialog.append(p);
+  } else {
+    dialog.append($('p', `電波を確かめて、もう一度リンクを押してください。${error ? `(${error})` : ''}`, { className: 'homescreen-lead', id: 'delivered-why' }));
+  }
+  const here = $('button', 'ここで見る', { className: 'homescreen-later', type: 'button', id: 'delivered-here' });
+  here.onclick = () => { dialog.close(); dialog.remove(); onHere(); };
+  dialog.append(here);
+  dialog.addEventListener('cancel', e => { e.preventDefault(); dialog.close(); dialog.remove(); });
+  document.body.append(dialog);
+  dialog.showModal();
+  return dialog;
+}

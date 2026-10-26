@@ -14,9 +14,10 @@ import { receiveProject, giveProject, writeMemo, takePhoto, reviewRecords, editS
 import { saveLocalRecord, contactPhone } from './src/pwa/localRecords.js';
 import { openPon, openKon, openKero, openHoo, ponDeductionFor } from './src/pwa/nakamaUI.js';
 import { HOO_TRADES, readNakama, setTrades } from './src/pwa/nakama.js';
-import { homeScreenState, openHomeScreenGuide, readLater } from './src/pwa/homeScreen.js';
+import { homeScreenState, openHomeScreenGuide, openDeliveredNote, readLater } from './src/pwa/homeScreen.js';
 import { openRequestDialog, siteFromProject } from './src/pwa/requestUI.js';
-import { readArrival, fromLinkCode, envelopeText, bodyText, dayLabel, fnv } from './src/pwa/envelope.js';
+import { readArrival, withKey, fromLinkCode, envelopeText, bodyText, dayLabel, fnv } from './src/pwa/envelope.js';
+import { makeKey, isKey, put as yubinPut, peek as yubinPeek, remove as yubinRemove, markHome, hasHome } from './src/pwa/yubin.js';
 import { openShirase, openKinkyu } from './src/pwa/shiraseUI.js';
 
 // ── データ読み込み ────────────────────────────────────────
@@ -983,7 +984,10 @@ function offerHomeScreen(force = false, arrival = null) {
   let data;
   try { data = load(); } catch { return false; } // 読めないときは、保存の画面に任せる
   const hasRecords = (data.projects ?? []).length > 0 || (data.work_sessions ?? []).length > 0;
-  openHomeScreenGuide(state, { installPrompt, hasRecords, arrival, onLater: () => { const b = document.getElementById('btn-homescreen'); if (b) b.hidden = false; arrival?.onLater?.(); } });
+  // 置くあいだ、アドレスと cookie に「届いたもの」と「鍵」を持たせる(置いた印がそれを受け取る)
+  const carried = withKey(arrival?.hash ?? '', ensureKey());
+  openHomeScreenGuide(state, { installPrompt, hasRecords, arrival: { ...(arrival ?? {}), hash: carried }, onLater: () => { const b = document.getElementById('btn-homescreen'); if (b) b.hidden = false; clearHash(); arrival?.onLater?.(); } });
+  setHash(carried); writeTodoki(carried);
   return true;
 }
 
@@ -996,20 +1000,38 @@ function applyShisetsuName() {
   const sub = document.getElementById('shisetsu-name');
   if (sub) { sub.textContent = name; sub.hidden = !name; }
 }
-// 一度開いた依頼のリンクは覚えておく(ホーム画面の印が依頼を持っていても、開くたびには出さない)
+function openShisetsuHere(name) {
+  if (name) { try { localStorage.setItem(SHISETSU_NAME_KEY, name); } catch { /* 名前は出せなくても開ける */ } }
+  writeShowShisetsu(true);
+  const cb = document.getElementById('setting-show-shisetsu'); if (cb) cb.checked = true;
+  applyShisetsuTab(); applyShisetsuName();
+  document.querySelector('[data-tab="shisetsu"]').click();
+}
+// 一度開いたものは覚えておく(同じものが印・郵便受け・リンクから重ねて来ても、二度は出さない)
 const SEEN_KEY = 'senlings_links_seen';
 function seenLinks() { try { const v = JSON.parse(localStorage.getItem(SEEN_KEY) ?? '[]'); return Array.isArray(v) ? v : []; } catch { return []; } }
 function markSeen(id) { try { const v = seenLinks().filter(x => x !== id); v.push(id); localStorage.setItem(SEEN_KEY, JSON.stringify(v.slice(-50))); } catch { /* 覚えられなくても開ける */ } }
 function clearHash() { try { history.replaceState(null, '', `${location.pathname}${location.search}`); } catch { /* そのまま */ } }
+function setHash(hash) { try { history.replaceState(null, '', `${location.pathname}${location.search}${hash}`); } catch { /* そのまま */ } }
+const isHome = () => homeScreenState({ installPrompt }).kind === 'home';
 
-// ホーム画面の印に、届いたものを持たせる(10-26 船長「ホーム画面に置いてもらってから、依頼が見られれば」「コピー貼り付けはなくす」)。
-// iPhone はブラウザの側から「もう置いたか」を知らせてくれず、記録(localStorage)も置いた先へは移らない。
-// 置くときに移るものは二つだけ:置いた瞬間のアドレス(start_url が無い manifest なら、そのアドレスが印の行き先)と、cookie(iOS 17.2〜、置くときに一度だけ写される)。
-// どちらにも同じものを持たせる。置く前のあいだはアドレスの # を残し、cookie にも同じ中身を置く。印から開いた側は、読んだら消す。
+// ── 郵便受けの鍵(10-26 船長「あずかりしらぬとこで。お互いのスマホに残っていればいい」) ──
+// iPhone は LINE のリンクをブラウザで開き、ホーム画面の Senlings には渡さない。二つは同じスマホでも記録を共有しない。
+// だから鍵を一つ作り、置くときに一度だけ写す(アドレスと cookie)。以後、ブラウザは届いたものに封をして郵便受けへ、
+// ホーム画面の Senlings が開けて消す。郵便受けには封をした中身だけ。残るのは、お互いのスマホの中だけ。
+const KEY_KEY = 'senlings_yubin_key';
+const HOME_AT_KEY = 'senlings_yubin_home_at';
+function readKey() { try { const k = localStorage.getItem(KEY_KEY); return isKey(k) ? k : ''; } catch { return ''; } }
+function writeKey(k) { try { localStorage.setItem(KEY_KEY, k); } catch { /* 覚えられないときは、毎回作り直しになる */ } }
+function ensureKey() { let k = readKey(); if (!k) { k = makeKey(); writeKey(k); } return k; }
+// 同じ置き場所に「家」の印があれば、ブラウザと家は同じ部屋(Android)。届けずに、ここで開く
+function homeAt() { try { return Number(localStorage.getItem(HOME_AT_KEY) ?? 0); } catch { return 0; } }
+
+// 置くときに写すもの(cookie)。iOS は置くときに一度だけ写す(17.2〜)。印から開いた側は、読んだら消す
 const TODOKI_COOKIE = 'senlings_todoki';
 function writeTodoki(hash) {
   const v = hash.replace(/^#/, '');
-  if (!/^[A-Za-z0-9_=%.-]+$/.test(v)) return; // cookie に置けない字は、そもそも入っていない
+  if (!/^[A-Za-z0-9_=%.&-]+$/.test(v)) return; // cookie に置けない字は、そもそも入っていない
   try { document.cookie = `${TODOKI_COOKIE}=${v}; Max-Age=${7 * 86400}; Path=/; SameSite=Lax${location.protocol === 'https:' ? '; Secure' : ''}`; } catch { /* 置けなくても、アドレスのほうが残る */ }
 }
 function readTodoki() {
@@ -1019,49 +1041,98 @@ function clearTodoki() {
   try { document.cookie = `${TODOKI_COOKIE}=; Max-Age=0; Path=/; SameSite=Lax${location.protocol === 'https:' ? '; Secure' : ''}`; } catch { /* そのまま */ }
 }
 
+const arrivalId = a => a.request !== undefined ? `r:${fnv(a.request)}` : a.shisetsu !== undefined ? `s:${a.shisetsu}` : null;
+const arrivalHash = a => a.request !== undefined ? `#r=${a.request}` : `#shisetsu=${encodeURIComponent(a.shisetsu)}`;
+
 async function arrive() {
-  const home = homeScreenState({ installPrompt }).kind === 'home';
-  let raw = location.hash;
-  let a = readArrival(raw);
-  // 印から開いて、アドレスに何も無ければ、置くときに写された cookie を見る(読んだら消す)
-  if (!a && home) { raw = readTodoki(); a = readArrival(raw); clearTodoki(); }
-  if (!a) return false;
+  const home = isHome();
+  let raw = location.hash, a = readArrival(raw);
+  // 印から開いて、アドレスに何も無ければ、置くときに写された cookie を見る
+  if (!a && home) { raw = readTodoki(); a = readArrival(raw); }
   if (home) clearTodoki();
-  const id = a.request !== undefined ? `r:${fnv(a.request)}` : `s:${a.shisetsu}`;
-  // ホーム画面の印から開いて、もう見たものなら、いつもの朝へ(印がリンクを持ったままでも、毎回は出さない)
+  // 鍵:置くときに写されたもの(ホーム画面)、LINE の中のブラウザから Safari へ渡されたもの。来たら持つ
+  if (a?.key && a.key !== readKey()) writeKey(a.key);
+  const id = a ? arrivalId(a) : null;
+  if (!id) { if (a) clearHash(); return false; } // 鍵だけ、または何も無い
   if (home && seenLinks().includes(id)) { clearHash(); return false; }
-  if (a.shisetsu !== undefined) {
-    if (a.shisetsu) { try { localStorage.setItem(SHISETSU_NAME_KEY, a.shisetsu); } catch { /* 名前は出せなくても開ける */ } }
-    writeShowShisetsu(true);
-    const cb = document.getElementById('setting-show-shisetsu'); if (cb) cb.checked = true;
-    applyShisetsuTab(); applyShisetsuName();
-    document.querySelector('[data-tab="shisetsu"]').click();
-    const settle = () => { clearHash(); markSeen(id); };
-    // 先にホーム画面へ。置くあいだは、アドレスと cookie に入口を持たせておく
-    if (offerHomeScreen(false, { kind: 'shisetsu', label: a.shisetsu ? `${a.shisetsu}の入口` : '施設の入口', hash: raw, later: 'いまは置かずに、施設を見る', onLater: settle })) { writeTodoki(raw); return true; }
-    settle();
-    return true;
-  }
-  return arriveRequest(a.request, raw, id);
+  if (home) return showArrival(a, id);
+  return deliverOrGuide(a, id);
 }
 
-async function arriveRequest(code, raw, id) {
+// 家(ホーム画面の Senlings)で、届いたものを開く
+async function showArrival(a, id) {
+  clearHash(); markSeen(id);
+  if (a.shisetsu !== undefined) { openShisetsuHere(a.shisetsu); return true; }
   let env;
-  try { env = await fromLinkCode(code); }
-  catch (e) { clearHash(); receiveProject(renderSiteTop, { file: true }).querySelector('[role=status]').textContent = e.message; return true; }
-  const text = envelopeText(env);
-  const label = `${bodyText(env).split('\n')[0]}\n${env.work_date ? `${dayLabel(env.work_date)} ` : ''}${env.site.name}`;
-  const open = () => { clearHash(); markSeen(id); receiveProject(renderSiteTop, { text }); };
-  // 先にホーム画面へ。置くあいだは、アドレスと cookie に依頼を持たせておく
-  if (offerHomeScreen(false, { label, hash: raw, later: 'いまは置かずに、ここで見る', onLater: open })) { writeTodoki(raw); return true; }
-  open();
+  try { env = await fromLinkCode(a.request); }
+  catch (e) { receiveProject(renderSiteTop, { file: true }).querySelector('[role=status]').textContent = e.message; return true; }
+  receiveProject(renderSiteTop, { text: envelopeText(env) });
   return true;
 }
+
+// ブラウザで、届いたものを家へ届ける。家が無ければ、置く案内(鍵と届いたものを持たせて)
+async function deliverOrGuide(a, id) {
+  let env = null, label;
+  if (a.request !== undefined) {
+    try { env = await fromLinkCode(a.request); }
+    catch (e) { clearHash(); receiveProject(renderSiteTop, { file: true }).querySelector('[role=status]').textContent = e.message; return true; }
+    label = `${bodyText(env).split('\n')[0]}\n${env.work_date ? `${dayLabel(env.work_date)} ` : ''}${env.site.name}`;
+  } else label = a.shisetsu ? `${a.shisetsu}の入口` : '施設の入口';
+  const here = () => { clearHash(); markSeen(id); if (env) receiveProject(renderSiteTop, { text: envelopeText(env) }); else openShisetsuHere(a.shisetsu); };
+  // ここが家の人(置かずに使う、と決めた。または Android で同じ置き場所)
+  if (readLater() || homeAt()) { here(); return true; }
+  const key = ensureKey();
+  const thing = arrivalHash(a).slice(1);
+  let homeThere = null, delivered = false, error = '';
+  try { homeThere = await hasHome(key); } catch (e) { error = e.message; }
+  try { await yubinPut(key, thing); delivered = true; } catch (e) { error = e.message; }
+  if (homeThere === true || (homeThere === null && !delivered)) {
+    // 家がある(または、郵便受けに届かない):届けた/届かなかった、だけ伝える。開くのは家で
+    clearHash(); markSeen(id);
+    openDeliveredNote({ label, ok: delivered, error, onHere: here });
+    return true;
+  }
+  // はじめて:置く案内。置いた印は、アドレス・cookie・郵便受けのどれかから、これを受け取る
+  if (a.shisetsu !== undefined) openShisetsuHere(a.shisetsu);
+  if (!offerHomeScreen(false, { kind: a.shisetsu !== undefined ? 'shisetsu' : 'request', label, hash: arrivalHash(a), later: a.shisetsu !== undefined ? 'いまは置かずに、施設を見る' : 'いまは置かずに、ここで見る', onLater: here })) here();
+  return true;
+}
+
+// ── 家で郵便受けを見る(開いたとき・戻ってきたとき)。開けたら消す ──
+let checking = false, queue = [];
+async function checkBox() {
+  if (!isHome() || checking) return;
+  const key = readKey(); if (!key) return;
+  checking = true;
+  try {
+    // 「家がある」の印(中身は無い)。30日ごとに置き直す(日限を延ばす)
+    if (Date.now() - homeAt() > 30 * 86400000) { await markHome(key); try { localStorage.setItem(HOME_AT_KEY, String(Date.now())); } catch { /* そのまま */ } }
+    queue = await yubinPeek(key);
+    await nextFromBox(key);
+  } catch { /* 電波が無いときは、次に開いたとき */ }
+  finally { checking = false; }
+}
+async function nextFromBox(key) {
+  while (queue.length) {
+    const item = queue.shift();
+    const a = readArrival(`#${item.text}`);
+    const id = a ? arrivalId(a) : null;
+    if (!id || seenLinks().includes(id)) { await yubinRemove(key, item.id).catch(() => {}); continue; }
+    await showArrival(a, id);
+    await yubinRemove(key, item.id).catch(() => {}); // 受け取ったら、道から消す
+    // 閉じたら、次のもの
+    const dlg = document.getElementById('local-dialog');
+    if (dlg && queue.length) { dlg.addEventListener('close', () => { nextFromBox(key); }, { once: true }); }
+    return;
+  }
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkBox(); });
+window.addEventListener('pageshow', e => { if (e.persisted) checkBox(); });
 
 // ── 初期化 ───────────────────────────────────────────────
 document.querySelector('[data-tab="shisetsu"]').hidden = !readShowShisetsu();
 applyShisetsuName();
 renderSiteTop();
-arrive().then(came => { if (!came) { openToday(); offerHomeScreen(); } });
+arrive().then(came => { if (!came) { openToday(); offerHomeScreen(); } checkBox(); });
 // 開いたままのところへ、次のリンクが来たとき(# だけが変わる)
 window.addEventListener('hashchange', () => { arrive(); });

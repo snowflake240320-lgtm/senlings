@@ -24,7 +24,26 @@ const server = http.createServer(async (req, res) => {
 });
 let browser, origin;
 let passed = 0;
-async function run(name, fn) { if (process.env.TEST_FILTER && !name.includes(process.env.TEST_FILTER)) return; await fn(); console.log('PASS', name); passed++; }
+async function run(name, fn) { if (process.env.TEST_FILTER && !name.includes(process.env.TEST_FILTER)) return; box.docs.clear(); box.calls.length = 0; box.down = false; await fn(); console.log('PASS', name); passed++; }
+// 郵便受けの代役(Firestore REST の形だけ)。ブラウザとホーム画面の Senlings(別の context)が、同じ郵便受けを見る
+const box = { docs: new Map(), calls: [], n: 0, down: false };
+function fakeFirestore(request) {
+  const u = new URL(request.url()); const method = request.method(); const path = u.pathname.split('/documents/')[1]; box.calls.push(`${method} ${path}`);
+  const json = (status, obj) => ({ status, contentType: 'application/json', body: obj === undefined ? '' : JSON.stringify(obj) });
+  if (box.down) return json(503, { error: 'down' });
+  if (u.searchParams.get('key') !== 'AIzaSyBNaj9bllnBSjlnL63smknkSK7T8SNnWZo') return json(403, { error: 'key' });
+  const body = request.postData() ? JSON.parse(request.postData()) : null;
+  if (method === 'POST') { const id = `it${++box.n}`; box.docs.set(`${path}/${id}`, body.fields); return json(200, { name: `projects/p/databases/(default)/documents/${path}/${id}`, fields: body.fields }); }
+  if (method === 'GET') {
+    if (box.docs.has(path)) return json(200, { name: path, fields: box.docs.get(path) });
+    const list = [...box.docs].filter(([k]) => k.startsWith(`${path}/`) && !k.slice(path.length + 1).includes('/')).map(([k, f]) => ({ name: `projects/p/databases/(default)/documents/${k}`, fields: f }));
+    return list.length ? json(200, { documents: list }) : path.includes('/items') ? json(200, {}) : json(404, { error: 'not found' });
+  }
+  if (method === 'DELETE') { box.docs.delete(path); return json(200, {}); }
+  if (method === 'PATCH') { box.docs.set(path, { ...(box.docs.get(path) ?? {}), ...body.fields }); return json(200, { fields: body.fields }); }
+  return json(405, {});
+}
+const boxItems = () => [...box.docs.keys()].filter(k => k.includes('/items/'));
 async function setup(raw = JSON.stringify(fixture()), { old = false, readError = false, realFirebase = false, ua = undefined, standalone = false } = {}) {
   const context = await browser.newContext({ serviceWorkers: 'block', ...(ua ? { userAgent: ua } : {}) });
   if (standalone) await context.addInitScript(() => { Object.defineProperty(navigator, 'standalone', { value: true }); });
@@ -34,6 +53,7 @@ async function setup(raw = JSON.stringify(fixture()), { old = false, readError =
       return route.fulfill({ contentType: 'text/javascript', body: `export async function syncProjectsFromFirestore(){return {added:0}}; export async function saveProjectToFirestore(){}; export async function pushAllProjectsToFirestore(){return {count:0}};` });
     }
     if (url.startsWith(origin + '/') || (realFirebase && url.startsWith('https://www.gstatic.com/firebasejs/'))) return route.continue();
+    if (!old && url.startsWith('https://firestore.googleapis.com/v1/projects/senlings-7e838/databases/(default)/documents/boxes/')) return route.fulfill(fakeFirestore(route.request()));
     return route.abort(); // In particular, Firestore/Auth/API and mail are never contacted.
   });
   await context.addInitScript(({raw, readError}) => {
@@ -434,7 +454,8 @@ async function inject(page, mode) {
     const line=await setup(null,{ua:iosUA('26_0').replace('Safari/604.1','Safari Line/14.0.0')});
     await line.page.goto(link);await line.page.locator('#homescreen-guide[open]').waitFor();
     const href=await line.page.locator('#homescreen-safari').getAttribute('href');
-    assert.equal(href,link,'Safari で開く keeps the request');assert.deepEqual(line.page.errors,[]);await line.context.close();
+    assert.ok(href.startsWith(link+'&k='),'Safari で開く keeps the request and hands over the key');
+    const lineKey=await line.page.evaluate(()=>localStorage.getItem('senlings_yubin_key'));assert.equal(href.split('&k=')[1],lineKey);assert.deepEqual(line.page.errors,[]);await line.context.close();
   });
   await run('arrival: while the guide is open the address and a cookie carry the request (iPhone manifest has no start_url, so the address is the icon)', async () => {
     const {link}=await makeLink();const code=link.split('#')[1];
@@ -443,8 +464,10 @@ async function inject(page, mode) {
     assert.equal(await page.evaluate(()=>document.querySelector('link[rel=manifest]').getAttribute('href')),'manifest-ios.json');
     assert.equal(m.start_url,undefined,'no start_url: the page address at add time becomes the icon');assert.equal(m.display,'standalone');assert.equal(m.scope,'./');
     await page.goto(link);await page.locator('#homescreen-arrival').waitFor();
-    assert.equal(await page.evaluate(()=>location.hash),'#'+code,'the address keeps the request until they choose');
-    assert.equal(await page.evaluate(()=>document.cookie),`senlings_todoki=${code}`,'the cookie carries the same (copied when the icon is made)');
+    const key=await page.evaluate(()=>localStorage.getItem('senlings_yubin_key'));assert.match(key,/^[A-Za-z0-9_-]{22}$/,'a key is made in the browser');
+    assert.equal(await page.evaluate(()=>location.hash),`#${code}&k=${key}`,'the address keeps the request and the key until they choose');
+    assert.equal(await page.evaluate(()=>document.cookie),`senlings_todoki=${code}&k=${key}`,'the cookie carries the same (copied when the icon is made)');
+    assert.equal(boxItems().length,1,'the request is also sealed into the post box');assert.doesNotMatch(JSON.stringify([...box.docs.values()]),/架空|TEST/,'sealed: the post office cannot read it');
     await click(page,'#homescreen-later');await page.locator('#handoff-choices:not([hidden])').waitFor();
     assert.equal(await page.evaluate(()=>location.hash),'');
     assert.deepEqual(page.errors,[]);await context.close();
@@ -464,9 +487,11 @@ async function inject(page, mode) {
     assert.equal(await page.evaluate(()=>rawStored()),null);assert.deepEqual(page.errors,[]);await context.close();
     // cookie だけが写ったとき(印の行き先が素のアドレスでも、依頼は届く)
     const c=await setup(null,{ua:iosUA('26_0'),standalone:true});await c.page.locator('.site-welcome').waitFor();
-    await c.page.evaluate(code=>{document.cookie=`senlings_todoki=${code}; Path=/; SameSite=Lax`;},code);
+    await c.page.evaluate(code=>{document.cookie=`senlings_todoki=${code}&k=AAAAAAAAAAAAAAAAAAAAAA; Path=/; SameSite=Lax`;},code);
     await c.page.goto(`${origin}/`);await c.page.goto(`${origin}/index.html`);await c.page.locator('#handoff-choices:not([hidden])').waitFor();
     assert.equal(await c.page.evaluate(()=>document.cookie),'','read once, then gone');
+    assert.equal(await c.page.evaluate(()=>localStorage.getItem('senlings_yubin_key')),'AAAAAAAAAAAAAAAAAAAAAA','the key copied with the icon is kept');
+    await c.page.waitForFunction(()=>Number(localStorage.getItem('senlings_yubin_home_at')||0)>0);assert.ok([...box.docs.keys()].some(k=>/^boxes\/[A-Za-z0-9_-]{24}$/.test(k)),'the house leaves only its mark (no content) in the post box');
     await click(c.page,'#choice-self');await c.page.locator('#reply-greet').waitFor();
     assert.equal(JSON.parse(await c.page.evaluate(()=>rawStored())).projects[0].project_slug,'TEST');
     await c.page.goto(`${origin}/`);await c.page.goto(`${origin}/index.html`);await ready(c.page);assert.equal(await c.page.locator('#handoff-choices').count(),0);
@@ -484,7 +509,8 @@ async function inject(page, mode) {
     const ios=await setup(null,{ua:iosUA('26_0')});await ios.page.locator('#homescreen-guide[open]').waitFor();
     const fh=`#shisetsu=${encodeURIComponent('架空の施設')}`;await ios.page.goto(`${origin}/?openExternalBrowser=1${fh}`);await ios.page.locator('#homescreen-arrival').waitFor();
     assert.match(await ios.page.locator('#homescreen-arrival').innerText(),/架空の施設の入口/);assert.equal(await ios.page.locator('#homescreen-why').innerText(),'置いて、ホーム画面から開くと、施設が出ます。');
-    assert.equal(await ios.page.evaluate(()=>location.hash),fh);assert.equal(await ios.page.evaluate(()=>document.cookie),`senlings_todoki=${fh.slice(1)}`);
+    const fkey=await ios.page.evaluate(()=>localStorage.getItem('senlings_yubin_key'));
+    assert.equal(await ios.page.evaluate(()=>location.hash),`${fh}&k=${fkey}`);assert.equal(await ios.page.evaluate(()=>document.cookie),`senlings_todoki=${fh.slice(1)}&k=${fkey}`);
     await click(ios.page,'#homescreen-later');assert.equal(await ios.page.evaluate(()=>location.hash),'');await ios.context.close();
     const home=await setup(null,{ua:iosUA('26_0'),standalone:true});await home.page.goto(`${origin}/index.html${fh}`);await home.page.locator('#screen-shisetsu.active').waitFor();
     assert.equal(await home.page.evaluate(()=>location.hash),'');
@@ -494,6 +520,51 @@ async function inject(page, mode) {
     await page.goto(`${origin}/?openExternalBrowser=1#r=zAAAA`);await page.locator('#handoff-input').waitFor();
     assert.match(await page.locator('#local-dialog [role=status]').first().innerText(),/途中で切れて/);
     assert.equal(await page.evaluate(()=>rawStored()),null);assert.deepEqual(page.errors,[]);await context.close();
+  });
+  // 郵便受け(10-26):置いたあとのリンクは、ブラウザで開いて家へ届く。郵便受けには封をした中身だけ。受け取ったら消える
+  async function makeLinkAs(from, note){const {page,context}=await setup(JSON.stringify(withContact()));await ready(page);await stubShare(page);
+    await click(page,'.site-card');await click(page,'#btn-request-help');await page.locator('#req-from').fill(from);await page.locator('#req-note').fill(note);await click(page,'#req-make');await page.locator('#req-share:not([hidden])').waitFor();
+    await click(page,'#req-share');const text=(await page.evaluate(()=>window.shared))[0];await context.close();return text.match(/Senlings で開く → (\S+)/)[1].replace(/^https?:\/\/[^/]+/,origin);}
+  await run('yubin: first link → guide with the key; the house takes the key with the icon; the second link is delivered through the sealed post box and opens in the house when it comes back; nothing readable or lasting stays in the box', async () => {
+    const first=await makeLinkAs('架空の職人','一通目');const second=await makeLinkAs('架空の元請け','二通目');
+    // ブラウザ(Chrome で iPhone):一通目
+    const b=await setup(null,{ua:iosUA('26_0').replace('Version/26.0','CriOS/141.0')});await b.page.locator('#homescreen-guide[open]').waitFor();await click(b.page,'#homescreen-later');
+    await b.page.evaluate(()=>localStorage.removeItem('senlings_homescreen_later'));
+    await b.page.goto(first);await b.page.locator('#homescreen-arrival').waitFor();
+    const key=await b.page.evaluate(()=>localStorage.getItem('senlings_yubin_key'));const carried=await b.page.evaluate(()=>location.hash);
+    assert.ok(carried.endsWith(`&k=${key}`));assert.equal(boxItems().length,1,'the first request waits, sealed, in the box too');
+    // 家(置いた印から):アドレスに一通目と鍵
+    const h=await setup(null,{ua:iosUA('26_0'),standalone:true});await h.page.goto(`${origin}/index.html${carried}`);await h.page.locator('#handoff-choices:not([hidden])').waitFor();
+    assert.match(await h.page.locator('#handoff-preview').innerText(),/一通目/);assert.equal(await h.page.evaluate(()=>localStorage.getItem('senlings_yubin_key')),key,'the house holds the same key');
+    await h.page.waitForFunction(()=>Number(localStorage.getItem('senlings_yubin_home_at')||0)>0);
+    await h.page.waitForFunction(()=>true);await new Promise(r=>setTimeout(r,300));
+    assert.equal(boxItems().length,0,'the same request from the box is already seen, so it is taken out');
+    await click(h.page,'#choice-self');await h.page.locator('#reply-greet').waitFor();await click(h.page,'#local-dialog .local-close');
+    // ブラウザ:二通目。家があるので、置く案内ではなく「届けました」
+    await b.page.goto(`${origin}/`);await b.page.goto(second);await b.page.locator('#delivered-note[open]').waitFor();
+    assert.match(await b.page.locator('#delivered-note h2').innerText(),/届けました/);assert.match(await b.page.locator('#delivered-arrival').innerText(),/【応援のお願い】架空の元請けより/);
+    assert.equal(await b.page.locator('#homescreen-guide').count(),0,'no second install guide');assert.equal(await b.page.evaluate(()=>location.hash),'');
+    assert.equal(boxItems().length,1);assert.doesNotMatch(JSON.stringify([...box.docs.values()]),/二通目|架空|TEST/,'sealed');
+    assert.equal(await b.page.evaluate(()=>rawStored()),null,'the browser keeps nothing');
+    // 家に戻る:郵便受けを見て、二通目が開く。受け取ったら箱から消える
+    await h.page.evaluate(()=>window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true}))); /* 戻ってきた(実機では visibilitychange でも同じ) */
+    await h.page.locator('#handoff-choices:not([hidden])').waitFor();assert.match(await h.page.locator('#handoff-preview').innerText(),/二通目/);
+    await h.page.waitForFunction(()=>true);await new Promise(r=>setTimeout(r,300));assert.equal(boxItems().length,0,'taken out of the box once shown');
+    await click(h.page,'#local-dialog .local-close');
+    await h.page.evaluate(()=>window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true}))); /* 戻ってきた(実機では visibilitychange でも同じ) */await new Promise(r=>setTimeout(r,300));assert.equal(await h.page.locator('#local-dialog[open]').count(),0,'nothing comes twice');
+    // ブラウザで「ここで見る」も残っている(家で開かないと決めた人のため)
+    await b.page.goto(`${origin}/`);await b.page.goto(second.replace(/#r=/,'#r=')+'');await b.page.locator('#delivered-note[open]').waitFor();
+    await click(b.page,'#delivered-here');await b.page.locator('#handoff-choices:not([hidden])').waitFor();assert.match(await b.page.locator('#handoff-preview').innerText(),/二通目/);
+    assert.deepEqual(b.page.errors,[]);assert.deepEqual(h.page.errors,[]);await b.context.close();await h.context.close();
+  });
+  await run('yubin: when the post office is down, the browser says so and offers ここで見る; the house just waits for next time', async () => {
+    const link=await makeLinkAs('架空の職人','電波なし');
+    const b=await setup(null,{ua:iosUA('26_0')});await b.page.locator('#homescreen-guide[open]').waitFor();await click(b.page,'#homescreen-later');await b.page.evaluate(()=>localStorage.removeItem('senlings_homescreen_later'));
+    box.down=true;await b.page.goto(link);await b.page.locator('#delivered-note[open]').waitFor();
+    assert.match(await b.page.locator('#delivered-note h2').innerText(),/届けられませんでした/);assert.match(await b.page.locator('#delivered-why').innerText(),/電波を確かめて/);
+    await click(b.page,'#delivered-here');await b.page.locator('#handoff-choices:not([hidden])').waitFor();assert.deepEqual(b.page.errors,[]);await b.context.close();
+    const h=await setup(null,{ua:iosUA('26_0'),standalone:true});await h.page.evaluate(()=>localStorage.setItem('senlings_yubin_key','AAAAAAAAAAAAAAAAAAAAAA'));await h.page.goto(`${origin}/`);await h.page.locator('.site-welcome').waitFor();
+    await new Promise(r=>setTimeout(r,300));assert.equal(await h.page.locator('#local-dialog[open]').count(),0);assert.deepEqual(h.page.errors,[]);await h.context.close();
   });
   await run('arrival: the 元請け page makes a facility entrance link that opens ●施設', async () => {
     const {page,context}=await setup(null);await page.goto(origin+'/irai/');await stubShare(page);
@@ -534,7 +605,7 @@ async function inject(page, mode) {
     assert.equal(await r.page.locator('#homescreen-guide figure svg').count(),3,'three drawn pictures');assert.equal(await r.page.locator('#homescreen-guide figure img').count(),1,'one photo');
     assert.ok(await r.page.locator('#homescreen-guide figure img').evaluate(i=>i.complete&&i.naturalWidth>0),'photo loads');await r.context.close();
     r=await setup(JSON.stringify(fixture()),{ua:iosUA('26_0')+' Line/15.2.0'});await r.page.locator('#homescreen-guide[open]').waitFor();
-    assert.match(await r.page.locator('#homescreen-safari').getAttribute('href'),/\?openExternalBrowser=1$/);
+    assert.match(await r.page.locator('#homescreen-safari').getAttribute('href'),/\?openExternalBrowser=1#k=[A-Za-z0-9_-]{22}$/,'Safari gets the key too, so the house made from Safari shares the post box');
     assert.doesNotMatch(await r.page.locator('#homescreen-guide').innerText(),/JSON/);await r.context.close();
     r=await setup(JSON.stringify(fixture()),{ua:iosUA('26_0')});await r.page.locator('#homescreen-guide[open]').waitFor();
     assert.match(await r.page.locator('#homescreen-guide').innerText(),/JSON/,'records already in this Safari: say they do not move');

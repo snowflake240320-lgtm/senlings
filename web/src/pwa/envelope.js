@@ -167,13 +167,26 @@ export async function envelopeLink(env, base) {
 /** # の後ろを読む。依頼なら { request: code }、施設の入口なら { shisetsu: 名前 }。 */
 export function readArrival(hash) {
   const h = (hash ?? '').replace(/^#/, '');
-  if (h.startsWith(`${LINK_KEY}=`)) return { request: h.slice(LINK_KEY.length + 1) };
-  if (h === 'shisetsu' || h.startsWith('shisetsu=')) {
-    let name = '';
-    try { name = decodeURIComponent(h.slice('shisetsu='.length)); } catch { name = ''; }
-    return { shisetsu: oneLine(name, 100) };
+  if (!h) return null;
+  const out = {};
+  // # の後ろは & で区切る:r=依頼 / shisetsu=施設の名前 / k=鍵(置くときに写す。ホーム画面の Senlings が同じ郵便受けを持つため)
+  for (const part of h.split('&')) {
+    if (part.startsWith(`${LINK_KEY}=`)) out.request = part.slice(LINK_KEY.length + 1);
+    else if (part === 'shisetsu' || part.startsWith('shisetsu=')) {
+      let name = '';
+      try { name = decodeURIComponent(part.slice('shisetsu='.length)); } catch { name = ''; }
+      out.shisetsu = oneLine(name, 100);
+    } else if (part.startsWith('k=') && /^[A-Za-z0-9_-]{22}$/.test(part.slice(2))) out.key = part.slice(2);
   }
-  return null;
+  return Object.keys(out).length ? out : null;
+}
+/** # の後ろに鍵を足す(無ければそのまま)。 */
+export function withKey(hash, key) {
+  const h = (hash ?? '').replace(/^#/, '');
+  if (!key) return h ? `#${h}` : '';
+  const parts = h ? h.split('&').filter(p => !p.startsWith('k=')) : [];
+  parts.push(`k=${key}`);
+  return `#${parts.join('&')}`;
 }
 
 const CUT = '依頼の文が途中で切れているか、変わっています。届いた文をまるごとコピーして、もう一度貼ってください。';
