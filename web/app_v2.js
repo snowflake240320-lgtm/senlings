@@ -1115,6 +1115,15 @@ async function arrive() {
   return deliverOrGuide(a, id);
 }
 
+// 受け取ったら、そのまま現場の画面へ(現場だけの顔。11-16 船長の iPhone で歩いた違和感:車の印まで遠い)
+function openTaken(projectId) {
+  let project = null;
+  try { project = (load().projects ?? []).find(p => p.project_id === projectId && !p.archive) ?? null; } catch { project = null; }
+  if (!project) return;
+  setActiveTab('genba');
+  goToHandover(project);
+}
+
 // 家(ホーム画面の Senlings)で、届いたものを開く
 async function showArrival(a, id) {
   clearHash(); markSeen(id);
@@ -1122,7 +1131,7 @@ async function showArrival(a, id) {
   let env;
   try { env = await fromLinkCode(a.request); }
   catch (e) { receiveProject(renderSiteTop, { file: true }).querySelector('[role=status]').textContent = e.message; return true; }
-  receiveProject(renderSiteTop, { text: envelopeText(env) });
+  receiveProject(renderSiteTop, { text: envelopeText(env), onTaken: openTaken });
   return true;
 }
 
@@ -1134,7 +1143,7 @@ async function deliverOrGuide(a, id) {
     catch (e) { clearHash(); receiveProject(renderSiteTop, { file: true }).querySelector('[role=status]').textContent = e.message; return true; }
     label = `${bodyText(env).split('\n')[0]}\n${env.work_date ? `${dayLabel(env.work_date)} ` : ''}${env.site.name}`;
   } else label = a.shisetsu ? `${a.shisetsu}の入口` : '施設の入口';
-  const here = () => { clearHash(); markSeen(id); if (env) receiveProject(renderSiteTop, { text: envelopeText(env) }); else openShisetsuHere(a.shisetsu); };
+  const here = () => { clearHash(); markSeen(id); if (env) receiveProject(renderSiteTop, { text: envelopeText(env), onTaken: openTaken }); else openShisetsuHere(a.shisetsu); };
   // ここが家の人(置かずに使う、と決めた。または Android で同じ置き場所)
   if (readLater() || homeAt()) { here(); return true; }
   const key = ensureKey();

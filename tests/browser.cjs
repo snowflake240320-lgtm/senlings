@@ -889,11 +889,22 @@ async function inject(page, mode) {
       const env=m.makeEnvelope({kind:'genba',from:'架空建装',date:'2026-12-01',site:{name:'架空の区画',address:'35.5,135.25',start:'08:40',end:'17:00',morning_assembly:'8:20 立体駐車場',contact:'架空の田中',contact_phone:'090-0000-0000'}});
       return m.envelopeLink(env,`${location.origin}/?openExternalBrowser=1`);});
     await page.goto(link);await page.locator('#handoff-choices:not([hidden])').waitFor();
-    await click(page,'#choice-self');await page.locator('#reply-greet').waitFor();
-    assert.equal(await page.locator('#handoff-seikyusaki').count(),0,'no billing door in this face');
-    await click(page,'#local-dialog .local-close');await ready(page);await click(page,'.site-card');await page.locator('#handover-shirushi-navi').waitFor();
+    // 選ぶのは一つ(入れる)。小さく、入れない。五択・あいさつ・請求先・文の説明は出さない
+    assert.deepEqual(await page.locator('#handoff-choices button').allInnerTexts(),['入れる','入れない']);
+    assert.match(await page.locator('#handoff-preview').innerText(),/現場案内\(架空建装より\)[\s\S]*8:40〜17:00[\s\S]*架空の区画/);
+    assert.equal(await page.locator('#local-dialog p:visible').filter({hasText:'選ぶまで'}).count(),0,'no long lead in this face');
+    const tb=await page.locator('#choice-self').boundingBox();assert.ok(tb.height>=64,'the one button is big');
+    await click(page,'#choice-skip');assert.equal(await page.locator('#local-dialog').count(),0);assert.equal(await page.evaluate(()=>rawStored()),null,'入れない keeps nothing');
+    // もう一度リンクから:入れる → すぐ現場の画面(車の印)。閉じる・札を探す、は要らない
+    await page.evaluate(()=>localStorage.removeItem('senlings_links_seen'));await page.goto(`${origin}/`);await page.goto(link);await page.locator('#choice-self').waitFor();
+    await click(page,'#choice-self');await page.locator('#screen-handover.active').waitFor();await page.locator('#handover-shirushi-navi').waitFor();
+    assert.equal(await page.locator('#local-dialog').count(),0,'the dialog is gone');assert.equal(await page.locator('#reply-greet').count(),0);assert.equal(await page.locator('#handoff-seikyusaki').count(),0,'no billing door in this face');
+    assert.equal(await page.locator('#handover-site-name').innerText(),'架空の区画');
     assert.equal(await page.locator('#handover-shirushi-navi').getAttribute('href'),'https://www.google.com/maps/dir/?api=1&destination=35.5%2C135.25&travelmode=driving&dir_action=navigate');
-    const d=JSON.parse(await page.evaluate(()=>rawStored()));assert.equal(d.projects[0].project_slug,'架空の区画');assert.deepEqual(d.projects[0].teiji,{start:'08:40',end:'17:00'});
+    const d=JSON.parse(await page.evaluate(()=>rawStored()));assert.equal(d.projects.length,1);assert.equal(d.projects[0].project_slug,'架空の区画');assert.deepEqual(d.projects[0].teiji,{start:'08:40',end:'17:00'});assert.equal(d.work_sessions.length,0,'the day is not placed until 今日はここ');
+    // 同じリンクをもう一度:何も聞かずに、その現場が開く。現場は増えない
+    await page.evaluate(()=>localStorage.removeItem('senlings_links_seen'));await page.goto(`${origin}/`);await ready(page);await page.goto(link);await page.locator('#screen-handover.active').waitFor();
+    assert.equal(await page.locator('#local-dialog').count(),0);assert.equal(JSON.parse(await page.evaluate(()=>rawStored())).projects.length,1);
     assert.deepEqual(page.errors,[]);await context.close();
   });
   // The old UI's Firebase module is stubbed for behavior tests, never connected to a database.

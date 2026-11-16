@@ -154,3 +154,9 @@ html:not([data-kao="genba"]) .genba-settings-btn { display: none; }
 .shirushi:active { background: #1e1a10; }
 html[data-mieru="50"] .shirushi { font-size: 15px; }
 html[data-mieru="70"] .shirushi { font-size: 16px; font-weight: 500; }
+
+/* 受け取る(現場だけの顔):選ぶのは一つ。大きく「入れる」、小さく「入れない」 */
+.take-big { display: block; width: 100%; min-height: 76px; margin: 18px 0 0; padding: 16px; background: #1e1a10; border: 1px solid #c5a059; border-radius: 14px; color: #ddbd7e; font: inherit; font-size: 22px; font-weight: 500; letter-spacing: 0.1em; cursor: pointer; }
+.take-big:active { background: #2a2210; }
+.take-skip { display: block; margin: 18px auto 0; padding: 10px 14px; min-height: 44px; background: none; border: 0; color: #8a8780; font: inherit; font-size: 14px; text-decoration: underline; cursor: pointer; }
+html[data-mieru="70"] .take-big { font-size: 24px; }

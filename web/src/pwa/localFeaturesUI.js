@@ -48,7 +48,7 @@ function values(parent, packet, { showName = true, idLabel = '送り手の物件
 // 届いた依頼は、要点と五択だけ(二段構え)。中身の全部と現場名は五択の下に畳む。
 // 封筒が無い文でも、現場名を決めれば、その文を「届いた連絡」として現場を立てられる。文とファイル(物件情報 JSON)は、設定の「ファイルで受け取る」から。
 // 受けるかどうか、その日に置くかどうかは、受けた人が決める。返事は LINE で、いつもどおりに。
-export function receiveProject(onSaved, { text: arrived = '', file: fileMode = false } = {}) {
+export function receiveProject(onSaved, { text: arrived = '', file: fileMode = false, onTaken = null } = {}) {
   const mode = arrived ? 'arrived' : 'file';
   void fileMode;
   const box = panel(mode === 'file' ? 'ファイルで受け取る' : '受け取る');
@@ -113,6 +113,20 @@ export function receiveProject(onSaved, { text: arrived = '', file: fileMode = f
     choices.replaceChildren();
     if (!envelope) { choices.hidden = true; accept.hidden = false; return; }
     choices.hidden = false; accept.hidden = true;
+    if (genbaDake()) {
+      // 現場だけの顔(11-16 船長「ほぼ文字を見ない前提」。iPhone で歩いた違和感:文字ばかりで、車の印まで遠い)。
+      // 選ぶのは一つ。入れたら、すぐ現場の画面へ。あいさつの下書き・その日に置く・請求先は出さない(全部の顔には残っている)
+      lead.hidden = true;
+      const take = $('button', '入れる', { type: 'button', className: 'take-big', id: 'choice-self' });
+      take.onclick = () => {
+        try { const r = doAccept(); if (!r) return; onSaved(); const d = dialog; d.close(); d.remove(); onTaken?.(r.project_id); }
+        catch (e) { message.textContent = e.message; }
+      };
+      const skip = $('button', '入れない', { type: 'button', className: 'take-skip', id: 'choice-skip' });
+      skip.onclick = () => { const d = dialog; d.close(); d.remove(); }; // 何も残さない
+      choices.append(take, skip);
+      return;
+    }
     const env = envelope, me = getSetting(SETTINGS_KEYS.USER_NAME) ?? '';
     const day = env.work_date ? `${dayLabel(env.work_date)} の` : '';
     const to = env.from ? `${env.from}さん\n` : '';
@@ -203,6 +217,8 @@ export function receiveProject(onSaved, { text: arrived = '', file: fileMode = f
         packetJson = JSON.stringify({ format: 'senlings.project-handoff', schema_version: 1, source_project_id: `text:${crypto.randomUUID()}`, revision: 1, project: { name: first, raw: text.slice(0, 20000) } });
       } else throw new Error('届いた文を貼ってください。');
       const plan = inspectTransfer(packetJson);
+      // 現場だけの顔:もう入っている現場のリンクなら、何も聞かずにその現場を開く
+      if (genbaDake() && mode === 'arrived' && envelope && plan.action === 'received') { const d = dialog; d.close(); d.remove(); onTaken?.(plan.project_id); return; }
       // 封筒なら、上には要点だけ(何を・いつ・どこ・一言)。中身の全部と現場名は、五択の下に畳む
       const where = envelope ? (plan.action === 'received' ? preview : (detail = $('details', '', { className: 'handoff-detail', id: 'handoff-detail' }))) : preview;
       if (envelope) {
