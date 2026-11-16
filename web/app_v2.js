@@ -10,7 +10,7 @@ import { generateSnapshot, UnconfirmedExpenseError } from './src/pwa/invoice.js'
 import { setClaimStatus } from './src/pwa/expense.js';
 import { exportInvoiceToExcel } from './src/pwa/invoiceExport.js';
 
-import { receiveProject, giveProject, writeMemo, takePhoto, reviewRecords, editSettings, editMe, editSeikyusaki, showContact, sosText, copyText, exportText } from './src/pwa/localFeaturesUI.js';
+import { receiveProject, takeArrived, giveProject, writeMemo, takePhoto, reviewRecords, editSettings, editMe, editSeikyusaki, showContact, sosText, copyText, exportText } from './src/pwa/localFeaturesUI.js';
 import { seikyusakiOf } from './src/pwa/seikyusaki.js';
 import { saveLocalRecord, contactPhone } from './src/pwa/localRecords.js';
 import { openPon, openKon, openKero, openHoo, ponDeductionFor } from './src/pwa/nakamaUI.js';
@@ -1115,23 +1115,42 @@ async function arrive() {
   return deliverOrGuide(a, id);
 }
 
-// 受け取ったら、そのまま現場の画面へ(現場だけの顔。11-16 船長の iPhone で歩いた違和感:車の印まで遠い)
+// 受け取ったら、そのまま現場の画面へ(現場だけの顔。11-16 船長の iPhone で歩いた違和感:車の印まで遠い)。開けたら true
 function openTaken(projectId) {
   let project = null;
   try { project = (load().projects ?? []).find(p => p.project_id === projectId && !p.archive) ?? null; } catch { project = null; }
-  if (!project) return;
+  if (!project) return false;
   setActiveTab('genba');
   goToHandover(project);
+  return true;
+}
+
+// 届いたものを開く。
+// 現場だけの顔:リンクを押したことが、入れること。聞かずに入れて、そのまま現場の画面へ(11-16 18:01 船長
+// 「最初と、これ、今回いらないかも。初回特化でも、価値あります」)。受けるかの問いも、あいさつも出さない(全部の顔には残っている)。
+// quiet(郵便受けから、開いている途中に届いたもの):現場の一覧にいるときだけ画面を移す。仕事の画面からは動かさない
+function openArrived(env, { quiet = false } = {}) {
+  const text = envelopeText(env);
+  if (genbaDake()) {
+    try {
+      const projectId = takeArrived(text);
+      const atTop = document.getElementById('screen-site-top').classList.contains('active');
+      renderSiteTop();
+      if (quiet && !atTop) return;
+      if (openTaken(projectId)) return;
+    } catch { /* 入れられないときは、いつもの受け取りが理由を見せる */ }
+  }
+  receiveProject(renderSiteTop, { text, onTaken: openTaken });
 }
 
 // 家(ホーム画面の Senlings)で、届いたものを開く
-async function showArrival(a, id) {
+async function showArrival(a, id, { quiet = false } = {}) {
   clearHash(); markSeen(id);
   if (a.shisetsu !== undefined) { if (genbaDake()) return false; openShisetsuHere(a.shisetsu); return true; }
   let env;
   try { env = await fromLinkCode(a.request); }
   catch (e) { receiveProject(renderSiteTop, { file: true }).querySelector('[role=status]').textContent = e.message; return true; }
-  receiveProject(renderSiteTop, { text: envelopeText(env), onTaken: openTaken });
+  openArrived(env, { quiet });
   return true;
 }
 
@@ -1141,9 +1160,12 @@ async function deliverOrGuide(a, id) {
   if (a.request !== undefined) {
     try { env = await fromLinkCode(a.request); }
     catch (e) { clearHash(); receiveProject(renderSiteTop, { file: true }).querySelector('[role=status]').textContent = e.message; return true; }
+    // 現場だけの顔:押したところ(ブラウザ)で、そのまま開く。ホーム画面に置く案内も、「届けました」も出さない。
+    // 郵便受けにも送らない(初回特化。朝、LINE のリンクを押せば、また同じ画面が出る。11-16 18:01 船長)
+    if (genbaDake()) { clearHash(); markSeen(id); openArrived(env); return true; }
     label = `${bodyText(env).split('\n')[0]}\n${env.work_date ? `${dayLabel(env.work_date)} ` : ''}${env.site.name}`;
   } else label = a.shisetsu ? `${a.shisetsu}の入口` : '施設の入口';
-  const here = () => { clearHash(); markSeen(id); if (env) receiveProject(renderSiteTop, { text: envelopeText(env), onTaken: openTaken }); else openShisetsuHere(a.shisetsu); };
+  const here = () => { clearHash(); markSeen(id); if (env) openArrived(env); else openShisetsuHere(a.shisetsu); };
   // ここが家の人(置かずに使う、と決めた。または Android で同じ置き場所)
   if (readLater() || homeAt()) { here(); return true; }
   const key = ensureKey();
@@ -1250,10 +1272,11 @@ async function nextFromBox(key) {
     const a = readArrival(`#${item.text}`);
     const id = a ? arrivalId(a) : null;
     if (!id || seenLinks().includes(id)) { await yubinRemove(key, item.id).catch(() => {}); continue; }
-    await showArrival(a, id);
+    await showArrival(a, id, { quiet: true });
     await yubinRemove(key, item.id).catch(() => {}); // 受け取ったら、道から消す
-    // 閉じたら、次のもの
+    // 画面を出したなら、閉じたら次のもの。出さずに入れたとき(現場だけの顔)は、そのまま次のもの
     const dlg = document.getElementById('local-dialog');
+    if (!dlg && genbaDake()) continue;
     if (dlg && queue.length) { dlg.addEventListener('close', () => { nextFromBox(key); }, { once: true }); }
     return;
   }
@@ -1265,6 +1288,7 @@ window.addEventListener('pageshow', e => { if (e.persisted) checkBox(); });
 document.querySelector('[data-tab="shisetsu"]').hidden = !readShowShisetsu();
 applyShisetsuName();
 renderSiteTop();
-arrive().then(came => { if (!came) { openToday(); offerHomeScreen(); } checkBox(); });
+// 現場だけの顔では、ホーム画面に置く案内を自分からは出さない(置かなくても、リンクを押せば開く)
+arrive().then(came => { if (!came) { openToday(); if (!genbaDake()) offerHomeScreen(); } checkBox(); });
 // 開いたままのところへ、次のリンクが来たとき(# だけが変わる)
 window.addEventListener('hashchange', () => { arrive(); });

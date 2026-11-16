@@ -44,6 +44,23 @@ function values(parent, packet, { showName = true, idLabel = '送り手の物件
   }
 }
 
+// 聞かずに入れる(現場だけの顔。11-16 18:01 船長「最初と、これ、今回いらないかも。初回特化でも、価値あります」)。
+// リンクを押したことが、入れること。画面は出さない。入れた現場(もう入っていれば、その現場)の project_id を返す。
+// 新しい版は、同じ現場に重ねる。古い版のリンクでは上書きせず、いま入っている現場を返す。
+// 読めない・同じ版で中身が違う・保存できない、は投げる(呼ぶ側が、いつもの受け取りで理由を見せる)
+export function takeArrived(text) {
+  const envelope = findEnvelope(text);
+  if (!envelope) throw new Error('届いた文に、現場の中身がありません。');
+  const packet = envelopeToTransfer(envelope, text);
+  const newer = (load().handoff_receipts ?? [])
+    .filter(r => r.packet.source_project_id === packet.source_project_id && r.packet.revision > packet.revision)
+    .sort((a, b) => b.packet.revision - a.packet.revision)[0];
+  if (newer) return newer.project_id;
+  const result = acceptTransfer(JSON.stringify(packet));
+  if (result.action !== 'received' && envelope.site.start && envelope.site.end) setProjectTeiji(result.project_id, envelope.site.start, envelope.site.end);
+  return result.project_id;
+}
+
 // 受け取る(郵便受け)。LINE で届いた依頼は、文のリンクから入る(コピー貼り付けは無し。10-26 船長)。
 // 届いた依頼は、要点と五択だけ(二段構え)。中身の全部と現場名は五択の下に畳む。
 // 封筒が無い文でも、現場名を決めれば、その文を「届いた連絡」として現場を立てられる。文とファイル(物件情報 JSON)は、設定の「ファイルで受け取る」から。
@@ -218,7 +235,7 @@ export function receiveProject(onSaved, { text: arrived = '', file: fileMode = f
       } else throw new Error('届いた文を貼ってください。');
       const plan = inspectTransfer(packetJson);
       // 現場だけの顔:もう入っている現場のリンクなら、何も聞かずにその現場を開く
-      if (genbaDake() && mode === 'arrived' && envelope && plan.action === 'received') { const d = dialog; d.close(); d.remove(); onTaken?.(plan.project_id); return; }
+      if (genbaDake() && mode === 'arrived' && envelope && plan.action === 'received' && onTaken?.(plan.project_id)) { const d = dialog; d.close(); d.remove(); return; }
       // 封筒なら、上には要点だけ(何を・いつ・どこ・一言)。中身の全部と現場名は、五択の下に畳む
       const where = envelope ? (plan.action === 'received' ? preview : (detail = $('details', '', { className: 'handoff-detail', id: 'handoff-detail' }))) : preview;
       if (envelope) {

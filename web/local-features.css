@@ -139,8 +139,11 @@ html[data-kao="genba"] #screen-settings > div { height: 100dvh !important; }
 html[data-kao="genba"] .working-actions .action-row, html[data-kao="genba"] #btn-rest, html[data-kao="genba"] #btn-return { display: none; }
 /* 申し送り:人を頼む・物件を渡す・定時・請求先は隠す(担当者へ確認するは残す) */
 html[data-kao="genba"] #btn-request-help, html[data-kao="genba"] #btn-give-property, html[data-kao="genba"] #btn-teiji-fix, html[data-kao="genba"] #btn-seikyusaki, html[data-kao="genba"] #handover-teiji { display: none; }
-/* 設定:施設のタブ・単価と口座・職種・工事ごとの CSV は隠す(見やすさ・ホーム画面に置く・あなたのこと・全部の持ち出しは残す) */
+/* 設定:施設のタブ・単価と口座・職種・工事ごとの CSV は隠す(見やすさ・あなたのこと・全部の持ち出しは残す) */
 html[data-kao="genba"] label[for="setting-show-shisetsu"], html[data-kao="genba"] #btn-shimai-settings, html[data-kao="genba"] #setting-trades, html[data-kao="genba"] #setting-trades-status, html[data-kao="genba"] #btn-export-csv-project-shimai { display: none; }
+/* ホーム画面に置く、も隠す(11-16 18:01 船長「最初…今回いらないかも。初回特化でも」)。この顔では、リンクは押したところで開く。
+   置いた先にはリンクが届かない(iPhone はリンクをブラウザで開く)ので、置く入口だけ残すと行き止まりになる */
+html[data-kao="genba"] #btn-homescreen { display: none; }
 /* 現場トップの、設定の入口(ホームのタブが無いので、ここに一つ) */
 .site-top-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 html:not([data-kao="genba"]) .genba-settings-btn { display: none; }

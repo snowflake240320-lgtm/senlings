@@ -573,7 +573,11 @@ async function inject(page, mode) {
     await click(page,'.site-card');await click(page,'#btn-request-help');await page.locator('#req-from').fill(from);await page.locator('#req-note').fill(note);await click(page,'#req-make');await page.locator('#req-share:not([hidden])').waitFor();
     await click(page,'#req-share');const text=(await page.evaluate(()=>window.shared))[0];await context.close();return text.match(/Senlings で開く → (\S+)/)[1].replace(/^https?:\/\/[^/]+/,origin);}
   await run('yubin: first link → guide with the key; the house takes the key with the icon; the second link is delivered through the sealed post box and opens in the house when it comes back; nothing readable or lasting stays in the box', async () => {
-    const first=await makeLinkAs('架空の職人','一通目');const second=await makeLinkAs('架空の元請け','二通目');
+    // 版は秒の刻み(requestUI)。同じ現場の二通が同じ秒に作られると、同じ版で中身が違う文になり、受け取りは正しく断る
+    // (「同じ物件ID・版で内容が異なります」)。人の手では起きないが、試験は速いので、秒が変わるのを待ってから二通目を作る
+    const first=await makeLinkAs('架空の職人','一通目');
+    {const s=Math.floor(Date.now()/1000);while(Math.floor(Date.now()/1000)===s)await new Promise(r=>setTimeout(r,25));}
+    const second=await makeLinkAs('架空の元請け','二通目');
     // ブラウザ(Chrome で iPhone):一通目
     const b=await setup(null,{ua:iosUA('26_0').replace('Version/26.0','CriOS/141.0')});await b.page.locator('#homescreen-guide[open]').waitFor();await click(b.page,'#homescreen-later');
     await b.page.evaluate(()=>localStorage.removeItem('senlings_homescreen_later'));
@@ -880,32 +884,82 @@ async function inject(page, mode) {
     assert.equal(await z.page.locator('#handover-shirushi-navi').count(),0);assert.equal(await z.page.locator('.tab-bar').isVisible(),true);assert.equal(await z.page.locator('#btn-genba-settings').isVisible(),false);
     assert.deepEqual(z.page.errors,[]);await z.context.close();
   });
-  await run('kao: in 現場だけ a 現場案内 link still opens with its choices; taking it adds the site with its hours and the car, offers the greeting but not 請求先; a facility entrance link opens nothing hidden', async () => {
+  // 11-16 18:01 船長「最初と、これ、今回いらないかも。初回特化でも、価値あります」:押したら、そのまま現場
+  const genbaLinks=page=>page.evaluate(async()=>{const m=await import('/src/pwa/envelope.js');
+    const make=(source_id,revision,name,asa)=>m.envelopeLink(m.makeEnvelope({kind:'genba',from:'架空建装',date:'2026-12-01',site:{source_id,revision,name,address:'35.5,135.25',start:'08:40',end:'17:00',morning_assembly:asa,contact:'架空の田中',contact_phone:'090-0000-0000'}}),`${location.origin}/?openExternalBrowser=1`);
+    return {v1:await make('kakuu-kukaku',1,'架空の区画','8:20 立体駐車場'),v2:await make('kakuu-kukaku',2,'架空の区画','8:10 立体駐車場'),other:await make('kakuu-betsu',1,'架空の別区画','8:20 立体駐車場'),third:await make('kakuu-mittsume',1,'架空の三つ目','8:20 立体駐車場')};});
+  await run('kao: in 現場だけ, pressing a 現場案内 link is taking it — the site opens at once with its hours and the car, nothing is asked, no greeting, no 請求先; the same link opens it again; a newer version lands on the same site and an old link does not overwrite; a facility entrance link opens nothing hidden', async () => {
     const {page,context}=await setup(null,{kao:'genba'});await page.locator('.site-welcome').waitFor();
     assert.deepEqual(await page.locator('.site-welcome button').allInnerTexts(),['自分で現場を立てる\n名前ひとつで。あとから直せます']);
     await page.goto(`${origin}/?openExternalBrowser=1#shisetsu=${encodeURIComponent('架空の施設')}`);await page.locator('.site-welcome').waitFor();
     assert.equal(await page.locator('#screen-shisetsu.active').count(),0);assert.equal(await page.evaluate(()=>location.hash),'');assert.equal(await page.evaluate(()=>rawStored()),null);
-    const link=await page.evaluate(async()=>{const m=await import('/src/pwa/envelope.js');
-      const env=m.makeEnvelope({kind:'genba',from:'架空建装',date:'2026-12-01',site:{name:'架空の区画',address:'35.5,135.25',start:'08:40',end:'17:00',morning_assembly:'8:20 立体駐車場',contact:'架空の田中',contact_phone:'090-0000-0000'}});
-      return m.envelopeLink(env,`${location.origin}/?openExternalBrowser=1`);});
-    await page.goto(link);await page.locator('#handoff-choices:not([hidden])').waitFor();
-    // 選ぶのは一つ(入れる)。小さく、入れない。五択・あいさつ・請求先・文の説明は出さない
-    assert.deepEqual(await page.locator('#handoff-choices button').allInnerTexts(),['入れる','入れない']);
-    assert.match(await page.locator('#handoff-preview').innerText(),/現場案内\(架空建装より\)[\s\S]*8:40〜17:00[\s\S]*架空の区画/);
-    assert.equal(await page.locator('#local-dialog p:visible').filter({hasText:'選ぶまで'}).count(),0,'no long lead in this face');
-    const tb=await page.locator('#choice-self').boundingBox();assert.ok(tb.height>=64,'the one button is big');
-    await click(page,'#choice-skip');assert.equal(await page.locator('#local-dialog').count(),0);assert.equal(await page.evaluate(()=>rawStored()),null,'入れない keeps nothing');
-    // もう一度リンクから:入れる → すぐ現場の画面(車の印)。閉じる・札を探す、は要らない
-    await page.evaluate(()=>localStorage.removeItem('senlings_links_seen'));await page.goto(`${origin}/`);await page.goto(link);await page.locator('#choice-self').waitFor();
-    await click(page,'#choice-self');await page.locator('#screen-handover.active').waitFor();await page.locator('#handover-shirushi-navi').waitFor();
-    assert.equal(await page.locator('#local-dialog').count(),0,'the dialog is gone');assert.equal(await page.locator('#reply-greet').count(),0);assert.equal(await page.locator('#handoff-seikyusaki').count(),0,'no billing door in this face');
-    assert.equal(await page.locator('#handover-site-name').innerText(),'架空の区画');
+    const links=await genbaLinks(page);const stored=async()=>JSON.parse(await page.evaluate(()=>rawStored()));
+    await page.goto(links.v1);await page.locator('#screen-handover.active').waitFor();await page.locator('#handover-shirushi-navi').waitFor();
+    for(const s of ['#local-dialog','#homescreen-guide','#delivered-note','#reply-greet','#handoff-seikyusaki']) assert.equal(await page.locator(s).count(),0,`${s}: nothing stands between the link and the site`);
+    assert.equal(await page.evaluate(()=>location.hash),'');assert.equal(await page.locator('#handover-site-name').innerText(),'架空の区画');
     assert.equal(await page.locator('#handover-shirushi-navi').getAttribute('href'),'https://www.google.com/maps/dir/?api=1&destination=35.5%2C135.25&travelmode=driving&dir_action=navigate');
-    const d=JSON.parse(await page.evaluate(()=>rawStored()));assert.equal(d.projects.length,1);assert.equal(d.projects[0].project_slug,'架空の区画');assert.deepEqual(d.projects[0].teiji,{start:'08:40',end:'17:00'});assert.equal(d.work_sessions.length,0,'the day is not placed until 今日はここ');
-    // 同じリンクをもう一度:何も聞かずに、その現場が開く。現場は増えない
-    await page.evaluate(()=>localStorage.removeItem('senlings_links_seen'));await page.goto(`${origin}/`);await ready(page);await page.goto(link);await page.locator('#screen-handover.active').waitFor();
-    assert.equal(await page.locator('#local-dialog').count(),0);assert.equal(JSON.parse(await page.evaluate(()=>rawStored())).projects.length,1);
+    let d=await stored();assert.equal(d.projects.length,1);assert.equal(d.projects[0].project_slug,'架空の区画');assert.deepEqual(d.projects[0].teiji,{start:'08:40',end:'17:00'});assert.equal(d.projects[0].site_info.morning_assembly,'8:20 立体駐車場');
+    assert.equal(d.work_sessions.length,0,'the day is not placed until 今日はここ');assert.equal(d.handoff_receipts.length,1);
+    // 同じリンクをもう一度(次の朝、LINE から):その現場が開く。現場は増えない
+    await page.goto(`${origin}/`);await ready(page);await page.goto(links.v1);await page.locator('#screen-handover.active').waitFor();
+    d=await stored();assert.equal(d.projects.length,1);assert.equal(d.handoff_receipts.length,1);assert.equal(await page.locator('#local-dialog').count(),0);
+    // 新しい版:同じ現場に重なる(現場は増えない)。古い版のリンクを押しても、上書きしないで今の現場が開く
+    await page.goto(`${origin}/`);await ready(page);await page.goto(links.v2);await page.locator('#screen-handover.active').waitFor();
+    d=await stored();assert.equal(d.projects.length,1);assert.equal(d.projects[0].site_info.morning_assembly,'8:10 立体駐車場');assert.equal(d.handoff_receipts.length,2);
+    await page.goto(`${origin}/`);await ready(page);await page.goto(links.v1);await page.locator('#screen-handover.active').waitFor();
+    d=await stored();assert.equal(d.projects[0].site_info.morning_assembly,'8:10 立体駐車場','an old link does not put the old words back');assert.equal(d.handoff_receipts.length,2);assert.equal(await page.locator('#local-dialog').count(),0);
+    // 開いたままのところへ、別の現場のリンク(# だけが変わる):その現場へ移る
+    await page.goto(links.other);await page.locator('#screen-handover.active').waitFor();await page.waitForFunction(()=>document.getElementById('handover-site-name').textContent==='架空の別区画');
+    assert.equal((await stored()).projects.length,2);
     assert.deepEqual(page.errors,[]);await context.close();
+  });
+  await run('kao: on an iPhone in 現場だけ the link opens the site right there in the browser — no home-screen guide, no 届けました, no key, no cookie, the post office is not contacted; a plain open shows no guide and settings do not offer the home screen; from a home-screen icon the carried link opens the site once', async () => {
+    const {page,context}=await setup(null,{kao:'genba',ua:iosUA('26_0')});await page.locator('.site-welcome').waitFor();
+    assert.equal(await page.locator('#homescreen-guide').count(),0,'a plain first open shows no guide in this face');
+    const links=await genbaLinks(page);const calls=box.calls.length,items=boxItems().length;
+    await page.goto(links.v1);await page.locator('#screen-handover.active').waitFor();await page.locator('#handover-shirushi-navi').waitFor();
+    for(const s of ['#local-dialog','#homescreen-guide','#delivered-note']) assert.equal(await page.locator(s).count(),0,s);
+    assert.equal(await page.evaluate(()=>localStorage.getItem('senlings_yubin_key')),null,'no key is made');assert.equal(await page.evaluate(()=>document.cookie),'');assert.equal(await page.evaluate(()=>location.hash),'');
+    assert.equal(box.calls.length,calls,'the post office is not contacted');assert.equal(boxItems().length,items);
+    assert.equal(JSON.parse(await page.evaluate(()=>rawStored())).projects[0].project_slug,'架空の区画');
+    await click(page,'#btn-back-handover');await ready(page);await click(page,'#btn-genba-settings');await page.locator('#screen-settings.active').waitFor();
+    assert.equal(await page.locator('#btn-homescreen').isVisible(),false,'placing on the home screen is hidden here (a placed icon would never get the links)');assert.equal(await page.locator('#btn-homescreen').count(),1,'hidden, not removed');
+    for(const w of [320,390]){await page.setViewportSize({width:w,height:700});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true,`no sideways scroll at ${w}px`);}
+    assert.deepEqual(page.errors,[]);await context.close();
+    // もう置いてある人(船長の iPhone):印が持っているリンクは、一度だけ、聞かずに開く。次からは、いつもの朝
+    const code=links.v1.split('#')[1];
+    const h=await setup(null,{kao:'genba',ua:iosUA('26_0'),standalone:true});await h.page.locator('.site-welcome').waitFor();
+    await h.page.goto(`${origin}/index.html#${code}`);await h.page.locator('#screen-handover.active').waitFor();assert.equal(await h.page.locator('#local-dialog').count(),0);
+    await h.page.goto(`${origin}/`);await h.page.goto(`${origin}/index.html#${code}`);await ready(h.page);
+    assert.equal(await h.page.locator('#screen-site-top.active').count(),1,'the carried link does not pull the screen at every launch');assert.equal(await h.page.evaluate(()=>location.hash),'');
+    assert.equal(JSON.parse(await h.page.evaluate(()=>rawStored())).projects.length,1);assert.deepEqual(h.page.errors,[]);await h.context.close();
+  });
+  await run('kao: a 現場だけ house takes what waits in the post box without asking — from the site list it opens that site; in the middle of work the screen does not move and the site just joins the list; several are taken in one go and the box is emptied', async () => {
+    const KEY='BBBBBBBBBBBBBBBBBBBBBB';
+    const h=await setup(undefined,{kao:'genba',ua:iosUA('26_0'),standalone:true});await ready(h.page);
+    await h.page.evaluate(k=>localStorage.setItem('senlings_yubin_key',k),KEY);await h.page.reload();await ready(h.page);
+    await h.page.waitForFunction(()=>Number(localStorage.getItem('senlings_yubin_home_at')||0)>0);
+    const links=await genbaLinks(h.page);
+    // 送る側は全部の顔のブラウザ(家の鍵を知っている)。家があるので「届けました」
+    const b=await setup(null,{ua:iosUA('26_0')});await b.page.locator('#homescreen-guide[open]').waitFor();await click(b.page,'#homescreen-later');
+    await b.page.evaluate(k=>{localStorage.removeItem('senlings_homescreen_later');localStorage.setItem('senlings_yubin_key',k);},KEY);
+    const send=async link=>{await b.page.goto(`${origin}/`);await b.page.goto(link);await b.page.locator('#delivered-note[open]').waitFor();assert.match(await b.page.locator('#delivered-note h2').innerText(),/届けました/);};
+    const back=async()=>{await h.page.evaluate(()=>window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true})));};
+    const stored=async()=>JSON.parse(await h.page.evaluate(()=>rawStored()));
+    // 仕事の画面にいるとき:画面は動かない。現場は一覧に入る
+    await click(h.page,'.site-card');await click(h.page,'#btn-today');await h.page.locator('#screen-working.active').waitFor();
+    await send(links.v1);const n=boxItems().length;assert.ok(n>=1);
+    await back();await h.page.waitForFunction(()=>JSON.parse(rawStored()).projects.length===2);
+    assert.equal(await h.page.locator('#screen-working.active').count(),1,'work is not interrupted');assert.equal(await h.page.locator('#local-dialog').count(),0);
+    await h.page.waitForFunction(()=>true);await new Promise(r=>setTimeout(r,300));assert.equal(boxItems().length,n-1,'taken out of the box');
+    // 現場の一覧にいるとき:二つ届いていれば二つとも入り、その現場が開く。箱は空になる
+    await click(h.page,'#btn-back-working');await click(h.page,'#btn-back-handover');await h.page.locator('#screen-site-top.active').waitFor();
+    await send(links.other);await send(links.third);assert.equal(boxItems().length,n+1);
+    await back();await h.page.locator('#screen-handover.active').waitFor();await h.page.waitForFunction(()=>JSON.parse(rawStored()).projects.length===4);
+    assert.equal(await h.page.locator('#handover-site-name').innerText(),'架空の別区画','the first one opens; the second joins the list without moving the screen');
+    assert.equal(await h.page.locator('#local-dialog').count(),0);await new Promise(r=>setTimeout(r,300));assert.equal(boxItems().length,n-1,'both are taken out');
+    assert.deepEqual((await stored()).projects.map(p=>p.project_slug).slice(1),['架空の区画','架空の別区画','架空の三つ目']);
+    assert.deepEqual(h.page.errors,[]);assert.deepEqual(b.page.errors,[]);await h.context.close();await b.context.close();
   });
   // The old UI's Firebase module is stubbed for behavior tests, never connected to a database.
   await run('old UI first use does not initialize storage; contact choices remain available', async () => {
