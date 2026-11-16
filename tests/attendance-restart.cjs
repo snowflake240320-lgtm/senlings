@@ -38,6 +38,8 @@ async function open(profile) {
     viewport: { width: 390, height: 844 }, timezoneId: 'Asia/Tokyo', serviceWorkers: 'block',
   });
   report.chromium = context.browser().version();
+  // 顔:この試験は全部の顔(zenbu)で歩く(この枝の既定は「現場だけ」)
+  await context.addInitScript(() => { try { localStorage.setItem('senlings_kao', 'zenbu'); } catch { /* そのまま */ } });
   await context.route('**/*', route => {
     const url = route.request().url();
     if (url.startsWith(origin + '/')) return route.continue();

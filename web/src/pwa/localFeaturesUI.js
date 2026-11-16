@@ -8,6 +8,7 @@ import { savePhotoMeta, buildPhotoFilename } from './photo.js';
 import { SETTINGS_KEYS, getAllSettings, saveSettingsFromForm, getSetting, signatureLines, signatureText } from './settings.js';
 import { readNakama, HOO_TRADES } from './nakama.js';
 import { SEIKYUSAKI_FIELDS, listSeikyusaki, saveSeikyusaki, setProjectSeikyusaki, seikyusakiOf, billingBlock, seikyusakiFromEnvelope } from './seikyusaki.js';
+import { genbaDake } from './kao.js';
 
 const $ = (tag, text, attrs = {}) => Object.assign(document.createElement(tag), { textContent: text, ...attrs });
 let dialog;
@@ -170,6 +171,7 @@ export function receiveProject(onSaved, { text: arrived = '', file: fileMode = f
   }
   // 現場案内(元請けから)なら、差出人を請求先に(10-26)。押したときだけ。帳面に無ければ下書きから
   function offerSeikyusaki(env, projectId) {
+    if (genbaDake()) return; // 現場だけの顔:請求の口は隠してある(11-16 船長)
     const draft = seikyusakiFromEnvelope(env);
     if (!draft) return;
     const project = load().projects.find(p => p.project_id === projectId);

@@ -44,7 +44,8 @@ function fakeFirestore(request) {
   return json(405, {});
 }
 const boxItems = () => [...box.docs.keys()].filter(k => k.includes('/items/'));
-async function setup(raw = JSON.stringify(fixture()), { old = false, readError = false, realFirebase = false, ua = undefined, standalone = false } = {}) {
+// 顔:これまでの試験は全部の顔(zenbu)で歩く。現場だけの顔(この枝の既定)は kao: 'genba'、何も覚えていない端末は kao: null
+async function setup(raw = JSON.stringify(fixture()), { old = false, readError = false, realFirebase = false, ua = undefined, standalone = false, kao = 'zenbu' } = {}) {
   const context = await browser.newContext({ serviceWorkers: 'block', ...(ua ? { userAgent: ua } : {}) });
   if (standalone) await context.addInitScript(() => { Object.defineProperty(navigator, 'standalone', { value: true }); });
   await context.route('**/*', async route => {
@@ -56,10 +57,11 @@ async function setup(raw = JSON.stringify(fixture()), { old = false, readError =
     if (!old && url.startsWith('https://firestore.googleapis.com/v1/projects/senlings-7e838/databases/(default)/documents/boxes/')) return route.fulfill(fakeFirestore(route.request()));
     return route.abort(); // In particular, Firestore/Auth/API and mail are never contacted.
   });
-  await context.addInitScript(({raw, readError}) => {
+  await context.addInitScript(({raw, readError, kao}) => {
     const get = Storage.prototype.getItem;
     const set = Storage.prototype.setItem;
     if (raw !== null) set.call(localStorage, 'senlings_v0', raw);
+    if (kao) set.call(localStorage, 'senlings_kao', kao);
     window.fault = { readError, writeError: false, writes: 0, reads: 0, failWrite: 0, failRead: 0 };
     window.rawStored = () => get.call(localStorage, 'senlings_v0');
     window.replaceStored = raw => set.call(localStorage, 'senlings_v0', raw);
@@ -77,7 +79,7 @@ async function setup(raw = JSON.stringify(fixture()), { old = false, readError =
       }
       return set.call(this, key, value);
     };
-  }, { raw, readError });
+  }, { raw, readError, kao });
   const page = await context.newPage();
   page.setDefaultTimeout(8000);
   page.errors = [];
@@ -840,6 +842,58 @@ async function inject(page, mode) {
     await item.getByRole('button',{name:'戻ってきた'}).click();
     assert.match(await page.locator('.nakama-sent').filter({hasText:'搬出入届'}).innerText(),/戻り 20/);
     const n=JSON.parse((await stats(page)).raw).nakama;assert.deepEqual(n.trades,['denki']);assert.equal(n.kon.sent.length,2);
+    assert.deepEqual(page.errors,[]);await context.close();
+  });
+  // ── 現場だけの顔(11-15〜16 船長「公開は福岡にしぼる。請求などの機能や質問も省略」)。消さずに隠す ──
+  await run('kao: 現場だけ is the default on this branch — the tab bar and the billing, photo, memo, rest and return doors are hidden, not removed; settings open from the site top; the day is still kept', async () => {
+    const {page,context}=await setup(undefined,{kao:null});await ready(page);
+    assert.equal(await page.evaluate(()=>document.documentElement.dataset.kao),'genba');
+    assert.equal(await page.locator('.tab-bar').isVisible(),false);assert.equal(await page.locator('.tab').count(),5,'the tabs are still there, only hidden');
+    await click(page,'#btn-genba-settings');await page.locator('#screen-settings.active').waitFor();
+    for(const s of ['#setting-mieru','#btn-shimai-me','#btn-export-json-shimai','#btn-import-json']) assert.equal(await page.locator(s).isVisible(),true,s);
+    for(const s of ['label[for="setting-show-shisetsu"]','#btn-shimai-settings','#setting-trades','#btn-export-csv-project-shimai']) assert.equal(await page.locator(s).isVisible(),false,s);
+    await click(page,'#btn-back-settings');await page.locator('#screen-site-top.active').waitFor();
+    await click(page,'.site-card');await page.locator('#screen-handover.active').waitFor();
+    assert.equal(await page.locator('#btn-project-contact').isVisible(),true);
+    for(const s of ['#btn-request-help','#btn-give-property','#btn-teiji-fix','#btn-seikyusaki']) assert.equal(await page.locator(s).isVisible(),false,s);
+    assert.equal(await page.locator('#handover-shirushi').isVisible(),false,'no address, no car');
+    await click(page,'#btn-today');await page.locator('#screen-working.active').waitFor();
+    for(const s of ['#btn-sos','#btn-shirase']) assert.equal(await page.locator(s).isVisible(),true,s);
+    for(const s of ['#btn-photo','#btn-memo','#btn-rest','#btn-return']) assert.equal(await page.locator(s).isVisible(),false,s);
+    const d=JSON.parse((await stats(page)).raw);assert.equal(d.work_sessions.filter(s=>s.kind==='teiji').length,1,'the day is placed as before, so the invoice can follow later');assert.equal(d.projects[0].future,'keep');
+    await page.reload();await ready(page);assert.equal(await page.locator('.tab-bar').isVisible(),false,'the face stays after a reload (the fixture is put back by the test, so this starts from the site top)');
+    for(const w of [320,390]){await page.setViewportSize({width:w,height:700});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true,`no sideways scroll at ${w}px`);}
+    assert.deepEqual(page.errors,[]);await context.close();
+  });
+  await run('navi: in 現場だけ a site with an address shows the car on the briefing and working screens — a Google Maps voice-navigation link, no origin; the full face shows no car and keeps its tabs', async () => {
+    const d=fixture();d.projects[0].address='架空市架空町 架空の駐車場';
+    const {page,context}=await setup(JSON.stringify(d),{kao:'genba'});await ready(page);
+    await click(page,'.site-card');await page.locator('#handover-shirushi-navi').waitFor();
+    const href=await page.locator('#handover-shirushi-navi').getAttribute('href');
+    assert.equal(href,`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent('架空市架空町 架空の駐車場')}&travelmode=driving&dir_action=navigate`);
+    assert.equal(await page.locator('#handover-shirushi-navi').getAttribute('target'),'_blank');
+    const b=await page.locator('#handover-shirushi-navi').boundingBox();assert.ok(b.height>=64&&b.width>=64,'big enough for a thumb');
+    await click(page,'#btn-today');await page.locator('#working-shirushi-navi').waitFor();
+    assert.equal(await page.locator('#working-shirushi-navi').getAttribute('href'),href);
+    assert.deepEqual(page.errors,[]);await context.close();
+    const z=await setup(JSON.stringify(d));await ready(z.page);await click(z.page,'.site-card');await z.page.locator('#screen-handover.active').waitFor();
+    assert.equal(await z.page.locator('#handover-shirushi-navi').count(),0);assert.equal(await z.page.locator('.tab-bar').isVisible(),true);assert.equal(await z.page.locator('#btn-genba-settings').isVisible(),false);
+    assert.deepEqual(z.page.errors,[]);await z.context.close();
+  });
+  await run('kao: in 現場だけ a 現場案内 link still opens with its choices; taking it adds the site with its hours and the car, offers the greeting but not 請求先; a facility entrance link opens nothing hidden', async () => {
+    const {page,context}=await setup(null,{kao:'genba'});await page.locator('.site-welcome').waitFor();
+    assert.deepEqual(await page.locator('.site-welcome button').allInnerTexts(),['自分で現場を立てる\n名前ひとつで。あとから直せます']);
+    await page.goto(`${origin}/?openExternalBrowser=1#shisetsu=${encodeURIComponent('架空の施設')}`);await page.locator('.site-welcome').waitFor();
+    assert.equal(await page.locator('#screen-shisetsu.active').count(),0);assert.equal(await page.evaluate(()=>location.hash),'');assert.equal(await page.evaluate(()=>rawStored()),null);
+    const link=await page.evaluate(async()=>{const m=await import('/src/pwa/envelope.js');
+      const env=m.makeEnvelope({kind:'genba',from:'架空建装',date:'2026-12-01',site:{name:'架空の区画',address:'35.5,135.25',start:'08:40',end:'17:00',morning_assembly:'8:20 立体駐車場',contact:'架空の田中',contact_phone:'090-0000-0000'}});
+      return m.envelopeLink(env,`${location.origin}/?openExternalBrowser=1`);});
+    await page.goto(link);await page.locator('#handoff-choices:not([hidden])').waitFor();
+    await click(page,'#choice-self');await page.locator('#reply-greet').waitFor();
+    assert.equal(await page.locator('#handoff-seikyusaki').count(),0,'no billing door in this face');
+    await click(page,'#local-dialog .local-close');await ready(page);await click(page,'.site-card');await page.locator('#handover-shirushi-navi').waitFor();
+    assert.equal(await page.locator('#handover-shirushi-navi').getAttribute('href'),'https://www.google.com/maps/dir/?api=1&destination=35.5%2C135.25&travelmode=driving&dir_action=navigate');
+    const d=JSON.parse(await page.evaluate(()=>rawStored()));assert.equal(d.projects[0].project_slug,'架空の区画');assert.deepEqual(d.projects[0].teiji,{start:'08:40',end:'17:00'});
     assert.deepEqual(page.errors,[]);await context.close();
   });
   // The old UI's Firebase module is stubbed for behavior tests, never connected to a database.

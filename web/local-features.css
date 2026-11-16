@@ -129,3 +129,28 @@ html[data-mieru="70"] .site-welcome-sub { font-size: 18px; }
 /* 一覧の「外す」:小さく、押せば外れる。確認は出さない(帳面には何も残らないので戻せる) */
 .local-remove { flex-shrink: 0; margin-left: auto; background: none; border: 1px solid #55554c; border-radius: 8px; color: #c4c1b9; font: inherit; font-size: 13px; min-height: 36px; padding: 6px 12px; }
 .local-dialog .local-choice span { flex: 1; }
+
+/* ── 現場だけの顔(2026-11-16 船長「公開は福岡にしぼる。請求などの機能や質問も省略」)。消さずに隠す。既定は index.html の頭の一行と src/pwa/kao.js ── */
+html[data-kao="genba"] .tab-bar { display: none; }
+html[data-kao="genba"] .screen { padding-bottom: 24px; }
+html[data-kao="genba"] #screen-handover, html[data-kao="genba"] #screen-working, html[data-kao="genba"] #screen-rest, html[data-kao="genba"] #screen-sos, html[data-kao="genba"] #screen-return { height: 100dvh; padding-bottom: 0; }
+html[data-kao="genba"] #screen-settings > div { height: 100dvh !important; }
+/* 作業中:撮影・メモ・休憩・帰還は隠す(迷ったら押す・知らせる・残業おつかれさまは残す) */
+html[data-kao="genba"] .working-actions .action-row, html[data-kao="genba"] #btn-rest, html[data-kao="genba"] #btn-return { display: none; }
+/* 申し送り:人を頼む・物件を渡す・定時・請求先は隠す(担当者へ確認するは残す) */
+html[data-kao="genba"] #btn-request-help, html[data-kao="genba"] #btn-give-property, html[data-kao="genba"] #btn-teiji-fix, html[data-kao="genba"] #btn-seikyusaki, html[data-kao="genba"] #handover-teiji { display: none; }
+/* 設定:施設のタブ・単価と口座・職種・工事ごとの CSV は隠す(見やすさ・ホーム画面に置く・あなたのこと・全部の持ち出しは残す) */
+html[data-kao="genba"] label[for="setting-show-shisetsu"], html[data-kao="genba"] #btn-shimai-settings, html[data-kao="genba"] #setting-trades, html[data-kao="genba"] #setting-trades-status, html[data-kao="genba"] #btn-export-csv-project-shimai { display: none; }
+/* 現場トップの、設定の入口(ホームのタブが無いので、ここに一つ) */
+.site-top-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+html:not([data-kao="genba"]) .genba-settings-btn { display: none; }
+
+/* ── 印の列(2026-11-16 船長「ほぼ文字を見ない前提」)。押すものは大きく、言葉は添えるだけ ── */
+.shirushi-row { display: flex; gap: 10px; padding: 16px 20px 0; }
+.working-actions .shirushi-row { padding: 0; }
+.shirushi-row[hidden] { display: none; }
+.shirushi { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 84px; padding: 12px 8px; background: #161614; border: 1px solid #71603f; border-radius: 14px; color: #ddbd7e; font: inherit; font-size: 13px; text-decoration: none; cursor: pointer; }
+.shirushi svg { width: 44px; height: 44px; display: block; }
+.shirushi:active { background: #1e1a10; }
+html[data-mieru="50"] .shirushi { font-size: 15px; }
+html[data-mieru="70"] .shirushi { font-size: 16px; font-weight: 500; }

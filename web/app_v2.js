@@ -21,6 +21,8 @@ import { readArrival, withKey, fromLinkCode, envelopeText, bodyText, dayLabel, f
 import { makeKey, isKey, boxIdOf, put as yubinPut, peek as yubinPeek, remove as yubinRemove, sweep as yubinSweep, markHome, hasHome } from './src/pwa/yubin.js';
 import { listUkeguchi, addUkeguchi, removeUkeguchi, ukeguchiLink, ukeguchiText } from './src/pwa/ukeguchi.js';
 import { openShirase, openKinkyu } from './src/pwa/shiraseUI.js';
+import { genbaDake } from './src/pwa/kao.js';
+import { naviLink, latLng } from './src/pwa/navi.js';
 
 // ── データ読み込み ────────────────────────────────────────
 function getAllData() {
@@ -42,7 +44,7 @@ function renderWelcome(list) {
   };
   box.append(p,
     btn('site-welcome-sub', 'btn-welcome-add', '自分で現場を立てる', '名前ひとつで。あとから直せます', () => document.getElementById('btn-add-site').click()));
-  if (readShowShisetsu()) box.append(btn('site-welcome-sub', 'btn-welcome-shisetsu', '施設を見る', '施設の決まりと、仲間の四人', () => document.querySelector('[data-tab="shisetsu"]').click()));
+  if (readShowShisetsu() && !genbaDake()) box.append(btn('site-welcome-sub', 'btn-welcome-shisetsu', '施設を見る', '施設の決まりと、仲間の四人', () => document.querySelector('[data-tab="shisetsu"]').click()));
   list.append(box);
 }
 function renderSiteTop() {
@@ -85,7 +87,7 @@ function renderSiteTop() {
     return `
       <button class="site-card" data-project-id="${esc(p.project_id)}">
         <span class="site-slug">${esc(p.project_slug)}</span>
-        <span class="site-address">${esc(p.address ?? '')}</span>
+        <span class="site-address">${esc(latLng(p.address) ? '' : (p.address ?? ''))}</span>
       </button>
     `;
   }).join('');
@@ -210,9 +212,28 @@ function renderHandover(project) {
   });
 }
 
+// ── 印の列(現場だけの顔。11-16 船長「ほぼ文字を見ない前提」) ──
+// いまは車の印だけ:Googleマップの声の道案内へ渡す。行き先は現場の住所(住所の文でも、緯度と経度でも)。
+// 運転中は目ではなく耳。Senlings は行き先を渡すだけで、位置や移動の履歴は取りにいかない。
+const CAR_SVG = '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 31v-7l6-2 5-9h15l7 9 5 2v7h-4"/><path d="M19 31h10"/><path d="M12 22h25"/><circle cx="14" cy="32" r="4.5"/><circle cx="34" cy="32" r="4.5"/></svg>';
+function renderShirushi(el, project) {
+  el.replaceChildren();
+  let fresh = project;
+  try { fresh = (load().projects ?? []).find(p => p.project_id === project.project_id) ?? project; } catch { fresh = project; }
+  const link = genbaDake() ? naviLink(fresh.address ?? fresh.site_info?.address) : null;
+  el.hidden = !link;
+  if (!link) return;
+  const a = Object.assign(document.createElement('a'), { className: 'shirushi shirushi-navi', id: `${el.id}-navi`, href: link, target: '_blank', rel: 'noopener' });
+  a.setAttribute('aria-label', 'Googleマップの道案内を開く');
+  a.innerHTML = CAR_SVG;
+  a.append(Object.assign(document.createElement('span'), { textContent: 'ナビ' }));
+  el.append(a);
+}
+
 function goToHandover(project) {
   document.getElementById('handover-site-name').textContent = project.project_slug;
   renderHandover(project);
+  renderShirushi(document.getElementById('handover-shirushi'), project);
   document.getElementById('btn-give-property').onclick = () => giveProject(project);
   document.getElementById('btn-request-help').onclick = () => openOuen(project);
   document.getElementById('btn-project-contact').onclick = () => showContact(project);
@@ -329,6 +350,7 @@ function goToWorking(project) {
   currentProject = project;
   document.getElementById('working-site-name').textContent = project.project_slug;
   renderWorkingTime(project);
+  renderShirushi(document.getElementById('working-shirushi'), project);
 
   document.getElementById('btn-sos').onclick = () => {
     goToSos(project);
@@ -843,7 +865,12 @@ const GENBA_SCREENS = new Set(['screen-site-top', 'screen-handover', 'screen-wor
 const TAB_SCREENS = { shisetsu: 'screen-shisetsu', shimai: 'screen-shimai', home: 'screen-home', mitsumori: 'screen-mitsumori' };
 // 設定はホームの中の一枚。開いていても、タブは▲ホームのまま
 document.getElementById('btn-settings').onclick = () => { renderHome(); showScreen('screen-settings'); };
-document.getElementById('btn-back-settings').onclick = () => { renderHome(); showScreen('screen-home'); };
+// 現場だけの顔:ホームのタブが無いので、設定は現場トップから開き、現場トップへ戻る
+document.getElementById('btn-genba-settings').onclick = () => { renderHome(); showScreen('screen-settings'); };
+document.getElementById('btn-back-settings').onclick = () => {
+  if (genbaDake()) { renderSiteTop(); showScreen('screen-site-top'); return; }
+  renderHome(); showScreen('screen-home');
+};
 let genbaScreen = 'screen-site-top';
 
 function activeScreenId() {
@@ -1079,6 +1106,8 @@ async function arrive() {
   if (home) clearTodoki();
   // 鍵:置くときに写されたもの(ホーム画面)、LINE の中のブラウザから Safari へ渡されたもの。来たら持つ
   if (a?.key && a.key !== readKey()) writeKey(a.key);
+  // 現場だけの顔:施設の入口のリンクは開かない(施設のタブは隠してある)。鍵だけ受け取って、いつもの朝へ
+  if (a && a.shisetsu !== undefined && genbaDake()) delete a.shisetsu;
   const id = a ? arrivalId(a) : null;
   if (!id) { if (a) clearHash(); return false; } // 鍵だけ、または何も無い
   if (home && seenLinks().includes(id)) { clearHash(); return false; }
@@ -1089,7 +1118,7 @@ async function arrive() {
 // 家(ホーム画面の Senlings)で、届いたものを開く
 async function showArrival(a, id) {
   clearHash(); markSeen(id);
-  if (a.shisetsu !== undefined) { openShisetsuHere(a.shisetsu); return true; }
+  if (a.shisetsu !== undefined) { if (genbaDake()) return false; openShisetsuHere(a.shisetsu); return true; }
   let env;
   try { env = await fromLinkCode(a.request); }
   catch (e) { receiveProject(renderSiteTop, { file: true }).querySelector('[role=status]').textContent = e.message; return true; }

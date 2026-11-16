@@ -31,6 +31,8 @@ async function open() {
   forgetBrowserHistory(profile);
   context = await chromium.launchPersistentContext(profile, { executablePath: process.env.CHROMIUM_PATH, headless: true, args: ['--no-sandbox'], viewport: { width: 390, height: 844 }, timezoneId: 'Asia/Tokyo', serviceWorkers: 'block' });
   report.chromium = context.browser().version();
+  // 顔:この試験は全部の顔(zenbu)で歩く(この枝の既定は「現場だけ」)
+  await context.addInitScript(() => { try { localStorage.setItem('senlings_kao', 'zenbu'); } catch { /* そのまま */ } });
   await context.route('**/*', route => route.request().url().startsWith(origin + '/') ? route.continue() : route.abort());
   page = context.pages()[0] || await context.newPage(); page.setDefaultTimeout(8000); page.errors = []; page.on('pageerror', e => page.errors.push(e.message)); if (process.env.DBG) { page.on('crash', () => console.log('CRASH')); page.on('close', () => console.log('CLOSE', new Error().stack.split('\n').slice(0,6).join('|'))); page.on('console', m => console.log('CONSOLE', m.text())); }
   await page.goto(origin); await page.waitForFunction(() => typeof document.getElementById('btn-import-json')?.onclick === 'function');

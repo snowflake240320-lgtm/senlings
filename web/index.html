@@ -11,6 +11,12 @@
     try { var v = localStorage.getItem('senlings_mieru'); if (v === '0' || v === '50' || v === '70') m = v; } catch (e) {}
     if (m !== '0') document.documentElement.dataset.mieru = m;
   </script>
+  <script>
+    // 顔(どこまで見せるか)。この枝の既定は「現場だけ」。消さずに隠す(src/pwa/kao.js と同じ値。試験で突き合わせる)
+    var k = 'genba';
+    try { var kv = localStorage.getItem('senlings_kao'); if (kv === 'genba' || kv === 'zenbu') k = kv; } catch (e) {}
+    document.documentElement.dataset.kao = k;
+  </script>
   <link rel="stylesheet" href="local-features.css">
   <link rel="manifest" href="manifest.json">
   <script>
@@ -1490,8 +1496,13 @@
   <!-- ── 画面1: 現場トップ ── -->
   <div id="screen-site-top" class="screen active">
     <div class="site-top-header">
-      <p class="site-top-eyebrow">SENLINGS</p>
-      <h1 class="site-top-heading">今日はどこへ入りますか？</h1>
+      <div>
+        <p class="site-top-eyebrow">SENLINGS</p>
+        <h1 class="site-top-heading">今日はどこへ入りますか？</h1>
+      </div>
+      <button class="home-settings-btn genba-settings-btn" id="btn-genba-settings" type="button" aria-label="設定">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Zm8.3 4.6-.1-1.1 1.7-1.4-1.8-3.1-2.1.7a7.7 7.7 0 0 0-1.9-1.1L15.7 4h-3.6l-.4 2.1c-.7.3-1.3.6-1.9 1.1l-2.1-.7-1.8 3.1 1.7 1.4a7.6 7.6 0 0 0 0 2.2l-1.7 1.4 1.8 3.1 2.1-.7c.6.5 1.2.8 1.9 1.1l.4 2.1h3.6l.4-2.1c.7-.3 1.3-.6 1.9-1.1l2.1.7 1.8-3.1-1.7-1.4Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      </button>
     </div>
 
     <div class="site-list" id="site-list">
@@ -1515,6 +1526,7 @@
     </div>
     <p class="screen-subtitle">入る前に、ここだけ確認</p>
     <div class="handover-scroll-area">
+      <div class="shirushi-row" id="handover-shirushi" hidden></div>
       <div id="handover-list"></div>
     </div>
     <div class="site-fallback handover-fallback">
@@ -1547,6 +1559,9 @@
       </div>
     </div>
     <div class="working-actions">
+
+      <!-- 印の列(現場だけの顔。いまは車の印=声の道案内) -->
+      <div class="shirushi-row" id="working-shirushi" hidden></div>
 
       <!-- 主役：迷ったら押す -->
       <button class="action-btn btn-sos" id="btn-sos">
