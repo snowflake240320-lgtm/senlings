@@ -23,6 +23,7 @@ import { listUkeguchi, addUkeguchi, removeUkeguchi, ukeguchiLink, ukeguchiText }
 import { openShirase, openKinkyu } from './src/pwa/shiraseUI.js';
 import { genbaDake } from './src/pwa/kao.js';
 import { naviLink, latLng } from './src/pwa/navi.js';
+import { renderChizu } from './src/pwa/chizu.js';
 
 // ── データ読み込み ────────────────────────────────────────
 function getAllData() {
@@ -230,9 +231,23 @@ function renderShirushi(el, project) {
   el.append(a);
 }
 
+// 地図(車の印の上。11-16 20:32 船長「車のマークおすまえに、地図…先に提示しておく。でないと怖くて押せないから」)。
+// 行き先が緯度と経度の一点で入っているときだけ出す。住所の文だけのときは出さない(場所を当て推量で描かない)。
+// いまは P(車の行き先)だけ。道の線と、ほかの印(朝礼・トイレ・たばこ)は、点が人の手で置かれてから
+function renderHandoverChizu(project) {
+  const el = document.getElementById('handover-chizu');
+  let fresh = project;
+  try { fresh = (load().projects ?? []).find(p => p.project_id === project.project_id) ?? project; } catch { fresh = project; }
+  const at = genbaDake() ? latLng(fresh.address ?? fresh.site_info?.address) : null;
+  if (!at) { el.hidden = true; el.replaceChildren(); return; }
+  const [lat, lng] = at.split(',').map(Number);
+  renderChizu(el, [{ kind: 'p', lat, lng }]);
+}
+
 function goToHandover(project) {
   document.getElementById('handover-site-name').textContent = project.project_slug;
   renderHandover(project);
+  renderHandoverChizu(project);
   renderShirushi(document.getElementById('handover-shirushi'), project);
   document.getElementById('btn-give-property').onclick = () => giveProject(project);
   document.getElementById('btn-request-help').onclick = () => openOuen(project);
