@@ -23,7 +23,7 @@ import { listUkeguchi, addUkeguchi, removeUkeguchi, ukeguchiLink, ukeguchiText }
 import { openShirase, openKinkyu } from './src/pwa/shiraseUI.js';
 import { genbaDake } from './src/pwa/kao.js';
 import { naviLink, latLng } from './src/pwa/navi.js';
-import { renderChizu } from './src/pwa/chizu.js';
+import { renderChizu, readMarks } from './src/pwa/chizu.js';
 
 // ── データ読み込み ────────────────────────────────────────
 function getAllData() {
@@ -232,16 +232,21 @@ function renderShirushi(el, project) {
 }
 
 // 地図(車の印の上。11-16 20:32 船長「車のマークおすまえに、地図…先に提示しておく。でないと怖くて押せないから」)。
-// 行き先が緯度と経度の一点で入っているときだけ出す。住所の文だけのときは出さない(場所を当て推量で描かない)。
-// いまは P(車の行き先)だけ。道の線と、ほかの印(朝礼・トイレ・たばこ)は、点が人の手で置かれてから
+// 出すのは、人が置いた点があるときだけ:行き先が緯度と経度の一点(P)/現場の案内の「地図の印」(朝礼・トイレ・たばこ)。
+// 住所の文だけのときは出さない(場所を当て推量で描かない)。道の線は、まだ描かない。
+// 11-17 船長「仮で進めましょう…そのあたりで正解に」:印は仮の点から始めて、人がその場で直す
 function renderHandoverChizu(project) {
   const el = document.getElementById('handover-chizu');
   let fresh = project;
   try { fresh = (load().projects ?? []).find(p => p.project_id === project.project_id) ?? project; } catch { fresh = project; }
-  const at = genbaDake() ? latLng(fresh.address ?? fresh.site_info?.address) : null;
-  if (!at) { el.hidden = true; el.replaceChildren(); return; }
-  const [lat, lng] = at.split(',').map(Number);
-  renderChizu(el, [{ kind: 'p', lat, lng }]);
+  const marks = [];
+  if (genbaDake()) {
+    const at = latLng(fresh.address ?? fresh.site_info?.address);
+    if (at) { const [lat, lng] = at.split(',').map(Number); marks.push({ kind: 'p', lat, lng }); }
+    marks.push(...readMarks(fresh.site_info?.marks));
+  }
+  if (!marks.length) { el.hidden = true; el.replaceChildren(); return; }
+  renderChizu(el, marks);
 }
 
 function goToHandover(project) {

@@ -1,8 +1,9 @@
 // 手渡し用の明示的な形式。私的な記録・勤怠・請求はこの形式に含めない。
 import { load, save } from './storage.js';
 
+// 地図の印(11-17):場所の点だけ(駐車場・朝礼・トイレ・たばこ)。人の居場所ではない
 export const TRANSFER_FIELDS = [
-  ['address', '住所'], ['entrance', '現場アクセス'], ['equipment', '装備・入場条件'],
+  ['address', '住所'], ['marks', '地図の印'], ['entrance', '現場アクセス'], ['equipment', '装備・入場条件'],
   ['parking', '駐車場'], ['toilet', 'トイレ'], ['morning_assembly', '朝礼'],
   ['delivery', '搬入'], ['contact', '連絡先・担当者'], ['contact_phone', '電話番号'],
   ['raw', '届いた連絡の原文'],

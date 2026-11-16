@@ -114,3 +114,18 @@ test('sign: the signature rides under the site block, after a blank line, and co
   const plain = makeEnvelope({ kind: 'ouen', from: 'x', date: '2026-12-01', site: { name: 'y' } });
   assert.equal(plain.sign, undefined); assert.doesNotMatch(envelopeText(plain), /\n\n\n/);
 });
+
+// 地図の印(11-17 船長「はい。仮で進めましょう」):場所の点だけが、封筒の一つの欄として乗る。点はすべて架空
+test('地図の印 rides as one site field: through the text, through the link, and into the handoff', async () => {
+  const marks = '朝礼 35.5001,135.2502\nトイレ 35.5002,135.2503\nたばこ 35.5003,135.2504';
+  const env = makeEnvelope({ kind: 'genba', from: '架空の元請け', date: '2026-12-01', site: { name: '架空の現場', address: '35.5,135.25', marks } });
+  assert.equal(env.site.marks, '朝礼 35.5001,135.2502 / トイレ 35.5002,135.2503 / たばこ 35.5003,135.2504');
+  const text = envelopeText(env);
+  assert.match(text, /\n住所:35\.5,135\.25\n地図の印:朝礼 35\.5001,135\.2502 \/ トイレ/);
+  assert.deepEqual(findEnvelope(text), env);
+  assert.deepEqual(await fromLinkCode(await linkCode(env)), env);
+  const packet = parseTransfer(JSON.stringify(envelopeToTransfer(env)));
+  assert.equal(packet.project.marks, env.site.marks);
+  const { readMarks } = await import('../web/src/pwa/chizu.js');
+  assert.deepEqual(readMarks(packet.project.marks).map(m => m.kind), ['chorei', 'toilet', 'tabako']);
+});

@@ -915,6 +915,27 @@ async function inject(page, mode) {
     await ready(z.page);await click(z.page,'.site-card');await z.page.locator('#screen-handover.active').waitFor();
     assert.equal(await z.page.locator('#handover-chizu').isVisible(),false);assert.deepEqual(asked3,[]);assert.deepEqual(z.page.errors,[]);await z.context.close();
   });
+  // 11-17 船長「はい。仮で進めましょう」:地図の印(朝礼・トイレ・たばこ)が、P と一緒に重なる。印だけの現場も地図が出る
+  await run('chizu marks: in 現場だけ the 地図の印 of a site put 朝礼・トイレ・たばこ on the map with the P drawn last; a site with only marks still shows its map; unreadable lines draw nothing; the marks are not a 申し送り row', async () => {
+    const TILES='https://cyberjapandata.gsi.go.jp/**',blank='<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="#e8e6e0"/></svg>';
+    const d=fixture();d.projects[0].address='35.5,135.25';d.projects[0].site_info={marks:'朝礼 35.4998,135.2501 / トイレ 35.5003,135.2504 / たばこ 35.5002,135.2497 / 休憩所 35.5,135.25'};
+    const {page,context}=await setup(JSON.stringify(d),{kao:'genba'});
+    await page.route(TILES,r=>r.fulfill({contentType:'image/svg+xml',body:blank}));
+    await ready(page);await click(page,'.site-card');await page.locator('#handover-chizu .chizu').waitFor();
+    for(const k of ['p','chorei','toilet','tabako'])assert.equal(await page.locator(`#handover-chizu .chizu-${k}`).count(),1,k);
+    assert.equal(await page.locator('#handover-chizu .chizu-mark').count(),4,'an unknown kind is left out');
+    assert.equal(await page.locator('#handover-chizu svg > g:last-child').getAttribute('class'),'chizu-mark chizu-p','the P is drawn last, on top');
+    assert.match(await page.locator('#handover-chizu .chizu').getAttribute('aria-label'),/駐車場・朝礼・トイレ・たばこ/);
+    const m=await page.locator('#handover-chizu .chizu').boundingBox();
+    for(const k of ['p','chorei','toilet','tabako']){const b=await page.locator(`#handover-chizu .chizu-${k}`).boundingBox();assert.ok(b.x>=m.x&&b.x+b.width<=m.x+m.width&&b.y>=m.y&&b.y+b.height<=m.y+m.height,`${k} sits inside the map`);}
+    assert.equal(await page.locator('.handover-label',{hasText:'地図の印'}).count(),0,'the marks are drawn, not listed');
+    assert.deepEqual(page.errors,[]);await context.close();
+    const d2=fixture();d2.projects[0].address='架空市架空町';d2.projects[0].site_info={marks:'朝礼 35.4998,135.2501'};
+    const t=await setup(JSON.stringify(d2),{kao:'genba'});await t.page.route(TILES,r=>r.fulfill({contentType:'image/svg+xml',body:blank}));
+    await ready(t.page);await click(t.page,'.site-card');await t.page.locator('#handover-chizu .chizu').waitFor();
+    assert.equal(await t.page.locator('#handover-chizu .chizu-chorei').count(),1);assert.equal(await t.page.locator('#handover-chizu .chizu-p').count(),0,'no P is guessed from a worded address');
+    assert.deepEqual(t.page.errors,[]);await t.context.close();
+  });
   // 11-16 18:01 船長「最初と、これ、今回いらないかも。初回特化でも、価値あります」:押したら、そのまま現場
   const genbaLinks=page=>page.evaluate(async()=>{const m=await import('/src/pwa/envelope.js');
     const make=(source_id,revision,name,asa)=>m.envelopeLink(m.makeEnvelope({kind:'genba',from:'架空建装',date:'2026-12-01',site:{source_id,revision,name,address:'35.5,135.25',start:'08:40',end:'17:00',morning_assembly:asa,contact:'架空の田中',contact_phone:'090-0000-0000'}}),`${location.origin}/?openExternalBrowser=1`);

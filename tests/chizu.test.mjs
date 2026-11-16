@@ -54,3 +54,24 @@ test('地図:絵の出どころは地理院タイル一つ。出典の言葉を�
   assert.ok(!/\b3[0-9]\.\d{3,}\s*,\s*1[23][0-9]\.\d{3,}/.test(src), 'no real-looking coordinates in the code');
   assert.ok(!/geolocation/.test(src), 'the map does not ask where the person is');
 });
+
+// 地図の印(11-17 船長「はい。仮で進めましょう」)。点はすべて架空
+import { readMarks, MARK_KINDS, MAX_MARKS } from '../web/src/pwa/chizu.js';
+test('地図の印:一行に一つ「朝礼 緯度,経度」。Googleマップで長押しした数字のまま読める', () => {
+  const marks = readMarks('朝礼 35.5001,135.2502 / トイレ 35.500200, 135.250300\nたばこ:35.5003,135.2504 / P(35.5004, 135.2505) / 駐車場 35.5005,135.2506 / 喫煙所 35.5006、135.2507 / WC 35.5007 135.2508');
+  assert.deepEqual(marks.map(m => m.kind), ['chorei', 'toilet', 'tabako', 'p', 'p', 'tabako', 'toilet']);
+  assert.deepEqual(marks[1], { kind: 'toilet', lat: 35.5002, lng: 135.2503 });
+  assert.deepEqual(marks[3], { kind: 'p', lat: 35.5004, lng: 135.2505 });
+  assert.deepEqual(Object.keys(MARK_KINDS), ['p', 'chorei', 'toilet', 'tabako']);
+});
+test('地図の印:読めない行は出さない(当て推量で描かない)。多すぎる点は切る', () => {
+  assert.deepEqual(readMarks(''), []);
+  assert.deepEqual(readMarks(null), []);
+  assert.deepEqual(readMarks('朝礼は 8:20 から / トイレ 架空の東側 / 休憩所 35.5,135.25 / 35.5,135.25 / たばこ 95,135'), [], 'words, unknown kinds, bare numbers and impossible points are all left out');
+  const many = Array.from({ length: 30 }, (_, i) => `トイレ 35.5,135.${2500 + i}`).join(' / ');
+  assert.equal(readMarks(many).length, MAX_MARKS);
+});
+test('地図の印:人の居場所は読まない。印を読む決まりにも、位置を取りに行く言葉は無い', async () => {
+  const src = await readFile(new URL('../web/src/pwa/chizu.js', import.meta.url), 'utf8');
+  assert.ok(!/geolocation|watchPosition|getCurrentPosition/.test(src));
+});

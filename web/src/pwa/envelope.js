@@ -5,14 +5,18 @@
 // - 中身は人が読む文そのもの。Senlings は文の決まった行(■ 現場名、時間:、住所: …)から読む。
 // - いちばん下の短い一行(〔Senlings〕…)には、どの現場の何版かと、文が欠けていないかの印だけ。日本語は入れない。
 // - 道の上(サーバー)には何も置かない。送るのは人(LINE・SMS・メール)。受けるかは受けた人が決める。
-// - 封筒に入れないもの:既読、返事の催促、位置、評価、点数、自分のメモ・写真・勤怠・請求。
+// - 封筒に入れないもの:既読、返事の催促、位置(人の居場所)、評価、点数、自分のメモ・写真・勤怠・請求。
+//
+// 2026-11-17 船長「はい。仮で進めましょう」:「地図の印」の欄を一つ足した(配線の約束の差し替え、同じ日に両方の一枚へ)。
+// - 入るのは場所の点だけ(駐車場・朝礼・トイレ・たばこ)。人の居場所ではない。絵(図面)は入れない。
+// - 書き方は一行に一つ「朝礼 33.59,130.32」。読むのは地図(chizu.js の readMarks)。読めない行は地図に出さない。
 
 export const ENVELOPE_FORMAT = 'senlings.envelope';
 export const KINDS = Object.freeze({ genba: '現場案内', ouen: '応援のお願い' });
 const HEAD = Object.freeze({ genba: '現場のご案内', ouen: '応援のお願い' });
 // 現場の項目(物件の手渡しと同じ名前)。文では一行ずつ(改行は「 / 」にする)
 export const SITE_FIELDS = Object.freeze([
-  ['address', '住所'], ['entrance', '入口'], ['morning_assembly', '朝礼'], ['parking', '駐車'],
+  ['address', '住所'], ['marks', '地図の印'], ['entrance', '入口'], ['morning_assembly', '朝礼'], ['parking', '駐車'],
   ['delivery', '搬入'], ['equipment', '装備・入場条件'], ['toilet', 'トイレ'], ['contact', '担当'], ['contact_phone', '電話'],
 ]);
 export const TOKEN_MARK = '〔Senlings〕';

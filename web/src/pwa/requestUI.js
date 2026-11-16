@@ -64,6 +64,8 @@ export function renderComposer(container, { kind, from = '', site = {}, workDate
     const el = $(key === 'address' || key === 'contact' || key === 'contact_phone' ? 'input' : 'textarea', '', { maxLength: 2000, id: `req-${key}`, value: site[key] ?? '' });
     if (el.tagName === 'TEXTAREA') el.rows = 2;
     if (key === 'contact_phone') { el.type = 'tel'; el.inputMode = 'tel'; }
+    // 地図の印(11-17):一行に一つ。Googleマップで長押しして出た数字を、そのまま貼れる
+    if (key === 'marks') { el.rows = 3; el.placeholder = '一行に一つ。例:朝礼 33.59,130.32(Googleマップで長押しした数字)。P・朝礼・トイレ・たばこ'; }
     w.append(el); more.append(w); siteIns[key] = el;
   }
   if (SITE_FIELDS.some(([k]) => site[k])) more.open = true;
