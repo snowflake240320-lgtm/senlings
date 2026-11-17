@@ -4,5 +4,8 @@
     "api/*.js": {
       "runtime": "nodejs20.x"
     }
-  }
+  },
+  "redirects": [
+    { "source": "/m/:name", "destination": "/?m=:name", "permanent": false }
+  ]
 }

@@ -1118,19 +1118,49 @@ function clearTodoki() {
 const arrivalId = a => a.request !== undefined ? `r:${fnv(a.request)}` : a.shisetsu !== undefined ? `s:${a.shisetsu}` : null;
 const arrivalHash = a => a.request !== undefined ? `#r=${a.request}` : `#shisetsu=${encodeURIComponent(a.shisetsu)}`;
 
+// ── 決まった住所(11-17 船長「ホーム画面に登録するには？」→「Bにしましょう」)──
+// /m/<名> は /?m=<名> になる(vercel.json)。開くたびに掲示板(/api/michi)から、その名のいちばん新しい施設の地図
+// (現場案内の封筒)を読んで、その現場を開く。ホーム画面に置くのも、この住所(/?m=<名>)。印から開くたびに新しい地図。
+// 読めないとき(圏外など)は、この端末が前に読んだもので開く。人のことは何も送らない(名前だけを聞く)。現場だけの顔のときだけ
+const MICHI_NAME = /^[a-z0-9-]{1,40}$/;
+const MICHI_CODE = /^[A-Za-z0-9_-]{8,6000}$/;
+const MICHI_LAST = 'senlings_michi_last';
+function michiName() {
+  try { const n = new URLSearchParams(location.search).get('m'); return n && MICHI_NAME.test(n) ? n : null; } catch { return null; }
+}
+async function readMichi(name) {
+  let last = {};
+  try { const v = JSON.parse(localStorage.getItem(MICHI_LAST) ?? '{}'); if (v && typeof v === 'object' && !Array.isArray(v)) last = v; } catch { last = {}; }
+  const stop = typeof AbortController === 'function' ? new AbortController() : null;
+  const timer = stop ? setTimeout(() => stop.abort(), 5000) : null;
+  try {
+    const res = await fetch(`/api/michi?name=${encodeURIComponent(name)}`, { cache: 'no-store', signal: stop?.signal });
+    const code = res.ok ? (await res.json())?.code : null;
+    if (typeof code === 'string' && MICHI_CODE.test(code)) {
+      try { localStorage.setItem(MICHI_LAST, JSON.stringify({ ...last, [name]: code })); } catch { /* 覚えられなくても、開ける */ }
+      return code;
+    }
+  } catch { /* 圏外など。前に読んだもので開く */ } finally { if (timer) clearTimeout(timer); }
+  return typeof last[name] === 'string' && MICHI_CODE.test(last[name]) ? last[name] : null;
+}
+
 async function arrive() {
   const home = isHome();
   let raw = location.hash, a = readArrival(raw);
   // 印から開いて、アドレスに何も無ければ、置くときに写された cookie を見る
   if (!a && home) { raw = readTodoki(); a = readArrival(raw); }
   if (home) clearTodoki();
+  // 決まった住所:アドレスに何も届いていなければ、掲示板から、いちばん新しい地図を読む
+  const michi = !a && genbaDake() ? michiName() : null;
+  if (michi) { const code = await readMichi(michi); if (code) a = { request: code }; }
   // 鍵:置くときに写されたもの(ホーム画面)、LINE の中のブラウザから Safari へ渡されたもの。来たら持つ
   if (a?.key && a.key !== readKey()) writeKey(a.key);
   // 現場だけの顔:施設の入口のリンクは開かない(施設のタブは隠してある)。鍵だけ受け取って、いつもの朝へ
   if (a && a.shisetsu !== undefined && genbaDake()) delete a.shisetsu;
   const id = a ? arrivalId(a) : null;
   if (!id) { if (a) clearHash(); return false; } // 鍵だけ、または何も無い
-  if (home && seenLinks().includes(id)) { clearHash(); return false; }
+  // 決まった住所から来たときは、見たことがあっても開く(ホーム画面の印から、開くたびにその現場)
+  if (home && !michi && seenLinks().includes(id)) { clearHash(); return false; }
   if (home) return showArrival(a, id);
   return deliverOrGuide(a, id);
 }

@@ -986,6 +986,39 @@ async function inject(page, mode) {
     assert.equal(await h.page.locator('#screen-site-top.active').count(),1,'the carried link does not pull the screen at every launch');assert.equal(await h.page.evaluate(()=>location.hash),'');
     assert.equal(JSON.parse(await h.page.evaluate(()=>rawStored())).projects.length,1);assert.deepEqual(h.page.errors,[]);await h.context.close();
   });
+  // 11-17 船長「ホーム画面に登録するには？」→「Bにしましょう」:決まった住所。/?m=<名> で開くたびに、掲示板からいちばん新しい地図を読み、その現場を開く
+  await run('michi: in 現場だけ an address with ?m=<name> reads the newest map from the board every time and opens that site, keeping the fixed address; a newer board version lands on the same site; when the board cannot be read the last one read opens; from a home-screen icon it opens at every launch; a bad name or the 全部 face asks nothing', async () => {
+    const {page,context}=await setup(null,{kao:'genba',ua:iosUA('26_0')});await page.locator('.site-welcome').waitFor();
+    const codes=await page.evaluate(async()=>{const m=await import('/src/pwa/envelope.js');
+      const make=(revision,marks)=>m.linkCode(m.makeEnvelope({kind:'genba',from:'',date:'2026-12-01',site:{source_id:'kakuu-michi',revision,name:'架空の決まった住所',address:'35.5,135.25',marks}}));
+      return {v1:await make(1,'朝礼 35.4998,135.2501'),v2:await make(2,'朝礼 35.4997,135.2501 / トイレ 35.5003,135.2504')};});
+    let board={status:200,code:codes.v1};const asked=[];
+    const answer=r=>{asked.push(r.request().url());return board.status===200?r.fulfill({contentType:'application/json',headers:{'cache-control':'no-store'},body:JSON.stringify({code:board.code})}):r.fulfill({status:board.status,contentType:'application/json',body:'{}'});};
+    await context.route(`${origin}/api/michi**`,answer);
+    await page.goto(`${origin}/?m=kakuu`);await page.locator('#screen-handover.active').waitFor();
+    assert.equal(await page.locator('#handover-site-name').innerText(),'架空の決まった住所');
+    assert.deepEqual(await page.evaluate(()=>[location.pathname,location.search,location.hash]),['/','?m=kakuu',''],'the fixed address stays (a home-screen icon takes this one)');
+    assert.equal(asked.length,1);assert.match(asked[0],/\/api\/michi\?name=kakuu$/,'only the name is sent');
+    for(const s of ['#local-dialog','#homescreen-guide','#delivered-note','#reply-greet']) assert.equal(await page.locator(s).count(),0,`${s}: nothing stands between the address and the site`);
+    const stored=async p=>JSON.parse(await (p??page).evaluate(()=>rawStored()));
+    let d=await stored();assert.equal(d.projects.length,1);assert.equal(d.projects[0].site_info.marks,'朝礼 35.4998,135.2501');
+    // 掲示板が新しい版に:同じ住所を開けば、同じ現場に重なる
+    board.code=codes.v2;await page.goto(`${origin}/?m=kakuu`);await page.locator('#screen-handover.active').waitFor();
+    d=await stored();assert.equal(d.projects.length,1);assert.match(d.projects[0].site_info.marks,/トイレ/);
+    // 掲示板が読めない(圏外など):この端末が前に読んだもので開く
+    board.status=503;await page.goto(`${origin}/?m=kakuu`);await page.locator('#screen-handover.active').waitFor();assert.equal((await stored()).projects.length,1);
+    // 名前が決まりに合わない:掲示板に聞かない。いつもの朝
+    const n=asked.length;await page.goto(`${origin}/?m=..%2Fx`);await ready(page);assert.equal(asked.length,n);
+    assert.deepEqual(page.errors,[]);await context.close();
+    // ホーム画面の印(/?m=…)から:開くたびに、その現場(見たことがあっても)
+    const h=await setup(null,{kao:'genba',ua:iosUA('26_0'),standalone:true});board={status:200,code:codes.v2};
+    await h.context.route(`${origin}/api/michi**`,answer);
+    for(let i=0;i<2;i++){await h.page.goto(`${origin}/?m=kakuu`);await h.page.locator('#screen-handover.active').waitFor();assert.equal(await h.page.locator('#local-dialog').count(),0);}
+    assert.equal((await stored(h.page)).projects.length,1);assert.deepEqual(h.page.errors,[]);await h.context.close();
+    // 全部の顔:決まった住所は見ない
+    const z=await setup(null,{ua:iosUA('26_0')});const za=[];await z.context.route(`${origin}/api/michi**`,r=>{za.push(1);return r.abort();});
+    await z.page.goto(`${origin}/?m=kakuu`);await z.page.waitForTimeout(400);assert.equal(za.length,0);await z.context.close();
+  });
   await run('kao: a 現場だけ house takes what waits in the post box without asking — from the site list it opens that site; in the middle of work the screen does not move and the site just joins the list; several are taken in one go and the box is emptied', async () => {
     const KEY='BBBBBBBBBBBBBBBBBBBBBB';
     const h=await setup(undefined,{kao:'genba',ua:iosUA('26_0'),standalone:true});await ready(h.page);
