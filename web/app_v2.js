@@ -249,7 +249,9 @@ function renderHandoverChizu(project) {
   renderChizu(el, marks);
 }
 
+let handoverId = null; // いま申し送りに出している現場(決まった住所の読み直しで、同じ現場なら開き直す)
 function goToHandover(project) {
+  handoverId = project.project_id;
   document.getElementById('handover-site-name').textContent = project.project_slug;
   renderHandover(project);
   renderHandoverChizu(project);
@@ -1143,6 +1145,25 @@ async function readMichi(name) {
   } catch { /* 圏外など。前に読んだもので開く */ } finally { if (timer) clearTimeout(timer); }
   return typeof last[name] === 'string' && MICHI_CODE.test(last[name]) ? last[name] : null;
 }
+// 開いたままの Senlings に戻ってきたとき(ホーム画面の印を押し直した、など)も、掲示板に新しい地図があれば入れる。
+// 現場の一覧か、その現場の申し送りを見ていたら、新しい地図で開き直す。仕事の画面と、開いている窓からは動かさない。同じ版なら何もしない
+let michiBusy = true; // 開いたときの読みが済むまでは、戻ってきても読まない(二度入れない)
+async function michiAgain() {
+  const michi = genbaDake() ? michiName() : null;
+  if (!michi || michiBusy) return;
+  michiBusy = true;
+  try {
+    const code = await readMichi(michi);
+    const id = code ? arrivalId({ request: code }) : null;
+    if (!id || seenLinks().includes(id)) return;
+    markSeen(id);
+    const projectId = takeArrived(envelopeText(await fromLinkCode(code)));
+    renderSiteTop();
+    const screen = activeScreenId();
+    const here = screen === 'screen-site-top' || (screen === 'screen-handover' && handoverId === projectId);
+    if (here && !document.getElementById('local-dialog')) openTaken(projectId);
+  } catch { /* 読めない・入れられないときは、次に開いたとき */ } finally { michiBusy = false; }
+}
 
 async function arrive() {
   const home = isHome();
@@ -1331,14 +1352,14 @@ async function nextFromBox(key) {
     return;
   }
 }
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkBox(); });
-window.addEventListener('pageshow', e => { if (e.persisted) checkBox(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { checkBox(); michiAgain(); } });
+window.addEventListener('pageshow', e => { if (e.persisted) { checkBox(); michiAgain(); } });
 
 // ── 初期化 ───────────────────────────────────────────────
 document.querySelector('[data-tab="shisetsu"]').hidden = !readShowShisetsu();
 applyShisetsuName();
 renderSiteTop();
 // 現場だけの顔では、ホーム画面に置く案内を自分からは出さない(置かなくても、リンクを押せば開く)
-arrive().then(came => { if (!came) { openToday(); if (!genbaDake()) offerHomeScreen(); } checkBox(); });
+arrive().then(came => { if (!came) { openToday(); if (!genbaDake()) offerHomeScreen(); } checkBox(); }).finally(() => { michiBusy = false; });
 // 開いたままのところへ、次のリンクが来たとき(# だけが変わる)
 window.addEventListener('hashchange', () => { arrive(); });
