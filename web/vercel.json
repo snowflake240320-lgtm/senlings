@@ -1,5 +1,0 @@
-{
-  "redirects": [
-    { "source": "/m/:name", "destination": "/?m=:name", "permanent": false }
-  ]
-}

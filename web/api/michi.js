@@ -1,5 +1,5 @@
 // 決まった住所の掲示板(2026-11-17 船長「ホーム画面に登録するには？」→「Bにしましょう」)。
-// /m/<名> は /?m=<名> になる(web/vercel.json。Vercel の Root Directory は web)。アプリはここから、その名のいちばん新しい施設の地図
+// 住所は /?m=<名>(転送は置かない。Vercel の Root Directory は web なので、ここは web/api)。アプリはここから、その名のいちばん新しい施設の地図
 // (現場案内の封筒のリンクの中身)を一つ読む。
 // - 中身は公開のコードには置かない。Vercel の Global Config(Edge Config)の michi_<名> に置く
 //   (藍か船長が差し替える)。つなぐ先は環境変数 SENLINGS_MICHI_CONFIG(https://…/<id>?token=…)。

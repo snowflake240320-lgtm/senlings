@@ -1119,7 +1119,7 @@ const arrivalId = a => a.request !== undefined ? `r:${fnv(a.request)}` : a.shise
 const arrivalHash = a => a.request !== undefined ? `#r=${a.request}` : `#shisetsu=${encodeURIComponent(a.shisetsu)}`;
 
 // ── 決まった住所(11-17 船長「ホーム画面に登録するには？」→「Bにしましょう」)──
-// /m/<名> は /?m=<名> になる(web/vercel.json)。開くたびに掲示板(/api/michi)から、その名のいちばん新しい施設の地図
+// 住所は /?m=<名>(転送は置かない)。開くたびに掲示板(/api/michi)から、その名のいちばん新しい施設の地図
 // (現場案内の封筒)を読んで、その現場を開く。ホーム画面に置くのも、この住所(/?m=<名>)。印から開くたびに新しい地図。
 // 読めないとき(圏外など)は、この端末が前に読んだもので開く。人のことは何も送らない(名前だけを聞く)。現場だけの顔のときだけ
 const MICHI_NAME = /^[a-z0-9-]{1,40}$/;

@@ -57,11 +57,7 @@ test('掲示板:無い名前は 404、掲示板が読めない・中身が封筒
     assert.equal((await call({ name: 'kakuu' }, { board: async () => new Response(JSON.stringify({ code }), { status: 200 }) })).res.statusCode, 502, String(code).slice(0, 20));
 });
 
-test('決まった住所:/m/<名> は /?m=<名> へ(一時の転送)。公開のコードに、施設の地図の中身は無い', async () => {
-  const conf = JSON.parse(await readFile(new URL('../web/vercel.json', import.meta.url), 'utf8'));
-  assert.deepEqual(conf.redirects, [{ source: '/m/:name', destination: '/?m=:name', permanent: false }]);
-  for (const f of ['../web/vercel.json', '../web/api/michi.js']) {
-    const src = await readFile(new URL(f, import.meta.url), 'utf8');
-    assert.ok(!/#r=|\bz[A-Za-z0-9_-]{60,}/.test(src), `${f} holds no envelope`);
-  }
+test('決まった住所は /?m=<名>(転送は置かない)。公開のコードに、施設の地図の中身は無い', async () => {
+  const src = await readFile(new URL('../web/api/michi.js', import.meta.url), 'utf8');
+  assert.ok(!/#r=|\bz[A-Za-z0-9_-]{60,}/.test(src), 'web/api/michi.js holds no envelope');
 });
