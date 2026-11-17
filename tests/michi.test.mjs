@@ -5,7 +5,7 @@ import { createRequire } from 'node:module';
 import { readFile } from 'node:fs/promises';
 
 const require = createRequire(import.meta.url);
-const handler = require('../api/michi.js');
+const handler = require('../web/api/michi.js');
 const CONN = 'https://global-config.example/ecfg_kakuu?token=kakuu-token';
 const CODE = 'zKAKUUkakuu_-0123456789';
 
@@ -58,9 +58,9 @@ test('掲示板:無い名前は 404、掲示板が読めない・中身が封筒
 });
 
 test('決まった住所:/m/<名> は /?m=<名> へ(一時の転送)。公開のコードに、施設の地図の中身は無い', async () => {
-  const conf = JSON.parse(await readFile(new URL('../vercel.json', import.meta.url), 'utf8'));
+  const conf = JSON.parse(await readFile(new URL('../web/vercel.json', import.meta.url), 'utf8'));
   assert.deepEqual(conf.redirects, [{ source: '/m/:name', destination: '/?m=:name', permanent: false }]);
-  for (const f of ['../vercel.json', '../api/michi.js']) {
+  for (const f of ['../web/vercel.json', '../web/api/michi.js']) {
     const src = await readFile(new URL(f, import.meta.url), 'utf8');
     assert.ok(!/#r=|\bz[A-Za-z0-9_-]{60,}/.test(src), `${f} holds no envelope`);
   }
