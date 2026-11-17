@@ -22,7 +22,7 @@ import { makeKey, isKey, boxIdOf, put as yubinPut, peek as yubinPeek, remove as 
 import { listUkeguchi, addUkeguchi, removeUkeguchi, ukeguchiLink, ukeguchiText } from './src/pwa/ukeguchi.js';
 import { openShirase, openKinkyu } from './src/pwa/shiraseUI.js';
 import { genbaDake } from './src/pwa/kao.js';
-import { naviLink, latLng } from './src/pwa/navi.js';
+import { naviLink, trainLink, latLng } from './src/pwa/navi.js';
 import { renderChizu, readMarks } from './src/pwa/chizu.js';
 
 // ── データ読み込み ────────────────────────────────────────
@@ -214,21 +214,31 @@ function renderHandover(project) {
 }
 
 // ── 印の列(現場だけの顔。11-16 船長「ほぼ文字を見ない前提」) ──
-// いまは車の印だけ:Googleマップの声の道案内へ渡す。行き先は現場の住所(住所の文でも、緯度と経度でも)。
-// 運転中は目ではなく耳。Senlings は行き先を渡すだけで、位置や移動の履歴は取りにいかない。
+// 車の印:Googleマップの声の道案内へ渡す。行き先は現場の住所(住所の文でも、緯度と経度でも。福岡では駐車場の一点)。
+// 運転中は目ではなく耳。
+// 電車の印(11-17 船長「歩きの人もいます。車マークと電車マークにしましょう」):Googleマップの電車と歩きの道順へ。
+// 行き先は、地図の印の「朝礼」があればそこ(歩いて来る人が、まず行く所)、無ければ現場の住所。
+// Senlings は行き先を渡すだけで、位置や移動の履歴は取りにいかない。
 const CAR_SVG = '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 31v-7l6-2 5-9h15l7 9 5 2v7h-4"/><path d="M19 31h10"/><path d="M12 22h25"/><circle cx="14" cy="32" r="4.5"/><circle cx="34" cy="32" r="4.5"/></svg>';
+const TRAIN_SVG = '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6h18a6 6 0 0 1 6 6v17a5 5 0 0 1-5 5H14a5 5 0 0 1-5-5V12a6 6 0 0 1 6-6z"/><path d="M13 12h22v9H13z"/><circle cx="16" cy="27.5" r="1.6" fill="currentColor"/><circle cx="32" cy="27.5" r="1.6" fill="currentColor"/><path d="M16 34l-4 8"/><path d="M32 34l4 8"/><path d="M9 42h30"/></svg>';
 function renderShirushi(el, project) {
   el.replaceChildren();
   let fresh = project;
   try { fresh = (load().projects ?? []).find(p => p.project_id === project.project_id) ?? project; } catch { fresh = project; }
-  const link = genbaDake() ? naviLink(fresh.address ?? fresh.site_info?.address) : null;
-  el.hidden = !link;
-  if (!link) return;
-  const a = Object.assign(document.createElement('a'), { className: 'shirushi shirushi-navi', id: `${el.id}-navi`, href: link, target: '_blank', rel: 'noopener' });
-  a.setAttribute('aria-label', 'Googleマップの道案内を開く');
-  a.innerHTML = CAR_SVG;
-  a.append(Object.assign(document.createElement('span'), { textContent: 'ナビ' }));
-  el.append(a);
+  const address = fresh.address ?? fresh.site_info?.address;
+  const chorei = genbaDake() ? readMarks(fresh.site_info?.marks).find(m => m.kind === 'chorei') : null;
+  const marks = genbaDake() ? [
+    ['navi', naviLink(address), CAR_SVG, '車', 'Googleマップで、車の道案内を開く'],
+    ['train', trainLink(chorei ? `${chorei.lat},${chorei.lng}` : address), TRAIN_SVG, '電車', 'Googleマップで、電車と歩きの道順を開く'],
+  ].filter(([, href]) => href) : [];
+  el.hidden = !marks.length;
+  for (const [kind, href, svg, word, label] of marks) {
+    const a = Object.assign(document.createElement('a'), { className: `shirushi shirushi-${kind}`, id: `${el.id}-${kind}`, href, target: '_blank', rel: 'noopener' });
+    a.setAttribute('aria-label', label);
+    a.innerHTML = svg;
+    a.append(Object.assign(document.createElement('span'), { textContent: word }));
+    el.append(a);
+  }
 }
 
 // 地図(車の印の上。11-16 20:32 船長「車のマークおすまえに、地図…先に提示しておく。でないと怖くて押せないから」)。

@@ -1,9 +1,11 @@
-// navi.js — 車の印。Googleマップを、声の道案内で開く(Maps URLs。無料、API キー無し)。
+// navi.js — 車の印と電車の印。Googleマップを開く(Maps URLs。無料、API キー無し)。
 //
 // 2026-11-16 船長:「ほぼ文字を見ない前提」「運転してる人、みても、全然わかんない」
 // - 運転中は、目ではなく耳。Senlings は行き先を渡すだけで、道は Googleマップの声に任せる。
 // - 行き先は、現場の案内の「住所」。住所の文でも、緯度と経度(例:35.5,135.25)でもいい。
 // - 位置や移動の履歴は取りにいかない。出発地は入れない(Googleマップが、いま居る所から始める)。
+// 2026-11-17 船長:「歩きの人もいます。車マークと電車マークにしましょう」
+// - 電車の印は、電車と歩きの道順。声の道案内にはしない(どの電車に乗るかは、本人が道順の中から選ぶ)。
 
 const line = (v, max) => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim().slice(0, max) : '');
 const LATLNG = /^(-?\d{1,2}(?:\.\d{1,7})?)\s*[,、 ]\s*(-?\d{1,3}(?:\.\d{1,7})?)$/;
@@ -16,8 +18,16 @@ export function latLng(text) {
   return Math.abs(lat) <= 90 && Math.abs(lng) <= 180 ? `${lat},${lng}` : null;
 }
 
-/** 声の道案内を開くリンク。行き先が無ければ null。 */
+const where = destination => latLng(destination) ?? line(destination, 300);
+
+/** 声の道案内を開くリンク(車)。行き先が無ければ null。 */
 export function naviLink(destination) {
-  const d = latLng(destination) ?? line(destination, 300);
+  const d = where(destination);
   return d ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(d)}&travelmode=driving&dir_action=navigate` : null;
+}
+
+/** 電車と歩きの道順を開くリンク。行き先が無ければ null。 */
+export function trainLink(destination) {
+  const d = where(destination);
+  return d ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(d)}&travelmode=transit` : null;
 }

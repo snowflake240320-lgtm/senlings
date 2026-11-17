@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { KAO_KEY, KAO_DEFAULT, kaoOf } from '../web/src/pwa/kao.js';
-import { naviLink, latLng } from '../web/src/pwa/navi.js';
+import { naviLink, trainLink, latLng } from '../web/src/pwa/navi.js';
 
 test('顔:知らない値は既定に倒す。この枝の既定は「現場だけ」', () => {
   assert.equal(KAO_DEFAULT, 'genba');
@@ -29,6 +29,17 @@ test('車の印:住所の文でも、緯度と経度でも、声の道案内の�
   for (const v of ['', '   ', null, undefined, 12, {}]) assert.equal(naviLink(v), null);
   assert.equal(naviLink('x'.repeat(400)).length, naviLink('x'.repeat(300)).length, 'a long line is cut, not rejected');
   assert.equal(naviLink('一行目\n二行目'), naviLink('一行目 二行目'));
+});
+
+// 11-17 船長「歩きの人もいます。車マークと電車マークにしましょう」
+test('電車の印:電車と歩きの道順のリンクになる。声の道案内にはしない。出発地は入れない', () => {
+  const a = trainLink('架空市架空町 架空の駅前');
+  assert.equal(a, `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent('架空市架空町 架空の駅前')}&travelmode=transit`);
+  assert.ok(!a.includes('origin=') && !a.includes('dir_action'), 'no origin, no voice navigation (the train is chosen from the routes)');
+  assert.equal(trainLink(' 35.5 , 135.25 '), 'https://www.google.com/maps/dir/?api=1&destination=35.5%2C135.25&travelmode=transit');
+  assert.equal(trainLink('35.5、135.25'), trainLink('35.5,135.25'));
+  for (const v of ['', '   ', null, undefined, 12, {}]) assert.equal(trainLink(v), null);
+  assert.equal(trainLink('一行目\n二行目'), trainLink('一行目 二行目'));
 });
 
 test('緯度と経度:範囲の外や、数字でないものは住所の文として扱う', () => {

@@ -869,7 +869,7 @@ async function inject(page, mode) {
     for(const w of [320,390]){await page.setViewportSize({width:w,height:700});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true,`no sideways scroll at ${w}px`);}
     assert.deepEqual(page.errors,[]);await context.close();
   });
-  await run('navi: in 現場だけ a site with an address shows the car on the briefing and working screens — a Google Maps voice-navigation link, no origin; the full face shows no car and keeps its tabs', async () => {
+  await run('navi: in 現場だけ a site with an address shows the car and the train side by side on the briefing and working screens — a Google Maps voice-navigation link for the car, a train-and-walking route for the train, no origin; the full face shows neither and keeps its tabs', async () => {
     const d=fixture();d.projects[0].address='架空市架空町 架空の駐車場';
     const {page,context}=await setup(JSON.stringify(d),{kao:'genba'});await ready(page);
     await click(page,'.site-card');await page.locator('#handover-shirushi-navi').waitFor();
@@ -877,11 +877,18 @@ async function inject(page, mode) {
     assert.equal(href,`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent('架空市架空町 架空の駐車場')}&travelmode=driving&dir_action=navigate`);
     assert.equal(await page.locator('#handover-shirushi-navi').getAttribute('target'),'_blank');
     const b=await page.locator('#handover-shirushi-navi').boundingBox();assert.ok(b.height>=64&&b.width>=64,'big enough for a thumb');
+    // 11-17 船長「歩きの人もいます。車マークと電車マークにしましょう」:電車の印は、電車と歩きの道順。朝礼の印が無ければ、行き先は住所
+    const train=await page.locator('#handover-shirushi-train').getAttribute('href');
+    assert.equal(train,`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent('架空市架空町 架空の駐車場')}&travelmode=transit`);
+    assert.equal(await page.locator('#handover-shirushi-train').getAttribute('target'),'_blank');
+    assert.deepEqual(await page.locator('#handover-shirushi .shirushi span').allInnerTexts(),['車','電車'],'the car first, then the train');
+    const t=await page.locator('#handover-shirushi-train').boundingBox();assert.ok(Math.abs(b.y-t.y)<=1&&b.x<t.x&&t.height>=64&&t.width>=64,'side by side, both big enough for a thumb');
+    for(const w of [320,390]){await page.setViewportSize({width:w,height:700});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true,`no sideways scroll at ${w}px`);}
     await click(page,'#btn-today');await page.locator('#working-shirushi-navi').waitFor();
-    assert.equal(await page.locator('#working-shirushi-navi').getAttribute('href'),href);
+    assert.equal(await page.locator('#working-shirushi-navi').getAttribute('href'),href);assert.equal(await page.locator('#working-shirushi-train').getAttribute('href'),train);
     assert.deepEqual(page.errors,[]);await context.close();
     const z=await setup(JSON.stringify(d));await ready(z.page);await click(z.page,'.site-card');await z.page.locator('#screen-handover.active').waitFor();
-    assert.equal(await z.page.locator('#handover-shirushi-navi').count(),0);assert.equal(await z.page.locator('.tab-bar').isVisible(),true);assert.equal(await z.page.locator('#btn-genba-settings').isVisible(),false);
+    assert.equal(await z.page.locator('#handover-shirushi-navi').count(),0);assert.equal(await z.page.locator('#handover-shirushi-train').count(),0);assert.equal(await z.page.locator('.tab-bar').isVisible(),true);assert.equal(await z.page.locator('#btn-genba-settings').isVisible(),false);
     assert.deepEqual(z.page.errors,[]);await z.context.close();
   });
   // 11-16 20:32 船長「車のマークおすまえに、地図、ルートと駐車場所は、先に提示しておく。でないと怖くて押せないから」
@@ -916,7 +923,7 @@ async function inject(page, mode) {
     assert.equal(await z.page.locator('#handover-chizu').isVisible(),false);assert.deepEqual(asked3,[]);assert.deepEqual(z.page.errors,[]);await z.context.close();
   });
   // 11-17 船長「はい。仮で進めましょう」:地図の印(朝礼・トイレ・たばこ)が、P と一緒に重なる。印だけの現場も地図が出る
-  await run('chizu marks: in 現場だけ the 地図の印 of a site put 朝礼・トイレ・たばこ on the map with the P drawn last; a site with only marks still shows its map; unreadable lines draw nothing; the marks are not a 申し送り row', async () => {
+  await run('chizu marks: in 現場だけ the 地図の印 of a site put 朝礼・トイレ・たばこ on the map with the P drawn last; a site with only marks still shows its map; unreadable lines draw nothing; the marks are not a 申し送り row; the car goes to the P and the train to the 朝礼 mark', async () => {
     const TILES='https://cyberjapandata.gsi.go.jp/**',blank='<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="#e8e6e0"/></svg>';
     const d=fixture();d.projects[0].address='35.5,135.25';d.projects[0].site_info={marks:'朝礼 35.4998,135.2501 / トイレ 35.5003,135.2504 / たばこ 35.5002,135.2497 / 休憩所 35.5,135.25'};
     const {page,context}=await setup(JSON.stringify(d),{kao:'genba'});
@@ -929,12 +936,22 @@ async function inject(page, mode) {
     const m=await page.locator('#handover-chizu .chizu').boundingBox();
     for(const k of ['p','chorei','toilet','tabako']){const b=await page.locator(`#handover-chizu .chizu-${k}`).boundingBox();assert.ok(b.x>=m.x&&b.x+b.width<=m.x+m.width&&b.y>=m.y&&b.y+b.height<=m.y+m.height,`${k} sits inside the map`);}
     assert.equal(await page.locator('.handover-label',{hasText:'地図の印'}).count(),0,'the marks are drawn, not listed');
+    // 車は P(住所の一点)へ。電車は朝礼の印へ(歩いて来る人が、まず行く所)
+    assert.equal(await page.locator('#handover-shirushi-navi').getAttribute('href'),'https://www.google.com/maps/dir/?api=1&destination=35.5%2C135.25&travelmode=driving&dir_action=navigate','the car goes to the P');
+    assert.equal(await page.locator('#handover-shirushi-train').getAttribute('href'),'https://www.google.com/maps/dir/?api=1&destination=35.4998%2C135.2501&travelmode=transit','the train goes to the 朝礼 mark');
     assert.deepEqual(page.errors,[]);await context.close();
     const d2=fixture();d2.projects[0].address='架空市架空町';d2.projects[0].site_info={marks:'朝礼 35.4998,135.2501'};
     const t=await setup(JSON.stringify(d2),{kao:'genba'});await t.page.route(TILES,r=>r.fulfill({contentType:'image/svg+xml',body:blank}));
     await ready(t.page);await click(t.page,'.site-card');await t.page.locator('#handover-chizu .chizu').waitFor();
     assert.equal(await t.page.locator('#handover-chizu .chizu-chorei').count(),1);assert.equal(await t.page.locator('#handover-chizu .chizu-p').count(),0,'no P is guessed from a worded address');
+    assert.equal(await t.page.locator('#handover-shirushi-train').getAttribute('href'),'https://www.google.com/maps/dir/?api=1&destination=35.4998%2C135.2501&travelmode=transit');
     assert.deepEqual(t.page.errors,[]);await t.context.close();
+    // 住所が無く、朝礼の印だけ:車は出ない(行き先が無い)。電車は朝礼へ
+    const d3=fixture();d3.projects[0].site_info={marks:'朝礼 35.4998,135.2501'};
+    const o=await setup(JSON.stringify(d3),{kao:'genba'});await o.page.route(TILES,r=>r.fulfill({contentType:'image/svg+xml',body:blank}));
+    await ready(o.page);await click(o.page,'.site-card');await o.page.locator('#handover-shirushi-train').waitFor();
+    assert.equal(await o.page.locator('#handover-shirushi-navi').count(),0);assert.deepEqual(await o.page.locator('#handover-shirushi .shirushi span').allInnerTexts(),['電車']);
+    assert.deepEqual(o.page.errors,[]);await o.context.close();
   });
   // 11-16 18:01 船長「最初と、これ、今回いらないかも。初回特化でも、価値あります」:押したら、そのまま現場
   const genbaLinks=page=>page.evaluate(async()=>{const m=await import('/src/pwa/envelope.js');
