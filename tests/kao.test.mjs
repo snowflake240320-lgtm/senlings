@@ -64,3 +64,12 @@ test('現場だけの顔:リンクなしで開いた時、「自分で現場を�
   const html = await readFile(new URL('../web/index.html', import.meta.url), 'utf8');
   assert.ok(html.includes('<div class="site-fallback">') && html.includes('id="btn-contact-manager"') && html.includes('id="btn-add-site"'), 'the fallback frame is still there');
 });
+
+// 11-25 船長「？現場はえらばない。」と「a」:現場トップの見出し(現場を選ばせる言い方)も、現場だけの顔では隠す
+test('現場だけの顔:現場トップの見出し「今日はどこへ入りますか？」を隠す(かわりの言葉は足さない。全部の顔では今のまま)', async () => {
+  const css = await readFile(new URL('../web/local-features.css', import.meta.url), 'utf8');
+  assert.ok(css.includes('html[data-kao="genba"] .site-top-heading { display: none; }'), 'hidden only in the 現場だけ face');
+  const html = await readFile(new URL('../web/index.html', import.meta.url), 'utf8');
+  assert.ok(html.includes('<h1 class="site-top-heading">今日はどこへ入りますか？</h1>'), 'the heading is still there for the full face (hidden, not removed)');
+  assert.equal(html.split('今日はどこへ入りますか？').length - 1, 1, 'no other words were added in its place');
+});

@@ -148,6 +148,9 @@ html[data-kao="genba"] #btn-homescreen { display: none; }
    現場トップの「担当者へ確認する」を押すと出る文が「現場を追加する」を指すので、現場トップの「現場が見つからない場合」の枠ごと隠す。
    申し送りの枠(.handover-fallback)の「担当者へ確認する」は、残す */
 html[data-kao="genba"] #btn-welcome-add, html[data-kao="genba"] #screen-site-top .site-fallback { display: none; }
+/* 現場トップの見出し「今日はどこへ入りますか？」も隠す(11-25 船長「？現場はえらばない。」と「a」)。この顔では、現場は選ばない。
+   かわりの言葉は、足さない。全部の顔では、今のまま */
+html[data-kao="genba"] .site-top-heading { display: none; }
 /* 現場トップの、設定の入口(ホームのタブが無いので、ここに一つ) */
 .site-top-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 html:not([data-kao="genba"]) .genba-settings-btn { display: none; }

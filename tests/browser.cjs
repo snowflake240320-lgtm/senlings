@@ -163,6 +163,7 @@ async function inject(page, mode) {
   await run('new UI normal first use, Return, skip, JSON/CSV and unknown fields', async () => {
     const {page,context} = await setup(null);
     await page.locator('.site-empty').waitFor(); assert.equal((await stats(page)).writes,0);
+    assert.equal(await page.locator('.site-top-heading').innerText(),'今日はどこへ入りますか？','the full face keeps its heading');
     await click(page,'#btn-add-site'); await page.locator('#add-site-name').fill('TEST'); await click(page,'#btn-add-site-save');
     await page.evaluate(() => { const d=JSON.parse(rawStored()); d.future={keep:true};d.projects[0].future='keep';replaceStored(JSON.stringify(d)); });
     await working(page); await click(page,'#btn-return'); await click(page,'#btn-return-send');
@@ -949,7 +950,8 @@ async function inject(page, mode) {
     // 住所が無く、朝礼の印だけ:車は出ない(行き先が無い)。電車は朝礼へ
     const d3=fixture();d3.projects[0].site_info={marks:'朝礼 35.4998,135.2501'};
     const o=await setup(JSON.stringify(d3),{kao:'genba'});await o.page.route(TILES,r=>r.fulfill({contentType:'image/svg+xml',body:blank}));
-    await ready(o.page);await click(o.page,'.site-card');await o.page.locator('#handover-shirushi-train').waitFor();
+    await ready(o.page);assert.equal(await o.page.locator('.site-top-heading').isVisible(),false,'with a site on the phone, still no heading that asks to choose');
+    await click(o.page,'.site-card');await o.page.locator('#handover-shirushi-train').waitFor();
     assert.equal(await o.page.locator('#handover-shirushi-navi').count(),0);assert.deepEqual(await o.page.locator('#handover-shirushi .shirushi span').allInnerTexts(),['電車']);
     assert.deepEqual(o.page.errors,[]);await o.context.close();
   });
@@ -963,6 +965,8 @@ async function inject(page, mode) {
     assert.equal(await page.locator('.site-welcome p').innerText(),'届いた案内のリンクから開くと、現場の地図が出ます。');
     assert.equal(await page.locator('#btn-welcome-add').isVisible(),false,'自分で現場を立てる is hidden here');assert.equal(await page.locator('#btn-welcome-add').count(),1,'hidden, not removed');
     assert.equal(await page.locator('#screen-site-top .site-fallback').isVisible(),false,'the 現場が見つからない場合 frame is hidden here');assert.equal(await page.locator('#btn-add-site').count(),1,'hidden, not removed');
+    // 11-25 船長「？現場はえらばない。」:現場を選ばせる見出しも、この顔では隠す(消さない)
+    assert.equal(await page.locator('.site-top-heading').isVisible(),false,'the 今日はどこへ入りますか？ heading is hidden here');assert.equal(await page.locator('.site-top-heading').count(),1,'hidden, not removed');
     await page.goto(`${origin}/?openExternalBrowser=1#shisetsu=${encodeURIComponent('架空の施設')}`);await page.locator('.site-welcome').waitFor();
     assert.equal(await page.locator('#screen-shisetsu.active').count(),0);assert.equal(await page.evaluate(()=>location.hash),'');assert.equal(await page.evaluate(()=>rawStored()),null);
     const links=await genbaLinks(page);const stored=async()=>JSON.parse(await page.evaluate(()=>rawStored()));
