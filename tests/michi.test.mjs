@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 
 const require = createRequire(import.meta.url);
 const handler = require('../web/api/michi.js');
@@ -77,5 +77,32 @@ test('探す所にのせない:掲示板の返事は、どの返事にも X-Robo
     const html = await readFile(new URL(page, import.meta.url), 'utf8');
     const head = html.slice(0, html.indexOf('</head>'));
     assert.ok(head.includes('<meta name="robots" content="noindex, nofollow">'), page);
+  }
+});
+
+// 11-25:古いページ(前の版の地図・工事台帳)も。web の下は、そのまま配られるので、どの画面にも同じ印
+async function pagesUnder(dir) {
+  const found = [];
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue;
+    const url = new URL(entry.name + (entry.isDirectory() ? '/' : ''), dir);
+    if (entry.isDirectory()) found.push(...await pagesUnder(url));
+    else if (/\.html?$/.test(entry.name)) found.push(url);
+  }
+  return found;
+}
+
+test('探す所にのせない:web の下の、どの画面(HTML)の頭にも、robots の noindex と nofollow が1つ', async () => {
+  const web = new URL('../web/', import.meta.url);
+  const pages = await pagesUnder(web);
+  const names = pages.map(url => url.href.slice(web.href.length));
+  for (const name of ['index.html', 'index_old.html', 'irai/index.html', 'master/index.html']) assert.ok(names.includes(name), name);
+  for (const url of pages) {
+    const html = await readFile(url, 'utf8');
+    const end = html.indexOf('</head>');
+    assert.ok(end > 0, url.pathname);
+    const marks = html.slice(0, end).match(/<meta name="robots"[^>]*>/g) || [];
+    assert.equal(marks.length, 1, url.pathname);
+    assert.match(marks[0], /^<meta name="robots" content="noindex, nofollow"\s*\/?>$/, url.pathname);
   }
 });
