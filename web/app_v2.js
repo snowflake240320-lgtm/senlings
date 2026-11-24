@@ -37,7 +37,8 @@ function renderWelcome(list) {
   list.replaceChildren();
   const box = document.createElement('div'); box.className = 'site-welcome site-empty';
   const p = document.createElement('p');
-  p.textContent = 'まだ現場がありません。';
+  // 現場だけの顔:現場は、届いたリンクから開く(11-24。「自分で現場を立てる」は隠す。local-features.css)
+  p.textContent = genbaDake() ? '届いた案内のリンクから開くと、現場の地図が出ます。' : 'まだ現場がありません。';
   p.style.whiteSpace = 'pre-line';
   const btn = (cls, id, main, sub, onclick) => {
     const b = Object.assign(document.createElement('button'), { type: 'button', className: cls, id, textContent: main });

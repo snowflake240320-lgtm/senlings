@@ -144,6 +144,10 @@ html[data-kao="genba"] label[for="setting-show-shisetsu"], html[data-kao="genba"
 /* ホーム画面に置く、も隠す(11-16 18:01 船長「最初…今回いらないかも。初回特化でも」)。この顔では、リンクは押したところで開く。
    置いた先にはリンクが届かない(iPhone はリンクをブラウザで開く)ので、置く入口だけ残すと行き止まりになる */
 html[data-kao="genba"] #btn-homescreen { display: none; }
+/* リンクなしで開いた時の入口も隠す(11-24 船長「まず、現場受け入れのみ」)。この顔では、現場は届いたリンクから開く。
+   現場トップの「担当者へ確認する」を押すと出る文が「現場を追加する」を指すので、現場トップの「現場が見つからない場合」の枠ごと隠す。
+   申し送りの枠(.handover-fallback)の「担当者へ確認する」は、残す */
+html[data-kao="genba"] #btn-welcome-add, html[data-kao="genba"] #screen-site-top .site-fallback { display: none; }
 /* 現場トップの、設定の入口(ホームのタブが無いので、ここに一つ) */
 .site-top-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 html:not([data-kao="genba"]) .genba-settings-btn { display: none; }

@@ -959,7 +959,10 @@ async function inject(page, mode) {
     return {v1:await make('kakuu-kukaku',1,'架空の区画','8:20 立体駐車場'),v2:await make('kakuu-kukaku',2,'架空の区画','8:10 立体駐車場'),other:await make('kakuu-betsu',1,'架空の別区画','8:20 立体駐車場'),third:await make('kakuu-mittsume',1,'架空の三つ目','8:20 立体駐車場')};});
   await run('kao: in 現場だけ, pressing a 現場案内 link is taking it — the site opens at once with its hours and the car, nothing is asked, no greeting, no 請求先; the same link opens it again; a newer version lands on the same site and an old link does not overwrite; a facility entrance link opens nothing hidden', async () => {
     const {page,context}=await setup(null,{kao:'genba'});await page.locator('.site-welcome').waitFor();
-    assert.deepEqual(await page.locator('.site-welcome button').allInnerTexts(),['自分で現場を立てる\n名前ひとつで。あとから直せます']);
+    // 11-24:リンクなしで開いた時は、届いたリンクへ案内するだけ。自分で現場を立てる・現場が見つからない場合は、隠す(消さない)
+    assert.equal(await page.locator('.site-welcome p').innerText(),'届いた案内のリンクから開くと、現場の地図が出ます。');
+    assert.equal(await page.locator('#btn-welcome-add').isVisible(),false,'自分で現場を立てる is hidden here');assert.equal(await page.locator('#btn-welcome-add').count(),1,'hidden, not removed');
+    assert.equal(await page.locator('#screen-site-top .site-fallback').isVisible(),false,'the 現場が見つからない場合 frame is hidden here');assert.equal(await page.locator('#btn-add-site').count(),1,'hidden, not removed');
     await page.goto(`${origin}/?openExternalBrowser=1#shisetsu=${encodeURIComponent('架空の施設')}`);await page.locator('.site-welcome').waitFor();
     assert.equal(await page.locator('#screen-shisetsu.active').count(),0);assert.equal(await page.evaluate(()=>location.hash),'');assert.equal(await page.evaluate(()=>rawStored()),null);
     const links=await genbaLinks(page);const stored=async()=>JSON.parse(await page.evaluate(()=>rawStored()));

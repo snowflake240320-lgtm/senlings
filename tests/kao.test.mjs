@@ -51,3 +51,16 @@ test('緯度と経度:範囲の外や、数字でないものは住所の文と�
   assert.equal(latLng('2-12'), null);
   assert.ok(naviLink('91,130').includes(encodeURIComponent('91,130')), 'still usable as a plain query');
 });
+
+// 11-24 船長「まず、現場受け入れのみ」:リンクなしで開いた時の入口は、現場だけの顔では隠す(消さずに、隠すだけ)
+test('現場だけの顔:リンクなしで開いた時、「自分で現場を立てる」と「現場が見つからない場合」の枠を隠し、届いたリンクへ案内する', async () => {
+  const css = await readFile(new URL('../web/local-features.css', import.meta.url), 'utf8');
+  assert.ok(css.includes('html[data-kao="genba"] #btn-welcome-add, html[data-kao="genba"] #screen-site-top .site-fallback { display: none; }'), 'hidden only in the 現場だけ face, only on the site top');
+  assert.ok(!css.includes('html[data-kao="genba"] .site-fallback'), 'the handover frame (担当者へ確認する) is not hidden');
+  const js = await readFile(new URL('../web/app_v2.js', import.meta.url), 'utf8');
+  assert.ok(js.includes("p.textContent = genbaDake() ? '届いた案内のリンクから開くと、現場の地図が出ます。' : 'まだ現場がありません。';"), 'the words point to the link; the full face keeps its words');
+  // 消さずに、隠すだけ:全部の顔では、今までどおり
+  assert.ok(js.includes("'btn-welcome-add', '自分で現場を立てる'"), 'the button is still made');
+  const html = await readFile(new URL('../web/index.html', import.meta.url), 'utf8');
+  assert.ok(html.includes('<div class="site-fallback">') && html.includes('id="btn-contact-manager"') && html.includes('id="btn-add-site"'), 'the fallback frame is still there');
+});
