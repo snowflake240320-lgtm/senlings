@@ -98,7 +98,7 @@ test('link: too long falls back to the plain entrance; facility entrance carries
   const env = makeEnvelope({ kind: 'genba', from: '架空の元請け', date: '2026-12-01', site: { name: '架空の現場', delivery: Array.from({ length: 2000 }, (_, i) => String.fromCharCode(0x4e00 + (i * 7919) % 20000)).join('') } });
   assert.ok((await linkCode(env)).length > MAX_LINK_CODE);
   assert.equal(await envelopeLink(env, 'https://example.test/?openExternalBrowser=1'), 'https://example.test/?openExternalBrowser=1');
-  assert.deepEqual(readArrival('#shisetsu=' + encodeURIComponent('三井アウトレットパーク福岡')), { shisetsu: '三井アウトレットパーク福岡' });
+  assert.deepEqual(readArrival('#shisetsu=' + encodeURIComponent('架空のショッピングモール')), { shisetsu: '架空のショッピングモール' });
   assert.deepEqual(readArrival('#shisetsu'), { shisetsu: '' });
   assert.deepEqual(readArrival('#shisetsu=%E0%A4%A'), { shisetsu: '' });
   assert.equal(readArrival(''), null);
