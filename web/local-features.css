@@ -45,7 +45,7 @@
 .homescreen-pic svg, .homescreen-pic img { display: block; width: 100%; height: auto; }
 .homescreen-done { display: flex; align-items: center; gap: 10px; margin: 8px 0 0; font-size: 14px; color: #e8e5df; }
 .homescreen-done svg { width: 28px; height: 28px; flex-shrink: 0; }
-.local-dialog .homescreen-later { display: block; width: auto; min-height: 0; margin: 20px auto 0; background: none; border: 0; border-radius: 0; color: #777; font: inherit; font-size: 12px; text-decoration: underline; padding: 8px; }
+.local-dialog .homescreen-later { display: block; width: auto; min-height: 0; margin: 20px auto 0; background: none; border: 0; border-radius: 0; color: #a0a0a0; font: inherit; font-size: 12px; text-decoration: underline; padding: 8px; }
 a.local-action { display: block; text-align: center; text-decoration: none; box-sizing: border-box; }
 
 /* 依頼の一枚(応援を呼ぶ・現場の依頼)。10-25 */

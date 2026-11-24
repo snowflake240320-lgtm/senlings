@@ -677,7 +677,7 @@ function renderShimai() {
     const project = (data.projects ?? []).find(p => p.project_id === todaySession.project_id);
     recordEl.innerHTML = `
       <div class="today-record-name">${esc(project?.project_slug ?? todaySession.project_id)}</div>
-      <div style="font-size:12px; color:#777; font-family:'Noto Serif JP',serif;">
+      <div style="font-size:12px; color:#a0a0a0; font-family:'Noto Serif JP',serif;">
         ${esc(project?.address ?? '')}
       </div>
     `;

@@ -1,13 +1,13 @@
 {
   "name": "Senlings",
   "short_name": "Senlings",
-  "description": "現場攻略アプリ — 勤怠・経費・写真・請求",
+  "description": "職人さん用の現場の地図",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#1a1a1a",
-  "theme_color": "#1a1a1a",
+  "background_color": "#0d0d0b",
+  "theme_color": "#0d0d0b",
   "icons": [
     {
       "src": "./icons/icon-192.png",

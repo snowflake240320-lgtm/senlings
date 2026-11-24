@@ -191,14 +191,14 @@
       background: #0d0d0b; border: none; text-align: left; cursor: pointer;
       padding: 14px; font-family: 'Noto Serif JP', serif; font-size: 14px; color: #e8e5df; letter-spacing: 0.05em;
     }
-    .nakama-btn span { display: block; margin-top: 3px; font-size: 11px; color: #777; }
+    .nakama-btn span { display: block; margin-top: 3px; font-size: 11px; color: #a0a0a0; }
     /* 内訳の行は「これから」の棚ではなく、いまの事実。読める色で */
     .nakama-rows { list-style: none; display: flex; flex-direction: column; gap: 1px; background: #1e1e1a; border: 1px solid #1e1e1a; }
     .nakama-rows li {
       background: #0d0d0b; padding: 12px 14px; font-family: 'Noto Serif JP', serif;
       font-size: 13px; color: #e8e5df; letter-spacing: 0.05em; line-height: 1.6;
     }
-    .nakama-rows li span { display: block; margin-top: 3px; font-size: 11px; color: #777; }
+    .nakama-rows li span { display: block; margin-top: 3px; font-size: 11px; color: #a0a0a0; }
     .nakama-row { position: relative; padding-right: 108px !important; }
     .nakama-row--skipped { color: #555 !important; text-decoration: line-through; }
     .nakama-more { margin-top: 16px; border-top: 1px solid #1e1e1a; }
@@ -289,7 +289,7 @@
       padding: 40px 20px;
       text-align: center;
       font-size: 13px;
-      color: #4a4a42;
+      color: #a0a0a0;
       font-weight: 300;
     }
 
@@ -420,7 +420,7 @@
     .handover-empty {
       text-align: center;
       font-size: 14px;
-      color: #777;
+      color: #a0a0a0;
       padding: 32px 20px;
     }
     .checkin-area {
@@ -661,14 +661,14 @@
       color: #e8e5df;
     }
     .btn-photo:active { background: #1e1e1a; }
-    .btn-photo .btn-sub { color: #777; }
+    .btn-photo .btn-sub { color: #a0a0a0; }
     .btn-memo {
       background: #161614;
       border-color: #2a2a24;
       color: #e8e5df;
     }
     .btn-memo:active { background: #1e1e1a; }
-    .btn-memo .btn-sub { color: #777; }
+    .btn-memo .btn-sub { color: #a0a0a0; }
     .btn-return {
       background: #161614;
       border-color: #c5a059;
@@ -698,7 +698,7 @@
       background: #2a1205; color: #f0ede8; font-family: 'Noto Sans JP', sans-serif; font-size: 18px; font-weight: 700; cursor: pointer;
     }
     .kinkyu-btn:active { background: #3a1a08; }
-    .btn-rest .btn-sub { color: #777; }
+    .btn-rest .btn-sub { color: #a0a0a0; }
     .btn-icon {
       width: 22px;
       height: 22px;
@@ -720,7 +720,7 @@
       padding: 20px 20px 0;
     }
     .rest-map-label {
-      color: #777;
+      color: #a0a0a0;
       font-size: 11px;
       letter-spacing: 0.15em;
       font-family: 'Noto Serif JP', serif;
@@ -830,7 +830,7 @@
     }
     .sos-memo::placeholder { color: #3a3a32; }
     .sos-memo-label {
-      color: #4a4a42;
+      color: #a0a0a0;
       font-size: 11px;
       letter-spacing: 0.15em;
       font-family: 'Noto Serif JP', serif;
@@ -894,7 +894,7 @@
     .sos-complete-sub {
       font-family: 'Noto Serif JP', serif;
       font-size: 13px;
-      color: #777;
+      color: #a0a0a0;
       text-align: center;
       line-height: 1.8;
       letter-spacing: 0.05em;
@@ -1079,7 +1079,7 @@
     .return-complete-sub {
       font-family: 'Noto Serif JP', serif;
       font-size: 13px;
-      color: #777;
+      color: #a0a0a0;
       text-align: center;
       letter-spacing: 0.05em;
       margin-bottom: 8px;
@@ -1497,7 +1497,6 @@
   <div id="screen-site-top" class="screen active">
     <div class="site-top-header">
       <div>
-        <p class="site-top-eyebrow">SENLINGS</p>
         <h1 class="site-top-heading">今日はどこへ入りますか？</h1>
       </div>
       <button class="home-settings-btn genba-settings-btn" id="btn-genba-settings" type="button" aria-label="設定">
@@ -1570,7 +1569,7 @@
           <path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         </svg>
         <span class="btn-main-text">迷ったら押す</span>
-        <span class="btn-sub">救助信号 / SIGNAL</span>
+        <span class="btn-sub">救助信号</span>
       </button>
 
       <!-- 知らせる:遅れます・休みます(担当へ。送るのは本人) -->
@@ -1640,7 +1639,7 @@
             <path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           </svg>
           <span class="btn-main-text">迷ったら押す</span>
-          <span class="btn-sub">救助信号 / SIGNAL</span>
+          <span class="btn-sub">救助信号</span>
         </button>
       </div>
 
