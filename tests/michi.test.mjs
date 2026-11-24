@@ -61,3 +61,21 @@ test('決まった住所は /?m=<名>(転送は置かない)。公開のコー�
   const src = await readFile(new URL('../web/api/michi.js', import.meta.url), 'utf8');
   assert.ok(!/#r=|\bz[A-Za-z0-9_-]{60,}/.test(src), 'web/api/michi.js holds no envelope');
 });
+
+// 11-24:リンクがどこかに貼られても、現場の地図が、探す所(Google など)に出ないように
+test('探す所にのせない:掲示板の返事は、どの返事にも X-Robots-Tag: noindex。画面の頭には robots の noindex と nofollow', async () => {
+  const replies = [
+    await call({ name: 'kakuu' }),
+    await call({ name: 'Kakuu' }),
+    await call({ name: 'kakuu' }, { method: 'POST' }),
+    await call({ name: 'kakuu' }, { env: undefined }),
+    await call({ name: 'kakuu' }, { board: async () => new Response('{}', { status: 404 }) }),
+  ];
+  assert.deepEqual(replies.map(r => r.res.statusCode), [200, 400, 405, 503, 404]);
+  for (const { res } of replies) assert.equal(res.headers['x-robots-tag'], 'noindex', String(res.statusCode));
+  for (const page of ['../web/index.html', '../web/irai/index.html']) {
+    const html = await readFile(new URL(page, import.meta.url), 'utf8');
+    const head = html.slice(0, html.indexOf('</head>'));
+    assert.ok(head.includes('<meta name="robots" content="noindex, nofollow">'), page);
+  }
+});

@@ -10,6 +10,7 @@ const CODE = /^[A-Za-z0-9_-]{8,6000}$/;
 
 module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('X-Robots-Tag', 'noindex'); // 探す所(Google など)に、地図の中身を出さない(11-24)
   if (req.method !== 'GET' && req.method !== 'HEAD') return res.status(405).json({ error: 'method' });
   const name = typeof req.query?.name === 'string' ? req.query.name : '';
   if (!NAME.test(name)) return res.status(400).json({ error: 'name' });
