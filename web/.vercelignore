@@ -1,3 +1,4 @@
 # 古いページ2つは、配る版(本番と試しの版)に入れない(11-25 船長「a」)。ファイルは、リポジトリに残す
-/index_old.html
-/master
+# 頭に / を付けない(11-25 の試しの版で、/index_old.html と /master では、1つも外れなかった。Vercel の記録「Removed 0」)
+index_old.html
+master
