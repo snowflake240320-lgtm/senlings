@@ -1,4 +1,5 @@
 # 古いページ2つは、配る版(本番と試しの版)に入れない(11-25 船長「a」)。ファイルは、リポジトリに残す
-# 頭に / を付けない(11-25 の試しの版で、/index_old.html と /master では、1つも外れなかった。Vercel の記録「Removed 0」)
-index_old.html
-master
+# Vercel は、リポジトリの根からの道のり(/web/…)で照らす(11-25 の試しの版の記録。/index_old.html では1つも外れず、
+# 頭に / のない master では .git の中の字まで外れた)
+/web/index_old.html
+/web/master

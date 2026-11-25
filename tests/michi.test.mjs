@@ -111,20 +111,9 @@ test('探す所にのせない:web の下の、どの画面(HTML)の頭にも、
 test('古いページ2つ:web/.vercelignore で配る版から外す(ほかは外さない。ファイルは残す)', async () => {
   const ignore = await readFile(new URL('../web/.vercelignore', import.meta.url), 'utf8');
   const lines = ignore.split('\n').map(s => s.trim()).filter(s => s && !s.startsWith('#'));
-  assert.deepEqual(lines, ['index_old.html', 'master'], 'only the two old pages; the map, the request page and /api stay');
+  // Vercel は、リポジトリの根からの道のりで照らす(11-25 の試しの版の記録)。頭の / で、この2つだけに当てる
+  assert.deepEqual(lines, ['/web/index_old.html', '/web/master'], 'only the two old pages; the map, the request page and /api stay');
   for (const p of ['index_old.html', 'master/index.html', 'master/master.js']) {
     assert.ok((await readFile(new URL(`../web/${p}`, import.meta.url), 'utf8')).length > 0, `${p} is still in the repository`);
   }
-  // 頭に / がない字は、どの深さでも当たる。当たるのが、この2つだけであること
-  const hits = [];
-  async function walk(dir, rel) {
-    for (const entry of await readdir(dir, { withFileTypes: true })) {
-      if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue;
-      const path = rel ? `${rel}/${entry.name}` : entry.name;
-      if (lines.includes(entry.name)) { hits.push(path); continue; }
-      if (entry.isDirectory()) await walk(new URL(`${entry.name}/`, dir), path);
-    }
-  }
-  await walk(new URL('../', import.meta.url), '');
-  assert.deepEqual(hits.sort(), ['web/index_old.html', 'web/master']);
 });
