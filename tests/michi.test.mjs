@@ -106,3 +106,13 @@ test('探す所にのせない:web の下の、どの画面(HTML)の頭にも、
     assert.match(marks[0], /^<meta name="robots" content="noindex, nofollow"\s*\/?>$/, url.pathname);
   }
 });
+
+// 11-25 船長「a」:古いページ2つ(前の版の地図・工事台帳の入口)は、配る版に入れない。ファイルは、リポジトリに残す
+test('古いページ2つ:web/.vercelignore で配る版から外す(ほかは外さない。ファイルは残す)', async () => {
+  const ignore = await readFile(new URL('../web/.vercelignore', import.meta.url), 'utf8');
+  const lines = ignore.split('\n').map(s => s.trim()).filter(s => s && !s.startsWith('#'));
+  assert.deepEqual(lines, ['/index_old.html', '/master'], 'only the two old pages; the map, the request page and /api stay');
+  for (const p of ['index_old.html', 'master/index.html', 'master/master.js']) {
+    assert.ok((await readFile(new URL(`../web/${p}`, import.meta.url), 'utf8')).length > 0, `${p} is still in the repository`);
+  }
+});
