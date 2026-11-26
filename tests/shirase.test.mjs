@@ -43,8 +43,8 @@ test('休みます:理由は聞かない。今日/日付。代わりを探して
 
 test('速報:種類・時刻・現場・場所。人が倒れたら AED と 119 を頼む。火事は逃げてと 119', () => {
   const now = new Date('2026-12-01T10:07:00+09:00').getTime();
-  assert.equal(sokuhouText({ kind: 'taore', site: '架空の現場', place: 'HB棟 2階', me: '架空の職人', now }),
-    '【速報】人が倒れました(10:07)\n現場:架空の現場\n場所:HB棟 2階\nAED を持ってきてください。119 をお願いします。\n架空の職人');
+  assert.equal(sokuhouText({ kind: 'taore', site: '架空の現場', place: 'A棟 2階', me: '架空の職人', now }),
+    '【速報】人が倒れました(10:07)\n現場:架空の現場\n場所:A棟 2階\nAED を持ってきてください。119 をお願いします。\n架空の職人');
   assert.equal(sokuhouText({ kind: 'kaji', site: '架空の現場', now }),
     '【速報】火事です(10:07)\n現場:架空の現場\n場所:(場所を書く)\n近くの人は逃げてください。119 をお願いします。');
   assert.doesNotMatch(sokuhouText({ kind: 'taore', site: 'x', aed: false, now }), /AED/);
