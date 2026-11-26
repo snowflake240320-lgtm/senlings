@@ -206,7 +206,7 @@ export function openKinkyu(kind, project, { me = '', sign = [], phone = null } =
 
   const form = $('div', '', { className: 'request-form' });
   const placeL = $('label', '場所(棟・階・区画)');
-  const place = $('input', '', { id: 'kinkyu-place', maxLength: 200, placeholder: '例:HB棟 2階 M1070 前' });
+  const place = $('input', '', { id: 'kinkyu-place', maxLength: 200, placeholder: '例:A棟 2階 101 前' });
   placeL.append(place);
   form.append(placeL);
   let aed = null;

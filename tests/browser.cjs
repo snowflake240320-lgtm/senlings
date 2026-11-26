@@ -447,8 +447,8 @@ async function inject(page, mode) {
     await click(page,'#btn-sos');await click(page,'#btn-kinkyu-taore');
     assert.equal(await page.locator('#kinkyu-119').getAttribute('href'),'tel:119');
     assert.match(await page.locator('.kinkyu-steps').innerText(),/あなたは 119/);
-    await page.locator('#kinkyu-place').fill('HB棟 2階');await click(page,'#kinkyu-make');
-    assert.match(await page.locator('#kinkyu-preview').innerText(),/^【速報】人が倒れました\(\d+:\d\d\)\n現場:TEST\n場所:HB棟 2階\nAED を持ってきてください。119 をお願いします。$/);
+    await page.locator('#kinkyu-place').fill('A棟 2階');await click(page,'#kinkyu-make');
+    assert.match(await page.locator('#kinkyu-preview').innerText(),/^【速報】人が倒れました\(\d+:\d\d\)\n現場:TEST\n場所:A棟 2階\nAED を持ってきてください。119 をお願いします。$/);
     assert.equal(await page.locator('#kinkyu-tel').getAttribute('href'),'tel:09000000000');
     await click(page,'#local-dialog .local-close');
     await click(page,'#btn-kinkyu-kaji');
@@ -684,10 +684,10 @@ async function inject(page, mode) {
   });
   await run('request: the 元請け page makes the same envelope (kind 現場案内) and remembers only the sender name', async () => {
     const {page,context}=await setup(null);/* 本番(Vercel)は /irai/ で開く */ await page.goto(origin+'/irai/index.html');await stubShare(page);
-    await page.locator('#req-from').fill('藤田建装 園原');await page.locator('#req-name').fill('M1070 架空の店');
+    await page.locator('#req-from').fill('架空建装 山田');await page.locator('#req-name').fill('A101 架空の店');
     await click(page,'#req-make');await click(page,'#req-share');
-    const text=(await page.evaluate(()=>window.shared))[0];assert.match(text,/^【現場のご案内】藤田建装 園原より/);
-    assert.equal(await page.evaluate(()=>localStorage.getItem('senlings_irai_from')),'藤田建装 園原');
+    const text=(await page.evaluate(()=>window.shared))[0];assert.match(text,/^【現場のご案内】架空建装 山田より/);
+    assert.equal(await page.evaluate(()=>localStorage.getItem('senlings_irai_from')),'架空建装 山田');
     assert.equal(await page.evaluate(()=>localStorage.getItem('senlings_v0')),null,'the page keeps no records');
     assert.match(await page.locator('.rule').innerText(),/契約している相手まで/,'the page says who to send to');
     await page.locator('.mayottara summary').click();assert.match(await page.locator('.mayottara').innerText(),/偽装請負/);

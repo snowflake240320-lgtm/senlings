@@ -5,35 +5,35 @@ import { makeEnvelope, envelopeText, findEnvelope, envelopeToTransfer, bodyOf, d
 import { parseTransfer } from '../web/src/pwa/projectTransfer.js';
 
 process.env.TZ = 'Asia/Tokyo';
-const site = { name: 'サイゼリヤ田原町', start: '08:00', end: '17:00', address: '架空の住所', morning_assembly: '8:20', parking: '屋上', contact: '架空の担当', contact_phone: '000-0000-0000', source_id: 'p1', revision: 3 };
+const site = { name: '架空食堂', start: '08:00', end: '17:00', address: '架空の住所', morning_assembly: '8:20', parking: '屋上', contact: '架空の担当', contact_phone: '000-0000-0000', source_id: 'p1', revision: 3 };
 
 test('round trip through text: the person reads it, Senlings reads the last line', () => {
-  const env = makeEnvelope({ kind: 'ouen', from: '園原', date: '2026-10-25', work_date: '2026-10-27', note: 'ボードの手が足りません', site });
+  const env = makeEnvelope({ kind: 'ouen', from: '山田', date: '2026-10-25', work_date: '2026-10-27', note: 'ボードの手が足りません', site });
   const text = envelopeText(env, { link: 'https://x.example/?openExternalBrowser=1' });
   const lastLine = text.split('\n').at(-1);
-  assert.match(text, /^【応援のお願い】園原より\n10\/27\(火\)、サイゼリヤ田原町 に来てもらえませんか。/);
+  assert.match(text, /^【応援のお願い】山田より\n10\/27\(火\)、架空食堂 に来てもらえませんか。/);
   assert.match(text, /時間:8:00〜17:00/); assert.match(text, /担当:架空の担当\n電話:000-0000-0000/);
   assert.ok(lastLine.length < 220, `short line: ${lastLine.length}`); assert.match(lastLine, /^〔Senlings〕[A-Za-z0-9_-]+$/);
   assert.match(text, /Senlings で開く → https:\/\/x\.example\/\?openExternalBrowser=1/);
   assert.ok(lastLine.startsWith(TOKEN_MARK));
   // LINE は前後に文を足したり、改行を変えたりする。それでも読める
-  const pasted = `[LINE] 園原\n${text.replace(/\n/g, '\r\n')}\n既読`;
+  const pasted = `[LINE] 山田\n${text.replace(/\n/g, '\r\n')}\n既読`;
   assert.deepEqual(findEnvelope(pasted), env);
   assert.doesNotMatch(bodyOf(text), /〔Senlings〕/);
 });
 
 test('元請けの依頼 is the same envelope, only kind and sender differ', () => {
-  const env = makeEnvelope({ kind: 'genba', from: '藤田建装 統括 園原', date: '2026-10-25', work_date: '2026-12-01', site });
-  assert.match(envelopeText(env), /^【現場のご案内】藤田建装 統括 園原より\n12\/1\(火\)、サイゼリヤ田原町 をお願いします。/);
+  const env = makeEnvelope({ kind: 'genba', from: '架空建装 統括 山田', date: '2026-10-25', work_date: '2026-12-01', site });
+  assert.match(envelopeText(env), /^【現場のご案内】架空建装 統括 山田より\n12\/1\(火\)、架空食堂 をお願いします。/);
   assert.equal(findEnvelope(envelopeText(env)).kind, 'genba');
 });
 
 test('to a handoff packet: same safety (version, nameplate), the person-readable body kept as the original', () => {
-  const env = makeEnvelope({ kind: 'ouen', from: '園原', date: '2026-10-25', site });
+  const env = makeEnvelope({ kind: 'ouen', from: '山田', date: '2026-10-25', site });
   const text = envelopeText(env);
   const packet = parseTransfer(JSON.stringify(envelopeToTransfer(env, text)));
   assert.equal(packet.source_project_id, 'p1'); assert.equal(packet.revision, 3);
-  assert.equal(packet.project.name, 'サイゼリヤ田原町'); assert.equal(packet.project.parking, '屋上');
+  assert.equal(packet.project.name, '架空食堂'); assert.equal(packet.project.parking, '屋上');
   assert.match(packet.project.raw, /応援のお願い/); assert.doesNotMatch(packet.project.raw, /〔Senlings〕/);
   assert.equal(Object.hasOwn(packet.project, 'start'), false, 'times go to the site rule, not the original');
 });
