@@ -1085,6 +1085,32 @@ async function inject(page, mode) {
     assert.deepEqual((await stored()).projects.map(p=>p.project_slug).slice(1),['架空の区画','架空の別区画','架空の三つ目']);
     assert.deepEqual(h.page.errors,[]);assert.deepEqual(b.page.errors,[]);await h.context.close();await b.context.close();
   });
+  // 11-26 船長「a」:仕事の画面の「‹」で戻ると、開き直したあとでも、同じ現場の案内が出る(前は、空の「入る前に、ここだけ確認」だった)
+  await run('back from work: after the page is reopened (no link, the home-screen start address, a bad name), ‹ on the work screen shows the same site guidance again — name, map, list and a working 現場へ — from what is on the phone, without asking the board', async () => {
+    const {page,context}=await setup(null,{kao:'genba',ua:iosUA('26_0')});await page.locator('.site-welcome').waitFor();
+    const code=await page.evaluate(async()=>{const m=await import('/src/pwa/envelope.js');
+      return m.linkCode(m.makeEnvelope({kind:'genba',from:'',date:'2026-12-01',site:{source_id:'kakuu-modori',revision:1,name:'架空の戻る現場',address:'35.5,135.25',marks:'朝礼 35.4998,135.2501',entrance:'東の通用口から'}}));});
+    const asked=[];await context.route(`${origin}/api/michi**`,r=>{asked.push(r.request().url());return r.fulfill({contentType:'application/json',headers:{'cache-control':'no-store'},body:JSON.stringify({code})});});
+    await context.route('https://cyberjapandata.gsi.go.jp/**',r=>r.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="#e8e6e0"/></svg>'}));
+    const shown=async label=>{await page.locator('#screen-handover.active').waitFor();
+      assert.equal(await page.locator('#handover-site-name').innerText(),'架空の戻る現場',`${label}: the site name`);
+      assert.match(await page.locator('#handover-list').innerText(),/現場アクセス/,`${label}: the guidance list`);
+      await page.locator('#handover-chizu .chizu').waitFor();assert.equal(await page.locator('#handover-chizu').isVisible(),true,`${label}: the map`);
+      assert.equal(await page.locator('#btn-today').innerText(),'現場へ',`${label}: the button knows today is here`);
+      await click(page,'#btn-today');await page.locator('#screen-working.active').waitFor();};
+    await page.goto(`${origin}/?m=kakuu`);await page.locator('#screen-handover.active').waitFor();
+    await click(page,'#btn-today');await page.locator('#screen-working.active').waitFor();
+    // 同じページのうちに戻る(前から、ここは出ていた)
+    await click(page,'#btn-back-working');await shown('same page');
+    const n=asked.length;
+    for (const url of ['/','/index.html',`/?m=${encodeURIComponent('（掲示板の名前）')}`]) {
+      await page.goto(`${origin}${url}`);await page.locator('#screen-working.active').waitFor();
+      await click(page,'#btn-back-working');await shown(url);
+    }
+    assert.equal(asked.length,n,'going back never asks the board');
+    assert.equal(JSON.parse(await page.evaluate(()=>rawStored())).projects.length,1,'no new site appears');
+    assert.deepEqual(page.errors,[]);await context.close();
+  });
   // The old UI's Firebase module is stubbed for behavior tests, never connected to a database.
   await run('old UI first use does not initialize storage; contact choices remain available', async () => {
     const {page,context}=await setup(null,{old:true}); await click(page,'[data-tab="tab-admin"]');

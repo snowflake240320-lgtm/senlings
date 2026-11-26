@@ -324,8 +324,15 @@ document.getElementById('btn-back-handover')?.addEventListener('click', () => {
   showScreen('screen-site-top');
 });
 
+// 仕事の画面の「‹」:同じ現場の案内(申し送りの画面)を、端末にある中身から作りなおして出す(11-26 船長「a」)。
+// 前は画面を出すだけだったので、開き直したあと(リンクなし・名前のちがう住所・ブラウザの読み直し)は、空のままだった。
+// 掲示板には聞かない(通信のない時も、端末にある中身で出る)
 document.getElementById('btn-back-working')?.addEventListener('click', () => {
-  showScreen('screen-handover');
+  let project = currentProject;
+  try { project = (load().projects ?? []).find(p => p.project_id === currentProject?.project_id) ?? currentProject; } catch { project = currentProject; }
+  if (project) { goToHandover(project); return; }
+  renderSiteTop();
+  showScreen('screen-site-top');
 });
 
 // ── 画面3: 作業中 ────────────────────────────────────────
